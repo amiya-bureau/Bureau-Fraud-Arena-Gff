@@ -306,7 +306,7 @@ export default function SpotTheFraud() {
 
   if (gameState === 'rules') {
     return (
-      <Layout>
+      <Layout title="Spot the Fraud" back="/">
         <RulesScreen 
           gameName="Spot the Fraud"
           premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. The higher you climb, the harder they get."
@@ -328,49 +328,53 @@ export default function SpotTheFraud() {
     const isConsolation = explainResult !== null && (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
 
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12">
-          <EyebrowTag tone="violet">Sponsor Override</EyebrowTag>
-          
-          <h1 className="mt-6 font-sans text-display-xl font-normal text-white">
-            The System Question.
-          </h1>
-          
-          <p className="mt-4 max-w-[56ch] text-body-lede text-[var(--text-on-dark-muted)]">
-            Get this right to unlock the 50:50 lifeline {isConsolation ? 'for your next run.' : 'for the rest of this run.'}
-          </p>
-          
-          <div className="mt-8 border border-ink-800 bg-ink-900 p-6 md:p-8">
-            <p className="font-sans text-body-lg text-white">
-              {bureauQuestion.stem}
+      <Layout title="Spot the Fraud" back="/">
+        <div className="flex min-h-0 flex-1 flex-col pt-4 pb-4">
+          <div className="shrink-0">
+            <EyebrowTag tone="violet">Sponsor Override</EyebrowTag>
+            
+            <h1 className="mt-3 font-sans text-display-lg font-normal text-white">
+              The System Question.
+            </h1>
+            
+            <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
+              Get this right to unlock the 50:50 lifeline {isConsolation ? 'for your next run.' : 'for the rest of this run.'}
             </p>
           </div>
           
-          <div className="mt-px flex flex-col gap-px border-b border-x border-ink-800 bg-ink-800">
-            {bureauQuestion.options.map((opt, idx) => (
-              <button 
-                key={idx} 
-                className="flex items-start gap-6 border border-transparent bg-ink-900 p-6 text-left transition-colors duration-[var(--dur-base)] hover:border-violet-700 hover:bg-[rgba(71,21,255,0.05)]"
-                onClick={() => {
-                  if (idx + 1 === 1) {
-                    if (isConsolation) {
-                      // Submit the run rather than jumping straight to 'gameover',
-                      // which renders null until finalResult exists and would have
-                      // discarded the run entirely.
-                      setBureauSeen(true);
-                      endRun(true);
-                    } else {
-                      handleBureauAnswer(idx + 1);
+          <div className="mt-4 flex flex-1 min-h-0 flex-col gap-2">
+            <div className="shrink-0 border border-ink-800 bg-ink-900 p-4">
+              <p className="font-sans text-body-md text-white">
+                {bureauQuestion.stem}
+              </p>
+            </div>
+            
+            <div className="flex flex-1 min-h-0 flex-col gap-1.5 stagger-in">
+              {bureauQuestion.options.map((opt, idx) => (
+                <button 
+                  key={idx} 
+                  className="tap flex flex-1 min-h-[44px] items-center gap-3 border border-ink-800 bg-ink-900 p-3 text-left transition-colors duration-[var(--dur-base)] hover:border-violet-700 active:bg-[rgba(71,21,255,0.05)]"
+                  onClick={() => {
+                    if (idx + 1 === 1) {
+                      if (isConsolation) {
+                        // Submit the run rather than jumping straight to 'gameover',
+                        // which renders null until finalResult exists and would have
+                        // discarded the run entirely.
+                        setBureauSeen(true);
+                        endRun(true);
+                      } else {
+                        handleBureauAnswer(idx + 1);
+                      }
                     }
-                  }
-                }}
-              >
-                <span className="mt-1 font-mono text-body-md font-medium tabular-nums text-violet-500">
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span className="font-sans text-body-lg text-white">{opt}</span>
-              </button>
-            ))}
+                  }}
+                >
+                  <span className="font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
+                    {String(idx + 1).padStart(2, '0')}
+                  </span>
+                  <span className="font-sans text-body-sm text-white flex-1 min-w-0 line-clamp-3">{opt}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </Layout>
@@ -384,51 +388,55 @@ export default function SpotTheFraud() {
     const isSkipped = explainResult === 'skipped';
 
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12">
-          <div className="flex">
-            <span className={cn(
-              "font-mono text-eyebrow font-medium uppercase tracking-[0.03em]",
-              isCorrect ? "text-lime-300" : isNearMiss ? "text-coral-400" : isSkipped ? "text-[var(--text-on-dark-muted)]" : "text-coral-600"
-            )}>
-              [{isCorrect ? 'Clear' : isNearMiss ? 'Near Miss' : isSkipped ? 'Skipped' : explainResult === 'timeout' ? 'Timeout' : 'Failed'}]
-            </span>
-          </div>
-          
-          <h1 className="mt-6 font-sans text-display-xl font-normal text-white">
-            {isCorrect ? 'Correct.' : isNearMiss ? 'Partial Match.' : isSkipped ? 'Passed.' : explainResult === 'timeout' ? 'Time Expired.' : 'Incorrect.'}
-          </h1>
-          
-          {(isCorrect || isNearMiss) && (
-            <div className="mt-8">
-              <StatReadout 
-                value={`+${pointsEarned}`} 
-                caption="Points Awarded" 
-                tone="on-dark" 
-                size="md" 
-              />
-            </div>
-          )}
-
-          <div className="mt-stack border-t border-ink-800 pt-8">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
-                Mechanism
+      <Layout title="Spot the Fraud" back="/">
+        <div className="flex min-h-0 flex-1 flex-col pt-4 pb-4">
+          <div className="shrink-0">
+            <div className="flex">
+              <span className={cn(
+                "font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em]",
+                isCorrect ? "text-lime-300" : isNearMiss ? "text-coral-400" : isSkipped ? "text-[var(--text-on-dark-muted)]" : "text-coral-600"
+              )}>
+                [{isCorrect ? 'Clear' : isNearMiss ? 'Near Miss' : isSkipped ? 'Skipped' : explainResult === 'timeout' ? 'Timeout' : 'Failed'}]
               </span>
-              <p className="mt-2 max-w-[64ch] text-body-lg text-[var(--text-on-dark-muted)]">
-                {currentQuestion.why}
-              </p>
             </div>
             
-            <div className="mt-8 border-l border-violet-700 pl-4">
-              <p className="font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                {currentQuestion.hook}
-              </p>
+            <h1 className="mt-2 font-sans text-display-lg font-normal text-white">
+              {isCorrect ? 'Correct.' : isNearMiss ? 'Partial Match.' : isSkipped ? 'Passed.' : explainResult === 'timeout' ? 'Time Expired.' : 'Incorrect.'}
+            </h1>
+          </div>
+          
+          <div className="mt-4 flex min-h-0 flex-1 flex-col">
+            {(isCorrect || isNearMiss) && (
+              <div className="mb-4 shrink-0">
+                <StatReadout 
+                  value={`+${pointsEarned}`} 
+                  caption="Points Awarded" 
+                  tone="on-dark" 
+                  size="sm" 
+                />
+              </div>
+            )}
+
+            <div className="flex-1 min-h-0 app-scroll">
+              <div className="flex flex-col gap-2 border-t border-ink-800 pt-4">
+                <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">
+                  Mechanism
+                </span>
+                <p className="text-body-sm text-[var(--text-on-dark-muted)]">
+                  {currentQuestion.why}
+                </p>
+              </div>
+              
+              <div className="mt-4 border-l border-violet-700 pl-3 py-1">
+                <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                  {currentQuestion.hook}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="mt-stack">
-            <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full md:w-auto">
+          <div className="shrink-0 pt-4">
+            <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
               {isWrong || isNearMiss ? 'End run' : 'Continue'}
             </Button>
           </div>
@@ -439,17 +447,15 @@ export default function SpotTheFraud() {
 
   if (gameState === 'error') {
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-12 text-center">
-          <div className="flex justify-center">
-            <IconTile icon={ShieldAlert} size={60} />
-          </div>
-          <h1 className="mt-8 font-sans text-display-xl font-normal text-white">Save Failed.</h1>
-          <p className="mt-4 text-body-lg text-[var(--text-on-dark-muted)]">
+      <Layout title="Spot the Fraud" back="/">
+        <div className="flex min-h-0 flex-1 flex-col justify-center items-center text-center pb-4 pt-4">
+          <IconTile icon={ShieldAlert} size={48} />
+          <h1 className="mt-6 font-sans text-display-lg font-normal text-white">Save Failed.</h1>
+          <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
             We could not record your run due to a network error. Your points are safe.
           </p>
-          <div className="mt-stack flex justify-center">
-            <Button variant="light" size="lg" chevron onClick={handleRetrySubmit} disabled={submitRun.isPending}>
+          <div className="mt-8 w-full">
+            <Button variant="light" size="lg" chevron onClick={handleRetrySubmit} disabled={submitRun.isPending} className="w-full">
               {submitRun.isPending ? 'Retrying' : 'Retry submit'}
             </Button>
           </div>
@@ -462,25 +468,25 @@ export default function SpotTheFraud() {
     if (!finalResult) return null;
     
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12 text-center">
-          <div className="flex justify-center">
+      <Layout title="Spot the Fraud" back="/">
+        <div className="flex min-h-0 flex-1 flex-col pt-6 pb-4 text-center">
+          <div className="shrink-0 flex justify-center">
             <EyebrowTag tone="cyan">Run Complete</EyebrowTag>
           </div>
           
-          <div className="mt-8 flex justify-center">
+          <div className="mt-6 shrink-0 flex justify-center">
             <StatReadout 
               value={finalResult.pointsRecorded.toString()} 
               caption="Total Points" 
               tone="on-dark" 
-              size="lg" 
+              size="md" 
             />
           </div>
 
-          <div className="mt-stack flex flex-col items-center border-t border-ink-800 pt-8">
-            <div className="flex gap-12 text-left">
-              <div className="flex flex-col gap-2">
-                <span className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+          <div className="mt-8 flex-1 min-h-0 flex flex-col items-center border-t border-ink-800 pt-8">
+            <div className="flex gap-8 text-left">
+              <div className="flex flex-col gap-1">
+                <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                   Levels Cleared
                 </span>
                 <span className="font-sans text-display-md text-white">
@@ -489,14 +495,14 @@ export default function SpotTheFraud() {
               </div>
               
               {finalResult.standing && (
-                <div className="flex flex-col gap-2 border-l border-ink-800 pl-12">
-                  <span className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                <div className="flex flex-col gap-1 border-l border-ink-800 pl-8">
+                  <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                     Global Rank
                   </span>
                   <span className="font-sans text-display-md text-white">
                     {finalResult.standing.rank}
                     {finalResult.isPersonalBest && (
-                      <span className="ml-3 font-mono text-body-sm uppercase tracking-[0.03em] text-cyan-500">
+                      <span className="ml-2 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">
                         PB
                       </span>
                     )}
@@ -506,11 +512,11 @@ export default function SpotTheFraud() {
             </div>
           </div>
 
-          <div className="mt-stack flex flex-col justify-center gap-4 sm:flex-row">
-            <Button variant="light" size="lg" chevron onClick={() => window.location.reload()}>
+          <div className="shrink-0 flex flex-col gap-3">
+            <Button variant="light" size="lg" chevron onClick={() => window.location.reload()} className="w-full">
               Play again
             </Button>
-            <Button variant="outline" size="lg" onClick={() => setLocation('/')}>
+            <Button variant="outline" size="lg" onClick={() => setLocation('/')} className="w-full">
               Return to booth
             </Button>
           </div>
@@ -521,26 +527,54 @@ export default function SpotTheFraud() {
 
   // gameState === 'playing'
   return (
-    <Layout showHeader={false}>
-      <div className="mx-auto flex w-full max-w-4xl flex-col py-8">
+    <Layout 
+      title="Spot the Fraud" 
+      back="/"
+      headerRight={
+        <div className={cn(
+          "flex items-center gap-1.5 font-mono text-eyebrow font-medium tabular-nums uppercase tracking-[0.03em]",
+          timeLeft <= 5 ? "text-coral-600" : "text-cyan-500"
+        )}>
+          <span className={cn("size-1.5 shrink-0 bg-current", timeLeft <= 5 && "animate-live-pulse")} />
+          {timeLeft}S
+        </div>
+      }
+    >
+      <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
         
         {/* Header HUD */}
-        <div className="flex flex-col justify-between gap-6 border-b border-ink-800 pb-6 md:flex-row md:items-end">
-          <div className="flex flex-col gap-4">
-            <div>
+        <div className="shrink-0 flex flex-col gap-3 border-b border-ink-800 pb-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
               <EyebrowTag>{currentLevel.label}</EyebrowTag>
+              <span className="font-mono text-eyebrow-micro font-medium text-violet-500 uppercase tracking-[0.03em]">
+                {currentQuestion?.scope}
+              </span>
             </div>
-            <div className="font-mono text-display-md tabular-nums text-white">
+            <div className="font-mono text-eyebrow-micro tabular-nums text-white uppercase tracking-[0.03em]">
               Score <span className="text-violet-500">{score}</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            {/* Progress Bar - Discrete Cells */}
+            <div className="flex h-1.5 w-32 gap-px bg-ink-800 p-px">
+              {LEVELS.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={cn(
+                    "h-full flex-1 transition-colors duration-[var(--dur-base)]",
+                    i === levelIndex ? "bg-cyan-500" : i < levelIndex ? "bg-violet-700" : "bg-ink-900"
+                  )}
+                />
+              ))}
+            </div>
+
             {/* Lifelines */}
             <div className="flex border border-ink-800">
               {currentLevel.skip && (
                 <button 
-                  className="px-4 py-2 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] transition-colors duration-[var(--dur-base)] hover:bg-ink-900 hover:text-white"
+                  className="tap px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] transition-colors duration-[var(--dur-base)] hover:bg-ink-900 hover:text-white"
                   onClick={handleSkip}
                 >
                   Skip
@@ -549,130 +583,64 @@ export default function SpotTheFraud() {
               
               <button 
                 className={cn(
-                  "border-l border-ink-800 px-4 py-2 font-mono text-body-sm font-medium uppercase tracking-[0.03em] transition-colors duration-[var(--dur-base)]",
-                  fiftyFifty === 'locked' && "cursor-not-allowed text-[var(--text-on-dark-faint)]",
-                  fiftyFifty === 'used' && "cursor-not-allowed text-[var(--text-on-dark-faint)]",
+                  "tap border-l border-ink-800 px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] transition-colors duration-[var(--dur-base)]",
+                  fiftyFifty === 'locked' && "text-[var(--text-on-dark-faint)]",
+                  fiftyFifty === 'used' && "text-[var(--text-on-dark-faint)]",
                   fiftyFifty === 'available' && "text-violet-500 hover:bg-ink-900 hover:text-white"
                 )}
                 disabled={fiftyFifty !== 'available' || !currentLevel.fiftyFifty}
                 onClick={handleFiftyFifty}
-                title={fiftyFifty === 'locked' ? 'Unlocks at the Bureau question' : ''}
               >
                 50:50
               </button>
             </div>
-
-            {/* Timer */}
-            <div className={cn(
-              "flex w-20 items-center justify-center border border-ink-800 py-2 font-mono text-body-lg font-medium tabular-nums transition-colors duration-[var(--dur-base)]",
-              timeLeft <= 5 ? "border-coral-600 bg-coral-600/10 text-coral-600" : "bg-ink-900 text-white"
-            )}>
-              {timeLeft}s
-            </div>
           </div>
-        </div>
-
-        {/* Progress Bar - Discrete Cells */}
-        <div className="mt-8 flex w-full gap-px bg-ink-800 p-px">
-          {LEVELS.map((_, i) => {
-            const isActive = i === levelIndex;
-            const isPast = i < levelIndex;
-            return (
-              <div 
-                key={i} 
-                className={cn(
-                  "h-2 flex-1 transition-colors duration-[var(--dur-base)]",
-                  isActive ? "bg-violet-500" : isPast ? "bg-violet-700" : "bg-ink-900"
-                )}
-              />
-            );
-          })}
-        </div>
-        <div className="mt-2 flex justify-between font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-          <span>Lvl 01</span>
-          <span>Lvl 10</span>
         </div>
 
         {/* Question Area */}
         {currentQuestion && (
-          <div className="mt-12 flex flex-col">
-            <div className="flex">
-              <EyebrowTag tone="violet">{currentQuestion.scope}</EyebrowTag>
-            </div>
-            
-            <h1 className="mt-6 font-sans text-display-xl font-normal leading-[1.1] text-white">
+          <div className="flex-1 min-h-0 flex flex-col py-3">
+            <h2 className="shrink-0 font-sans text-body-lg text-white">
               {currentQuestion.stem}
-            </h1>
+            </h2>
             
             {currentQuestion.selectN > 1 && (
-              <div className="mt-4 font-mono text-body-md font-medium text-violet-500">
+              <div className="shrink-0 mt-1 font-mono text-eyebrow-micro font-medium text-violet-500 uppercase tracking-[0.03em]">
                 Select {currentQuestion.selectN} options
               </div>
             )}
 
-            <div className={cn(
-              "mt-12 grid gap-px border border-ink-800 bg-ink-800",
-              currentQuestion.kind === 'image' && currentQuestion.options.length > 4 ? "grid-cols-2 md:grid-cols-4" : 
-              currentQuestion.kind === 'image' ? "grid-cols-2" : "grid-cols-1"
-            )}>
+            <div className="mt-3 flex-1 min-h-0 flex flex-col gap-1.5 stagger-in app-scroll pr-1">
               {shuffledOptions.map((opt, i) => {
                 if (opt.removed) return null;
                 const isSelected = selectedIndices.includes(opt.originalIndex);
                 
-                if (currentQuestion.kind === 'image') {
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => toggleOption(opt.originalIndex)}
-                      className={cn(
-                        "group relative flex aspect-square flex-col items-center justify-center border p-4 transition-colors duration-[var(--dur-base)]",
-                        isSelected ? "border-violet-700 bg-[rgba(71,21,255,0.05)]" : "border-ink-800 bg-ink-900 hover:border-violet-700"
-                      )}
-                    >
-                      <ScanEye className="size-8 text-[var(--text-on-dark-muted)] opacity-50" strokeWidth={1.5} />
-                      <span className="mt-4 text-center font-sans text-body-md text-white">
-                        {opt.text}
-                      </span>
-                      <div className={cn(
-                        "absolute left-4 top-4 font-mono text-body-sm font-medium tabular-nums",
-                        isSelected ? "text-violet-500" : "text-[var(--text-on-dark-muted)]"
-                      )}>
-                        {String(opt.originalIndex).padStart(2, '0')}
-                      </div>
-                      <div className="absolute right-4 top-4">
-                        {isSelected ? (
-                          <div className="size-3 bg-violet-500" />
-                        ) : (
-                          <div className="size-3 border border-ink-700" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                }
-
                 return (
                   <button
                     key={i}
                     onClick={() => toggleOption(opt.originalIndex)}
                     className={cn(
-                      "group flex items-start gap-6 border p-6 text-left transition-colors duration-[var(--dur-base)]",
-                      isSelected ? "border-violet-700 bg-[rgba(71,21,255,0.05)]" : "border-transparent bg-ink-900 hover:border-violet-700"
+                      "tap group flex flex-1 min-h-[44px] items-center gap-3 border p-3 text-left transition-colors duration-[var(--dur-base)]",
+                      isSelected ? "border-violet-700 bg-[rgba(71,21,255,0.05)]" : "border-ink-800 bg-ink-900 hover:border-violet-700"
                     )}
                   >
                     <div className={cn(
-                      "mt-1 font-mono text-body-md font-medium tabular-nums",
+                      "font-mono text-eyebrow-micro font-medium tabular-nums",
                       isSelected ? "text-violet-500" : "text-[var(--text-on-dark-muted)]"
                     )}>
                       {String(opt.originalIndex).padStart(2, '0')}
                     </div>
-                    <span className="font-sans text-body-lg text-white">
+                    <span className="font-sans text-body-sm text-white flex-1 min-w-0 line-clamp-3">
                       {opt.text}
                     </span>
-                    <div className="ml-auto mt-1 shrink-0">
+                    {currentQuestion.kind === 'image' && (
+                      <ScanEye className={cn("size-4 shrink-0", isSelected ? "text-violet-500" : "text-ink-700")} strokeWidth={1.5} />
+                    )}
+                    <div className="shrink-0">
                       {isSelected ? (
-                        <div className="size-3 bg-violet-500" />
+                        <div className="size-2.5 bg-violet-500" />
                       ) : (
-                        <div className="size-3 border border-ink-700" />
+                        <div className="size-2.5 border border-ink-700" />
                       )}
                     </div>
                   </button>
@@ -680,14 +648,14 @@ export default function SpotTheFraud() {
               })}
             </div>
             
-            <div className="mt-12 flex justify-end">
+            <div className="shrink-0 pt-3">
               <Button 
                 variant="light" 
                 size="lg" 
                 chevron 
                 disabled={selectedIndices.length !== currentQuestion.selectN}
                 onClick={handleSubmit}
-                className="w-full md:w-auto"
+                className="w-full"
               >
                 Submit response
               </Button>

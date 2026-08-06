@@ -8,16 +8,21 @@ import { PixelChevron } from '@/components/bureau/pixel-chevron';
  * Button — the CTA construction from the Bureau guideline.
  *
  * Fixed by the system, not by the caller: radius 0, Denim Medium, 16/18px
- * padding, 12px gap, and a pixel chevron after the label. State changes are
- * opacity only over 200ms — hover takes filled buttons to 0.82, press adds no
- * shrink and no bounce, and there are no shadows or colour shifts anywhere.
+ * padding, 12px gap, and a pixel chevron after the label. Hover is opacity
+ * only, taking filled buttons to 0.82 over 200ms, and there are no shadows or
+ * colour shifts anywhere.
+ *
+ * Press is the exception the handset earns: a 2% settle over 120ms. A tap
+ * target that does not answer a finger reads as a dead control on a phone, and
+ * a 2% travel is contact rather than the bounce the guideline rules out.
  * Focus and disabled are handled globally in index.css.
  */
 const buttonVariants = cva(
   cn(
     'inline-flex items-center justify-center gap-3 whitespace-nowrap',
     'font-sans font-medium tracking-[-0.02em]',
-    'transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+    'transition-[opacity,transform,background-color,border-color,color] duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+    'touch-manipulation active:scale-[0.98] active:duration-[var(--dur-fast)]',
     'disabled:pointer-events-none',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
   ),

@@ -113,70 +113,86 @@
   --font-display: 'Denim', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  /* Editorial scale. Tracking is -0.02em almost everywhere. */
-  --text-stat: 118px;
+  /*
+    Editorial scale, phone-first. Tracking is -0.02em almost everywhere.
+
+    The guideline's sizes were drawn for a wide editorial page; this app runs
+    inside a 9:16 phone column, where a 72px hero eats a third of the screen.
+    Every step is therefore a clamp against `cqi` — 1% of the app column's
+    inline size — so the scale reads as the guideline intends on a large
+    screen and compresses proportionally on a handset. The app shell declares
+    the container (see .app-shell); outside one, cqi falls back to the
+    viewport, which is the same number on a real phone.
+
+    The max of each clamp is the guideline's verbatim value. The min is never
+    below the spec's hard 14px floor for UI text.
+
+    Fixed-px line heights had to go: a 60px line height under a 32px headline
+    leaves a hole. They are unitless or percentage now, so they track the size.
+  */
+  --text-stat: clamp(48px, 15cqi, 118px);
   --text-stat--line-height: 100%;
   --text-stat--letter-spacing: -0.02em;
 
-  --text-hero: 72px;
-  --text-hero--line-height: 1.28;
+  --text-hero: clamp(34px, 10cqi, 72px);
+  --text-hero--line-height: 1.05;
   --text-hero--letter-spacing: -0.02em;
 
-  --text-display-3xl: 68px;
-  --text-display-3xl--line-height: 68px;
+  --text-display-3xl: clamp(32px, 10cqi, 68px);
+  --text-display-3xl--line-height: 100%;
   --text-display-3xl--letter-spacing: -0.02em;
 
-  --text-slide: 60px;
+  --text-slide: clamp(30px, 9cqi, 60px);
   --text-slide--line-height: 100%;
   --text-slide--letter-spacing: -0.02em;
 
-  --text-display-2xl: 56px;
-  --text-display-2xl--line-height: 62px;
+  --text-display-2xl: clamp(28px, 8.5cqi, 56px);
+  --text-display-2xl--line-height: 1.1;
   --text-display-2xl--letter-spacing: -0.02em;
 
-  --text-module: 54px;
+  --text-module: clamp(28px, 8.2cqi, 54px);
   --text-module--line-height: 100%;
   --text-module--letter-spacing: -0.02em;
 
-  --text-display-xl: 48px;
-  --text-display-xl--line-height: 60px;
+  --text-display-xl: clamp(24px, 7.5cqi, 48px);
+  --text-display-xl--line-height: 1.12;
   --text-display-xl--letter-spacing: -0.01em;
 
-  --text-article: 40px;
-  --text-article--line-height: 1.28;
+  --text-article: clamp(22px, 6.5cqi, 40px);
+  --text-article--line-height: 1.18;
   --text-article--letter-spacing: -0.02em;
 
-  --text-display-lg: 32px;
+  --text-display-lg: clamp(20px, 5.6cqi, 32px);
   --text-display-lg--line-height: 100%;
   --text-display-lg--letter-spacing: -0.02em;
 
-  --text-card-title: 24px;
-  --text-card-title--line-height: 100%;
+  --text-card-title: clamp(17px, 4.4cqi, 24px);
+  --text-card-title--line-height: 110%;
   --text-card-title--letter-spacing: -0.02em;
 
-  --text-lede: 21px;
+  --text-lede: clamp(15px, 4cqi, 21px);
   --text-lede--line-height: 1.4;
 
-  --text-display-md: 20px;
-  --text-display-md--line-height: 100%;
+  --text-display-md: clamp(15px, 3.9cqi, 20px);
+  --text-display-md--line-height: 110%;
   --text-display-md--letter-spacing: -0.02em;
 
-  --text-body-lede: 20px;
+  --text-body-lede: clamp(15px, 3.9cqi, 20px);
   --text-body-lede--line-height: 1.4;
 
-  --text-caption: 20px;
+  --text-caption: clamp(14px, 3.7cqi, 20px);
 
-  --text-body-lg: 18px;
+  --text-body-lg: clamp(15px, 3.7cqi, 18px);
   --text-body-lg--line-height: 140%;
 
-  --text-body-md: 16px;
+  --text-body-md: clamp(14px, 3.5cqi, 16px);
   --text-body-md--line-height: 140%;
 
   --text-body-sm: 14px;
   --text-body-sm--line-height: 140%;
 
-  /* Mono labels: always uppercase, weight 500, 16px, tracking 0.03em. */
-  --text-eyebrow: 16px;
+  /* Mono labels: always uppercase, weight 500, tracking 0.03em. */
+  --text-eyebrow: clamp(14px, 3.4cqi, 16px);
   --text-eyebrow--line-height: 100%;
   --text-eyebrow--letter-spacing: 0.03em;
 
@@ -186,13 +202,16 @@
   --text-eyebrow-micro--line-height: 100%;
   --text-eyebrow-micro--letter-spacing: 0.03em;
 
-  /* ---- Spacing, named for the roles the guideline gives them ---------- */
-  --spacing-card: 48px;
-  --spacing-module: 70px;
-  --spacing-inset: 136px;
-  --spacing-inset-lg: 176px;
-  --spacing-stack: 68px;
-  --spacing-section: 208px;
+  /* ---- Spacing, named for the roles the guideline gives them ----------
+     Clamped against the column for the same reason the type is: a 208px
+     section break is a full third of a phone screen. Maxima are verbatim. */
+  --spacing-card: clamp(16px, 4.5cqi, 48px);
+  --spacing-module: clamp(20px, 5.5cqi, 70px);
+  --spacing-inset: clamp(18px, 5cqi, 136px);
+  --spacing-inset-lg: clamp(22px, 6cqi, 176px);
+  --spacing-stack: clamp(18px, 5cqi, 68px);
+  --spacing-section: clamp(24px, 7cqi, 208px);
+  /* The matrix cell is a fixed texture, not a rhythm — it does not scale. */
   --spacing-grid: 22.041px;
 
   /* ---- Radius: zero. Bureau is square. ------------------------------- */
@@ -458,4 +477,94 @@
 */
 @utility field-fade {
   mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+}
+
+/* ---- The phone shell -------------------------------------------------
+   This app is a handset app. The shell is a fixed 9:16-ish column that never
+   scrolls: it owns the full dynamic viewport height, and every screen lays
+   itself out inside the space that is left over. `100dvh` rather than `100vh`
+   so the collapsing browser chrome on iOS does not push content out of view.
+
+   Declaring the container here is what makes the clamped type and spacing
+   scales above resolve against the column instead of the desktop viewport.
+*/
+@utility app-shell {
+  container-type: inline-size;
+  container-name: shell;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+/* Screens sit inside the shell and take exactly the room that remains. The
+   min-height:0 is load-bearing — without it a flex child refuses to shrink
+   below its content and the page scrolls after all. */
+@utility app-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The one place scrolling is allowed: panels that opt in explicitly. */
+@utility app-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---- Touch feedback --------------------------------------------------
+   The guideline bans decorative motion, but a handset that does not answer
+   a finger feels broken. Press feedback is the one place a transform is
+   allowed: a 2% settle over 120ms, which reads as contact rather than bounce.
+*/
+@utility tap {
+  transition:
+    transform var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Screen-to-screen entrance. Applied by the shell on every route change. */
+@utility screen-in {
+  animation: resolve-in var(--dur-slow) var(--ease-standard) both;
+}
+
+/* Lists arrive one row at a time rather than all at once. Capped at ten —
+   past that the last row waits long enough to feel like a stall. */
+@utility stagger-in {
+  & > * {
+    animation: resolve-in var(--dur-slow) var(--ease-standard) both;
+  }
+  & > *:nth-child(1) { animation-delay: 0ms; }
+  & > *:nth-child(2) { animation-delay: 40ms; }
+  & > *:nth-child(3) { animation-delay: 80ms; }
+  & > *:nth-child(4) { animation-delay: 120ms; }
+  & > *:nth-child(5) { animation-delay: 160ms; }
+  & > *:nth-child(6) { animation-delay: 200ms; }
+  & > *:nth-child(7) { animation-delay: 240ms; }
+  & > *:nth-child(8) { animation-delay: 280ms; }
+  & > *:nth-child(9) { animation-delay: 320ms; }
+  & > *:nth-child(n + 10) { animation-delay: 360ms; }
+}
+
+/* Home-indicator / notch clearance on real hardware. */
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
 }

@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
-import { Layout } from '@/components/layout';
+import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
@@ -76,18 +76,29 @@ export default function FraudDetective() {
         return {
           id,
           clusterName,
-          x: rand() * 400 - 200,
-          y: rand() * 400 - 200,
+          x: rand() * 200 - 100, // Tighter start for mobile column
+          y: rand() * 200 - 100,
         };
       });
 
       const links = currentCase.edges.map(e => ({ source: e[0], target: e[1] }));
 
-      // Run D3 force directed layout statically
+      // Run D3 force directed layout statically with tightened parameters for mobile
+      // Collision radius is what keeps the account labels legible: without it
+      // the force layout happily parks two 48px nodes close enough that their
+      // captions sit on top of each other at phone scale.
       const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(60))
-        .force("charge", d3.forceManyBody().strength(-300))
+        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-140))
+        .force("collide", d3.forceCollide(42))
         .force("center", d3.forceCenter(0, 0))
+        // Several cases are made of disconnected clusters. Without a gentle pull
+        // back to the origin the charge force flings those clusters apart, which
+        // inflates the fitted viewBox and shrinks every node and caption to
+        // compensate - the clusters end up tiny and crowded with empty space
+        // between them.
+        .force("x", d3.forceX(0).strength(0.08))
+        .force("y", d3.forceY(0).strength(0.08))
         .stop();
 
       // Tick simulation to completion
@@ -105,6 +116,40 @@ export default function FraudDetective() {
       setSolved(false);
     }
   }, [gameState, caseIndex, currentCase]);
+
+  /**
+   * Fit the SVG coordinate system to the settled layout.
+   *
+   * Scaling the viewBox rather than the node positions is the whole trick: the
+   * viewBox scales the 48px node boxes and the gaps between them by the same
+   * factor, so the separation the collide force guaranteed survives the fit.
+   * Compressing positions alone (the obvious move) leaves the boxes at 48px and
+   * packs them into each other.
+   */
+  const graphViewBox = useMemo(() => {
+    if (!graphNodes.length) return '-200 -200 400 400';
+    const PAD_X = 40;
+    const PAD_TOP = 32;
+    const PAD_BOTTOM = 52; // the account caption hangs below the node box
+    const MIN_SPAN = 280; // stops a two-node case zooming to absurd size
+    const xs = graphNodes.map((n: any) => n.x);
+    const ys = graphNodes.map((n: any) => n.y);
+    let minX = Math.min(...xs) - PAD_X;
+    let maxX = Math.max(...xs) + PAD_X;
+    let minY = Math.min(...ys) - PAD_TOP;
+    let maxY = Math.max(...ys) + PAD_BOTTOM;
+    if (maxX - minX < MIN_SPAN) {
+      const mid = (minX + maxX) / 2;
+      minX = mid - MIN_SPAN / 2;
+      maxX = mid + MIN_SPAN / 2;
+    }
+    if (maxY - minY < MIN_SPAN) {
+      const mid = (minY + maxY) / 2;
+      minY = mid - MIN_SPAN / 2;
+      maxY = mid + MIN_SPAN / 2;
+    }
+    return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
+  }, [graphNodes]);
 
   // Persist progress periodically
   useEffect(() => {
@@ -242,10 +287,9 @@ export default function FraudDetective() {
     }
   };
 
-
   if (gameState === 'rules') {
     return (
-      <Layout>
+      <Layout title="Fraud Detective" back="/">
         <RulesScreen 
           gameName="Fraud Detective"
           premise="Five graph investigation cases plus a bonus trivia round. Find the hidden links that expose the rings."
@@ -262,33 +306,31 @@ export default function FraudDetective() {
 
   if (gameState === 'primer') {
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12">
-          <EyebrowTag>Training</EyebrowTag>
+      <Layout title="Training" back={() => setGameState('rules')}>
+        <ScreenBody className="pt-3 pb-safe">
+          <div className="shrink-0 mb-4">
+            <h1 className="font-sans text-display-lg font-normal text-white leading-tight">{PRIMER.title}</h1>
+          </div>
           
-          <h1 className="mt-6 font-sans text-display-xl font-normal text-white">{PRIMER.title}</h1>
-          
-          <div className="mt-stack border-t border-ink-800">
+          <div className="stagger-in min-h-0 flex-1 app-scroll border-t border-ink-800">
             {PRIMER.body.map((p, i) => (
-              <div key={i} className="flex items-start gap-6 border-b border-ink-800 py-6">
-                <span className="mt-1 w-6 shrink-0 font-mono text-body-md font-medium tabular-nums text-violet-500">
+              <div key={i} className="flex items-start gap-3 border-b border-ink-800 py-3">
+                <span className="mt-0.5 w-5 shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <div>
-                  <p className="max-w-[64ch] text-body-lg text-[var(--text-on-dark-muted)]">
-                    {p}
-                  </p>
-                </div>
+                <p className="text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
+                  {p}
+                </p>
               </div>
             ))}
           </div>
 
-          <div className="mt-stack">
+          <div className="shrink-0 pt-4 mt-auto">
             <Button variant="light" size="lg" chevron onClick={() => setGameState('case')} className="w-full">
               Start investigation
             </Button>
           </div>
-        </div>
+        </ScreenBody>
       </Layout>
     );
   }
@@ -297,113 +339,44 @@ export default function FraudDetective() {
     const isFinished = solved || revealed;
 
     return (
-      <Layout showHeader={false}>
-        <div className="flex w-full flex-1 flex-col items-stretch gap-px md:flex-row md:pt-12">
-          
-          {/* Left Panel: Case File */}
-          <div className="flex w-full flex-col bg-ink-900 p-6 md:w-[480px] md:p-8 shrink-0 relative overflow-y-auto z-10 border border-ink-800 border-b-0 md:border-b md:border-r-0">
-            
-            <div className="flex items-center justify-between">
-              <EyebrowTag>{currentCase.sector}</EyebrowTag>
-              <div className="font-mono text-body-sm text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
-                Case {currentCase.order}/5
-              </div>
-            </div>
-
-            <h2 className="mt-6 font-sans text-display-xl font-normal text-white leading-tight">
+      <Layout 
+        title={currentCase.sector}
+        back="/"
+        headerRight={
+          <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em] px-1">
+            {currentCase.order}/5
+          </div>
+        }
+      >
+        <ScreenBody className="pt-3 pb-safe">
+          <div className="shrink-0 mb-3">
+            <h2 className="font-sans text-display-lg font-normal text-white leading-tight">
               {currentCase.title}
             </h2>
-
-            <p className="mt-6 font-sans text-body-lg text-white">
-              {currentCase.brief}
-            </p>
-            <p className="mt-2 font-mono text-body-sm text-[var(--text-on-dark-muted)] border-l border-violet-700 pl-4">
+            <p className="mt-2 font-mono text-body-sm text-[var(--text-on-dark-muted)] border-l-2 border-violet-700 pl-3 leading-snug">
               {currentCase.instruction}
             </p>
-
-            <div className="mt-8 border border-ink-800 bg-russian p-6">
-              <h3 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] flex items-center gap-3">
-                <MapPin className="size-4" strokeWidth={1.5} />
-                Case Notes
-              </h3>
-              <div className="mt-6 flex flex-col gap-4">
-                {currentCase.clues.map((clue, i) => (
-                  <div key={i} className="flex items-start gap-4">
-                    <span className="mt-1.5 size-1.5 shrink-0 bg-violet-500" aria-hidden="true" />
-                    <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)]">{clue}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {isFinished && (
-              <div className="mt-8 animate-resolve-in border border-violet-700 bg-violet-700/10 p-6">
-                <h4 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white flex items-center gap-3">
-                  <CheckCircle2 className="size-4 text-violet-500" strokeWidth={1.5} />
-                  Case Closed
-                </h4>
-                <p className="mt-4 font-sans text-body-md text-[var(--text-on-dark-muted)]">
-                  {currentCase.explanation}
-                </p>
-                <div className="mt-6 border-t border-violet-700/30 pt-6 flex gap-4">
-                  <Fingerprint className="size-5 shrink-0 text-violet-500" strokeWidth={1.5} />
-                  <p className="font-sans text-body-md text-white">{currentCase.hook}</p>
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-auto pt-12">
-              {!isFinished ? (
-                <>
-                  <div className="mb-6 flex items-center justify-between">
-                    <span className="font-mono text-body-sm text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
-                      Wrong guesses: {wrongGuesses}
-                    </span>
-                    <button 
-                      className="font-mono text-body-sm text-violet-500 uppercase tracking-[0.03em] transition-opacity hover:opacity-80"
-                      onClick={handleReveal}
-                    >
-                      Reveal answer
-                    </button>
-                  </div>
-                  <Button 
-                    variant={selectedNode ? 'default' : 'secondary'} 
-                    size="lg" 
-                    className="w-full"
-                    disabled={!selectedNode}
-                    onClick={handleAccuse}
-                    chevron
-                  >
-                    Submit accusation
-                  </Button>
-                </>
-              ) : (
-                <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
-                  Next case
-                </Button>
-              )}
-            </div>
           </div>
 
-          {/* Right Panel: Graph Canvas */}
-          <div className="relative flex-1 border border-ink-800 bg-russian overflow-hidden h-[60vh] md:h-auto z-0">
+          {/* Canvas View */}
+          <div className="relative flex-1 min-h-[200px] border border-ink-800 bg-russian overflow-hidden z-0">
             <SignalField texture="dots" tone="russian" fade={false} />
             <TransformWrapper 
               initialScale={1}
-              minScale={0.5}
-              maxScale={3}
+              minScale={0.4}
+              maxScale={2.5}
               centerOnInit
             >
               {({ resetTransform }) => (
                 <>
-                  <div className="absolute right-4 top-4 z-10">
-                    <Button variant="secondary" size="icon" onClick={() => resetTransform()}>
-                      <Maximize className="size-5" strokeWidth={1.5} />
+                  <div className="absolute right-2 top-2 z-10">
+                    <Button variant="secondary" size="icon" className="size-9 tap" onClick={() => resetTransform()}>
+                      <Maximize className="size-4" strokeWidth={1.5} />
                     </Button>
                   </div>
 
                   <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
-                    <svg className="h-[800px] w-[800px] overflow-visible" viewBox="-400 -400 800 800">
+                    <svg className="h-full w-full" viewBox={graphViewBox}>
                       
                       {/* Edges */}
                       {graphEdges.map((e, i) => {
@@ -416,13 +389,22 @@ export default function FraudDetective() {
                               stroke={isAnswerEdge ? 'var(--coral-600)' : 'var(--ink-700)'}
                               strokeWidth={isAnswerEdge ? 2 : 1}
                               opacity={isFinished && !isAnswerEdge ? 0.2 : 1}
-                              strokeDasharray={isAnswerEdge ? "none" : "4 4"}
+                              strokeDasharray={isAnswerEdge ? "none" : "3 3"}
                             />
-                            {currentCase.edgeLabels && currentCase.edgeLabels[`${e.source.id}|${e.target.id}`] && (
+                            {/* Edge labels are shown for the tapped account only.
+                                Drawn all at once they collide with each other and
+                                with the account captions on a phone, and in most
+                                cases every edge carries the same word, so the set
+                                is noise until you are asking about one account. */}
+                            {currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] &&
+                              (isFinished || selectedNode === e.source.id || selectedNode === e.target.id) && (
                               <text
                                 x={(e.source.x + e.target.x) / 2}
-                                y={(e.source.y + e.target.y) / 2 - 5}
+                                y={(e.source.y + e.target.y) / 2 - 4}
                                 textAnchor="middle"
+                                stroke="var(--russian)"
+                                strokeWidth={4}
+                                style={{ paintOrder: 'stroke' }}
                                 className="fill-[var(--text-on-dark-muted)] font-mono text-eyebrow-micro uppercase tracking-[0.03em]"
                                 opacity={isFinished && !isAnswerEdge ? 0.2 : 1}
                               >
@@ -445,27 +427,27 @@ export default function FraudDetective() {
                             onClick={() => !isFinished && setSelectedNode(n.id)}
                             className={cn(
                               "cursor-pointer transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]",
-                              isFinished && !isAnswerNode ? "opacity-20" : "opacity-100"
+                              isFinished && !isAnswerNode ? "opacity-30" : "opacity-100"
                             )}
                           >
-                            <foreignObject x={-100} y={-100} width={200} height={200} className="overflow-visible">
+                            <foreignObject x={-60} y={-60} width={120} height={120} className="overflow-visible">
                               <div className="flex h-full w-full flex-col items-center justify-center">
                                 {isSelected || isAnswerNode ? (
                                   <ScanFrame id={n.id.substring(0, 4)} tone={isAnswerNode ? 'coral' : 'violet'}>
                                     <div className={cn(
-                                      "flex size-14 items-center justify-center border",
+                                      "flex size-12 items-center justify-center border",
                                       isAnswerNode ? "border-coral-600 bg-coral-600 text-russian" : "border-violet-500 bg-violet-700 text-white"
                                     )}>
                                       <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
                                     </div>
                                   </ScanFrame>
                                 ) : (
-                                  <div className="group flex size-14 items-center justify-center border border-ink-700 bg-ink-800 text-white transition-colors hover:border-violet-700">
+                                  <div className="group tap flex size-12 items-center justify-center border border-ink-700 bg-ink-800 text-white transition-colors hover:border-violet-700">
                                     <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
                                   </div>
                                 )}
                                 <span className={cn(
-                                  "mt-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em]",
+                                  "mt-1.5 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] leading-none",
                                   isAnswerNode ? "text-coral-600" : "text-[var(--text-on-dark-muted)]"
                                 )}>
                                   {currentCase.nodeLabels?.[n.id] || n.id}
@@ -483,7 +465,73 @@ export default function FraudDetective() {
             </TransformWrapper>
           </div>
 
-        </div>
+          <div className="shrink-0 mt-3 app-scroll max-h-[140px] flex flex-col gap-3">
+            {!isFinished && (
+              <div className="border border-ink-800 bg-ink-900 p-3">
+                <h3 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] flex items-center gap-2">
+                  <MapPin className="size-4" strokeWidth={1.5} />
+                  Case Notes
+                </h3>
+                <div className="mt-2 flex flex-col gap-2">
+                  {currentCase.clues.map((clue, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="mt-[7px] size-1 shrink-0 bg-violet-500" aria-hidden="true" />
+                      <p className="font-sans text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{clue}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {isFinished && (
+              <div className="animate-resolve-in border border-violet-700 bg-violet-700/10 p-3">
+                <h4 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-violet-500" strokeWidth={1.5} />
+                  Case Closed
+                </h4>
+                <p className="mt-2 font-sans text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
+                  {currentCase.explanation}
+                </p>
+                <div className="mt-2 border-t border-violet-700/30 pt-2 flex gap-2">
+                  <Fingerprint className="size-4 shrink-0 text-violet-500" strokeWidth={1.5} />
+                  <p className="font-sans text-body-sm text-white leading-snug">{currentCase.hook}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 mt-3 pt-3 border-t border-ink-800">
+            {!isFinished ? (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
+                    Wrong: {wrongGuesses}
+                  </span>
+                  <button 
+                    className="tap font-mono text-eyebrow-micro text-violet-500 uppercase tracking-[0.03em]"
+                    onClick={handleReveal}
+                  >
+                    Reveal answer
+                  </button>
+                </div>
+                <Button 
+                  variant={selectedNode ? 'default' : 'secondary'} 
+                  size="lg" 
+                  className="w-full"
+                  disabled={!selectedNode}
+                  onClick={handleAccuse}
+                  chevron
+                >
+                  Submit accusation
+                </Button>
+              </>
+            ) : (
+              <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
+                Next case
+              </Button>
+            )}
+          </div>
+        </ScreenBody>
       </Layout>
     );
   }
@@ -493,22 +541,28 @@ export default function FraudDetective() {
     const answeredRing = bonusAnswers[bonusIndex];
 
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col py-12">
-          
-          <div className="text-center space-y-4 flex flex-col items-center">
-            <EyebrowTag>{BONUS.badge}</EyebrowTag>
-            <h2 className="mt-6 font-sans text-display-xl font-normal text-white">{BONUS.title}</h2>
-            <p className="mt-4 text-body-lg text-[var(--text-on-dark-muted)] max-w-2xl">{BONUS.brief}</p>
+      <Layout 
+        title="Bonus Round" 
+        back="/"
+        headerRight={
+          <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em] pr-1">
+            {bonusIndex + 1}/{BONUS.questions.length}
+          </div>
+        }
+      >
+        <ScreenBody className="pt-3 pb-safe">
+          <div className="shrink-0 mb-4 space-y-1">
+            <h2 className="font-sans text-display-lg font-normal text-white leading-tight">{BONUS.title}</h2>
+            <p className="text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{BONUS.brief}</p>
           </div>
 
-          <div className="mt-12 relative flex flex-1 items-center justify-center border border-ink-800 bg-ink-900 min-h-[600px] overflow-hidden">
+          <div className="relative flex min-h-[360px] flex-1 items-center justify-center border border-ink-800 bg-ink-900 overflow-hidden shrink-0">
             <SignalField texture="matrix" tone="ink" />
             
-            <div className="absolute top-8 left-8 z-20">
+            <div className="absolute top-3 left-3 z-20">
               <ScanFrame id="TARGET" tone="cyan">
-                <div className="bg-russian border border-cyan-500 px-6 py-4">
-                  <h3 className="font-mono text-body-lg font-medium text-cyan-500 uppercase tracking-[0.03em]">
+                <div className="bg-russian border border-cyan-500 px-3 py-2">
+                  <h3 className="font-mono text-eyebrow-micro font-medium text-cyan-500 uppercase tracking-[0.03em]">
                     {q.subject}
                   </h3>
                 </div>
@@ -516,17 +570,17 @@ export default function FraudDetective() {
             </div>
 
             {/* Target Canvas */}
-            <div className="relative flex size-[300px] items-center justify-center md:size-[500px]">
+            <div className="relative flex size-[280px] items-center justify-center">
               {/* Bacon Center */}
-              <div className="absolute flex size-24 items-center justify-center bg-violet-700 z-10 border border-violet-500">
-                <span className="font-mono text-body-sm font-medium text-white text-center uppercase tracking-[0.03em] leading-tight">
+              <div className="absolute flex size-[70px] items-center justify-center bg-violet-700 z-10 border border-violet-500">
+                <span className="font-mono text-eyebrow-micro font-medium text-white text-center uppercase tracking-[0.03em] leading-tight">
                   Kevin<br/>Bacon
                 </span>
               </div>
               
               {/* Rings as nested squares */}
               {[1, 2, 3].map(degree => {
-                const size = 120 + (degree * 140);
+                const size = 70 + (degree * 70);
                 const isSelected = answeredRing === degree;
                 const isCorrect = q.answer === degree;
                 const showResult = answeredRing !== undefined;
@@ -542,7 +596,7 @@ export default function FraudDetective() {
                 return (
                   <button
                     key={degree}
-                    className="absolute flex items-start justify-center group transition-colors duration-[var(--dur-base)]"
+                    className="tap absolute flex items-start justify-center group transition-colors duration-[var(--dur-base)]"
                     style={{ 
                       width: `${size}px`, 
                       height: `${size}px`,
@@ -552,13 +606,13 @@ export default function FraudDetective() {
                     disabled={showResult}
                   >
                     {!showResult && (
-                      <div className="absolute -top-3 bg-ink-900 px-2 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] group-hover:text-violet-500 transition-colors">
+                      <div className="absolute -top-[9px] bg-ink-900 px-1 font-mono text-eyebrow-micro leading-none uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] group-hover:text-violet-500 transition-colors">
                         {BONUS.rings.find(r => r.degree === degree)?.label}
                       </div>
                     )}
                     
                     {showResult && isCorrect && (
-                      <div className="absolute -top-4 bg-lime-300 text-russian px-4 py-1 font-mono text-body-sm uppercase tracking-[0.03em] animate-resolve-in border border-lime-300 whitespace-nowrap z-20">
+                      <div className="absolute -top-[9px] bg-lime-300 text-russian px-1.5 py-0.5 font-mono text-eyebrow-micro uppercase tracking-[0.03em] animate-resolve-in border border-lime-300 whitespace-nowrap z-20 leading-none">
                         {q.subject}
                       </div>
                     )}
@@ -569,47 +623,47 @@ export default function FraudDetective() {
 
             {/* Explain panel */}
             {answeredRing !== undefined && (
-              <div className="absolute bottom-8 right-8 z-30 w-80 animate-resolve-in border border-ink-700 bg-russian p-6">
-                <div className="flex gap-4">
+              <div className="absolute bottom-3 left-3 right-3 z-30 animate-resolve-in border border-ink-700 bg-russian p-3">
+                <div className="flex gap-3">
                   {answeredRing === q.answer ? (
-                    <CheckCircle2 className="size-6 text-lime-300 shrink-0" strokeWidth={1.5} />
+                    <CheckCircle2 className="size-5 text-lime-300 shrink-0" strokeWidth={1.5} />
                   ) : (
-                    <AlertCircle className="size-6 text-coral-600 shrink-0" strokeWidth={1.5} />
+                    <AlertCircle className="size-5 text-coral-600 shrink-0" strokeWidth={1.5} />
                   )}
-                  <div>
-                    <h4 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white mb-2">
+                  <div className="min-w-0">
+                    <h4 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white mb-0.5">
                       {answeredRing === q.answer ? "Correct" : "Wrong"}
                     </h4>
-                    <p className="font-sans text-body-md text-[var(--text-on-dark-muted)]">{q.note}</p>
+                    <p className="font-sans text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{q.note}</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
-        </div>
+        </ScreenBody>
       </Layout>
     );
   }
 
   if (gameState === 'error') {
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-12">
-          <div className="border border-coral-600 bg-russian p-8 md:p-12 text-center flex flex-col items-center">
-            <div className="flex size-[60px] items-center justify-center bg-coral-600 text-russian">
-              <ShieldAlert className="size-8" strokeWidth={1.5} />
+      <Layout title="Error" back="/">
+        <ScreenBody className="pt-3 pb-safe">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center border border-coral-600 bg-russian p-6 text-center">
+            <div className="flex size-12 items-center justify-center bg-coral-600 text-russian">
+              <ShieldAlert className="size-6" strokeWidth={1.5} />
             </div>
-            <h1 className="mt-8 font-sans text-display-xl font-normal text-white">Save Failed</h1>
-            <p className="mt-4 text-body-lg text-[var(--text-on-dark-muted)]">
+            <h1 className="mt-5 font-sans text-display-md font-normal text-white">Save Failed</h1>
+            <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
               We couldn't record your run due to a network error. Your points are safe.
             </p>
-            <div className="mt-12 w-full">
-              <Button size="lg" className="w-full" onClick={handleRetrySubmit} disabled={submitRun.isPending} chevron>
-                {submitRun.isPending ? 'Retrying' : 'Retry submit'}
-              </Button>
-            </div>
           </div>
-        </div>
+          <div className="shrink-0 pt-4 mt-auto">
+            <Button size="lg" className="w-full" onClick={handleRetrySubmit} disabled={submitRun.isPending} chevron>
+              {submitRun.isPending ? 'Retrying' : 'Retry submit'}
+            </Button>
+          </div>
+        </ScreenBody>
       </Layout>
     );
   }
@@ -618,42 +672,42 @@ export default function FraudDetective() {
   if (!finalResult) return null;
 
   return (
-    <Layout>
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12">
-        <div className="border border-ink-800 bg-ink-900 p-8 md:p-12 flex flex-col items-center">
+    <Layout title="Debrief">
+      <ScreenBody className="pt-3 pb-safe">
+        <div className="flex min-h-0 flex-1 app-scroll flex-col border border-ink-800 bg-ink-900 p-4">
           <EyebrowTag>Briefing Complete</EyebrowTag>
-          <h1 className="mt-6 font-sans text-display-xl font-normal text-white">Run Complete</h1>
+          <h1 className="mt-3 font-sans text-display-xl font-normal text-white">Run Complete</h1>
           
-          <div className="mt-12 flex flex-col items-center justify-center">
+          <div className="mt-8 flex flex-col items-center justify-center">
             <StatReadout value={finalResult.pointsRecorded} caption="Points" size="lg" tone="on-dark" />
           </div>
 
           {finalResult.standing && (
-            <p className="mt-8 font-mono text-body-sm text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
+            <p className="mt-6 text-center font-mono text-body-sm text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
               Global Rank <strong className="text-white">#{finalResult.standing.rank}</strong>
-              {finalResult.isPersonalBest && <span className="ml-3 text-violet-500 font-medium">Personal Best</span>}
+              {finalResult.isPersonalBest && <span className="ml-2 text-violet-500 font-medium">Personal Best</span>}
             </p>
           )}
 
-          <div className="mt-12 w-full border-t border-ink-800 pt-8 text-left">
-            <h4 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">The Real Point</h4>
-            <p className="mt-4 text-body-lg text-[var(--text-on-dark-muted)]">{BONUS.payoff}</p>
-            <div className="mt-6 flex items-start gap-4 border border-violet-700 p-6 bg-russian">
-              <Fingerprint className="size-5 shrink-0 text-violet-500 mt-0.5" strokeWidth={1.5} />
-              <span className="font-sans text-body-md text-white">{BONUS.hook}</span>
+          <div className="mt-8 w-full border-t border-ink-800 pt-6">
+            <h4 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">The Real Point</h4>
+            <p className="mt-3 text-body-md text-[var(--text-on-dark-muted)] leading-snug">{BONUS.payoff}</p>
+            <div className="mt-4 flex items-start gap-3 border border-violet-700 p-4 bg-russian">
+              <Fingerprint className="size-4 shrink-0 text-violet-500 mt-0.5" strokeWidth={1.5} />
+              <span className="font-sans text-body-sm text-white leading-snug">{BONUS.hook}</span>
             </div>
           </div>
-
-          <div className="mt-12 flex w-full flex-col gap-4 sm:flex-row">
-            <Button size="lg" onClick={() => window.location.reload()} className="flex-1" chevron>
-              Play again
-            </Button>
-            <Button size="lg" variant="secondary" onClick={() => setLocation('/')} className="flex-1">
-              Back to booth
-            </Button>
-          </div>
         </div>
-      </div>
+
+        <div className="shrink-0 pt-4 flex flex-col gap-3">
+          <Button size="lg" onClick={() => window.location.reload()} className="w-full" chevron>
+            Play again
+          </Button>
+          <Button size="lg" variant="secondary" onClick={() => setLocation('/')} className="w-full">
+            Back to booth
+          </Button>
+        </div>
+      </ScreenBody>
     </Layout>
   );
 }

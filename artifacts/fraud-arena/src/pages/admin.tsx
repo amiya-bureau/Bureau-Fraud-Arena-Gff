@@ -42,18 +42,18 @@ export default function Admin() {
   if (!authenticated) {
     return (
       <Layout showHeader={false}>
-        <div className="flex min-h-[80vh] flex-col items-center justify-center py-12">
-          <div className="w-full max-w-[440px] border border-ink-800 bg-ink-900 p-8">
-            <div className="mb-8 flex flex-col gap-6">
-              <IconTile icon={ShieldAlert} size={60} />
+        <div className="flex min-h-0 flex-1 flex-col justify-center">
+          <div className="w-full border border-ink-800 bg-ink-900 p-5">
+            <div className="mb-6 flex flex-col gap-4">
+              <IconTile icon={ShieldAlert} size={44} />
               <div>
                 <h1 className="font-sans text-display-lg font-normal text-white">Host Panel</h1>
-                <p className="mt-2 text-body-md text-[var(--text-on-dark-muted)]">
+                <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
                   Enter passcode to access operator controls.
                 </p>
               </div>
             </div>
-            <form onSubmit={handleAuth} className="flex flex-col gap-6">
+            <form onSubmit={handleAuth} className="flex flex-col gap-4">
               <BureauInput 
                 type="password" 
                 placeholder="Passcode" 
@@ -86,11 +86,11 @@ function AdminDashboard({ passcode }: { passcode: string }) {
   if (is503) {
     return (
       <Layout showHeader={false}>
-        <div className="flex min-h-[80vh] flex-col items-center justify-center py-12">
-          <div className="w-full max-w-[440px] border border-coral-600 bg-ink-900 p-8">
-            <div className="mb-8 flex flex-col gap-6">
+        <div className="flex min-h-0 flex-1 flex-col justify-center">
+          <div className="w-full border border-coral-600 bg-ink-900 p-5">
+            <div className="mb-6 flex flex-col gap-4">
               <div className="text-coral-600">
-                <IconTile icon={ShieldAlert} size={60} />
+                <IconTile icon={ShieldAlert} size={44} />
               </div>
               <div>
                 <h1 className="font-sans text-display-lg font-normal text-white">Not Configured</h1>
@@ -143,28 +143,33 @@ function AdminDashboard({ passcode }: { passcode: string }) {
   };
 
   return (
-    <Layout showHeader={true}>
-      <div className="mx-auto flex w-full max-w-[1080px] flex-col py-8 md:py-12">
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    /* The one screen exempt from the no-scroll rule: this is the host's
+       operating console, not a player surface, and condensing it would cost
+       information the host needs during an event. */
+    <Layout title="Host Panel" scrollable>
+      <div className="flex w-full flex-col pb-6 pt-4">
+        <div className="flex flex-col gap-4">
           <div>
             <EyebrowTag>Operator Panel</EyebrowTag>
-            <h1 className="mt-4 font-sans text-display-xl font-normal text-white">Host Dashboard</h1>
+            <h1 className="mt-3 font-sans text-display-lg font-normal text-white">Host Dashboard</h1>
           </div>
-          <Button variant="outline" onClick={handleExportCSV}>
+          <Button variant="outline" onClick={handleExportCSV} className="w-full">
             <Download className="mr-2 size-4" strokeWidth={1.5} /> Export CSV ({leads?.length || 0})
           </Button>
         </div>
 
         {stats?.sixDegreesCautionAcknowledged === false && (
-          <div className="mt-8 flex items-start gap-4 border border-coral-600 bg-ink-900 p-6">
-            <ShieldAlert className="mt-1 size-6 shrink-0 text-coral-600" strokeWidth={1.5} />
-            <div className="flex-1">
-              <h3 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-coral-600">
-                Verify Six Degrees Values
-              </h3>
-              <p className="mt-2 text-body-md text-[var(--text-on-dark-muted)]">
-                The Four Bacon connections in the Fraud Detective bonus round must be verified against oracleofbacon.org before Day 1 starts.
-              </p>
+          <div className="mt-5 flex flex-col gap-3 border border-coral-600 bg-ink-900 p-4">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 size-5 shrink-0 text-coral-600" strokeWidth={1.5} />
+              <div className="flex-1">
+                <h3 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-coral-600">
+                  Verify Six Degrees Values
+                </h3>
+                <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
+                  The Four Bacon connections in the Fraud Detective bonus round must be verified against oracleofbacon.org before Day 1 starts.
+                </p>
+              </div>
             </div>
             <Button 
               variant="destructive" 
@@ -180,12 +185,12 @@ function AdminDashboard({ passcode }: { passcode: string }) {
           </div>
         )}
 
-        <div className="mt-stack grid grid-cols-2 gap-px border border-ink-800 bg-ink-800 md:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-px border border-ink-800 bg-ink-800">
           <StatCard icon={Users} label="Players Today" value={stats?.playersToday} />
           <StatCard icon={Users} label="Total Players" value={stats?.playersTotal} />
           <StatCard icon={Gamepad2} label="Runs Today" value={stats?.runsToday} />
           <StatCard icon={Gamepad2} label="Total Runs" value={stats?.runsTotal} />
-          <div className="flex flex-col bg-white p-6 text-russian">
+          <div className="flex flex-col bg-white p-4 text-russian">
             <div className="flex items-center gap-2 text-[var(--text-faint)]">
               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em]">Source</span>
             </div>
@@ -202,10 +207,10 @@ function AdminDashboard({ passcode }: { passcode: string }) {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-8 md:grid-cols-2">
+        <div className="mt-5 grid gap-5">
           {/* Draw Pools */}
           <div className="flex flex-col border border-ice-300 bg-white text-russian">
-            <div className="border-b border-ice-300 p-6">
+            <div className="border-b border-ice-300 p-4">
               <h3 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-russian">Draw Pools</h3>
             </div>
             <div className="flex flex-col">
@@ -217,7 +222,7 @@ function AdminDashboard({ passcode }: { passcode: string }) {
 
           {/* Controls */}
           <div className="flex flex-col border border-ice-300 bg-white text-russian">
-            <div className="border-b border-ice-300 p-6">
+            <div className="border-b border-ice-300 p-4">
               <h3 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-russian">Controls</h3>
             </div>
             <div className="flex flex-col">
@@ -262,7 +267,7 @@ function AdminDashboard({ passcode }: { passcode: string }) {
           </div>
         </div>
         
-        <div className="mt-8">
+        <div className="mt-5">
           <AccuracySection passcode={passcode} />
         </div>
       </div>
@@ -272,7 +277,7 @@ function AdminDashboard({ passcode }: { passcode: string }) {
 
 function StatCard({ icon: Icon, label, value }: { icon: any; label: string; value?: number }) {
   return (
-    <div className="flex flex-col bg-white p-6 text-russian">
+    <div className="flex flex-col bg-white p-4 text-russian">
       <div className="flex items-center gap-2 text-[var(--text-faint)]">
         <Icon className="size-4" strokeWidth={1.5} />
         <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em]">{label}</span>
@@ -286,7 +291,7 @@ function StatCard({ icon: Icon, label, value }: { icon: any; label: string; valu
 
 function PoolRow({ label, count, highlight }: { label: string; count?: number; highlight?: 'coral' | 'violet' }) {
   return (
-    <div className="flex items-center justify-between border-b border-ice-300 px-6 py-4 last:border-0">
+    <div className="flex items-center justify-between gap-3 border-b border-ice-300 px-4 py-3 last:border-0">
       <span className={cn(
         "font-sans text-body-md",
         highlight === 'coral' ? "text-coral-600 font-medium" : 
@@ -307,8 +312,8 @@ function PoolRow({ label, count, highlight }: { label: string; count?: number; h
 
 function ControlRow({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b border-ice-300 px-6 py-5 last:border-0">
-      <div className="flex flex-col gap-1 pr-4">
+    <div className="flex flex-col gap-3 border-b border-ice-300 px-4 py-4 last:border-0">
+      <div className="flex flex-col gap-1">
         <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-russian">{title}</span>
         <span className="font-sans text-body-sm text-[var(--text-muted)]">{desc}</span>
       </div>
@@ -326,11 +331,11 @@ function AccuracySection({ passcode }: { passcode: string }) {
 
   return (
     <div className="flex flex-col border border-ice-300 bg-white text-russian">
-      <div className="border-b border-ice-300 p-6">
+      <div className="border-b border-ice-300 p-4">
         <h3 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-russian">Content Accuracy</h3>
       </div>
       
-      <div className="flex flex-col gap-8 p-6">
+      <div className="flex flex-col gap-5 p-4">
         <AccuracyGroup title="Spot The Fraud" items={accuracy.questions} />
         <AccuracyGroup title="Fraud Detective" items={accuracy.cases} />
         <AccuracyGroup title="Six Degrees Bonus" items={accuracy.bonusQuestions} />
@@ -345,7 +350,7 @@ function AccuracyGroup({ title, items }: { title: string; items: any[] }) {
       <h4 className="mb-4 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-faint)]">
         {title}
       </h4>
-      <div className="grid grid-cols-1 gap-px border border-ice-300 bg-ice-300 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-px border border-ice-300 bg-ice-300">
         {items.map((item) => (
           <div key={item.id} className="flex items-center justify-between bg-white p-4">
             <div className="flex flex-col overflow-hidden pr-4">

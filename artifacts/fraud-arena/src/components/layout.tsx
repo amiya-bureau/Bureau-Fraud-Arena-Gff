@@ -1,82 +1,134 @@
 import { usePlayerSession } from '@/lib/store';
-import { Button } from '@/components/ui/button';
-import { ShieldAlert, LogOut } from 'lucide-react';
+import { ChevronLeft, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
-import { IconTile } from '@/components/bureau/icon-tile';
+import { TabBar } from '@/components/bureau/tab-bar';
+import { cn } from '@/lib/utils';
 
 /**
- * The booth chrome.
+ * The phone shell.
  *
- * The background is the 22.041px matrix rather than the blurred colour glows
- * this app used to carry — blur is not part of the Bureau language, and depth
- * comes from the grid and from hairlines instead.
+ * The arena is played on a handset at a booth, so the whole app is a fixed
+ * 9:16 column that never scrolls: the shell owns the viewport height and each
+ * screen fits into whatever is left after the app bar and the tab bar have
+ * taken their share. Screens that genuinely cannot fit — only the host's admin
+ * panel — opt into scrolling explicitly with `scrollable`.
+ *
+ * On a display wider than a handset the column is centred and the surrounding
+ * field is darkened, so the app reads as a device rather than as a narrow
+ * website. The column is also the CSS container that the clamped type and
+ * spacing scales in index.css resolve against.
  */
 export function Layout({
   children,
   showHeader = true,
+  title,
+  back,
+  headerRight,
+  showTabs = false,
+  scrollable = false,
 }: {
   children: React.ReactNode;
+  /** The compact app bar. Off for screens that open with their own masthead. */
   showHeader?: boolean;
+  /** Mono, uppercase. The screen's name in the technical register. */
+  title?: string;
+  /** A route to return to, or a handler. Presence of this shows the chevron. */
+  back?: string | (() => void);
+  /** Trailing app-bar slot — a timer, a counter, a step readout. */
+  headerRight?: React.ReactNode;
+  /** Top-level destinations show the tab bar; flows and games do not. */
+  showTabs?: boolean;
+  /** Escape hatch from the no-scroll rule. The admin panel is the only user. */
+  scrollable?: boolean;
 }) {
   const { session, clearSession } = usePlayerSession();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  const handleBack = () => {
+    if (typeof back === 'function') back();
+    else if (typeof back === 'string') setLocation(back);
+  };
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full flex-col items-center overflow-hidden bg-russian">
-      {/* The matrix sits behind every dark field, fading out under the content. */}
-      <div
-        aria-hidden="true"
-        className="bureau-matrix field-fade pointer-events-none absolute inset-x-0 top-0 h-[70vh]"
-      />
+    <div className="flex h-[100dvh] w-full justify-center overflow-hidden bg-[#00010f]">
+      <div className="app-shell relative flex w-full max-w-[430px] flex-col border-ink-800 bg-russian sm:border-x">
+        {/* The matrix sits behind every dark field, fading out under content. */}
+        <div
+          aria-hidden="true"
+          className="bureau-matrix field-fade pointer-events-none absolute inset-x-0 top-0 h-[45%]"
+        />
 
-      {showHeader && (
-        <header className="relative z-10 w-full max-w-[1080px] px-4 py-6 md:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="group flex items-center gap-4 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)] hover:opacity-[0.82]"
-            >
-              <IconTile icon={ShieldAlert} size={44} />
-              <span className="font-sans text-card-title font-medium text-white">
-                Bureau Fraud Arena
-              </span>
-            </Link>
-
-            <div className="flex items-center gap-4">
-              {session && (
-                <div className="flex items-center gap-4 border border-ink-800 bg-ink-900 px-4 py-3">
-                  <span className="font-sans text-body-md font-medium text-white">
-                    {session.player.firstName}
-                  </span>
-                  <span className="border-l border-ink-800 pl-4 font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                    {session.player.company}
-                  </span>
-                  <button
-                    onClick={() => {
-                      clearSession();
-                      setLocation('/');
-                    }}
-                    aria-label="End session"
-                    className="text-[var(--text-on-dark-muted)] transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)] hover:opacity-100"
-                  >
-                    <LogOut className="size-4" strokeWidth={1.5} />
-                  </button>
-                </div>
+        {showHeader && (
+          <header className="pt-safe relative z-10 w-full shrink-0">
+            <div className="flex h-14 items-center gap-2 px-3">
+              {back ? (
+                <button
+                  onClick={handleBack}
+                  aria-label="Go back"
+                  className="tap -ml-1 flex size-11 shrink-0 items-center justify-center text-white"
+                >
+                  <ChevronLeft className="size-6" strokeWidth={1.5} />
+                </button>
+              ) : (
+                <span className="w-1 shrink-0" />
               )}
-              <Link href="/leaderboard">
-                <Button variant="outline" size="sm" className="font-mono uppercase tracking-[0.03em]">
-                  Leaderboard
-                </Button>
-              </Link>
-            </div>
-          </div>
-          <hr className="mt-6 h-px w-full border-0 bg-ink-800" />
-        </header>
-      )}
 
-      <main className="relative z-10 flex w-full max-w-[1080px] flex-1 flex-col px-4 pb-6 md:px-6">
-        {children}
-      </main>
+              {title ? (
+                <h1 className="min-w-0 flex-1 truncate font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                  {title}
+                </h1>
+              ) : (
+                <span className="min-w-0 flex-1" />
+              )}
+
+              {headerRight ?? null}
+
+              {!headerRight && session ? (
+                <button
+                  onClick={() => {
+                    clearSession();
+                    setLocation('/');
+                  }}
+                  aria-label="End session"
+                  className="tap flex size-11 shrink-0 items-center justify-center text-[var(--text-on-dark-muted)]"
+                >
+                  <LogOut className="size-[18px]" strokeWidth={1.5} />
+                </button>
+              ) : null}
+            </div>
+            <hr className="h-px w-full border-0 bg-ink-800" />
+          </header>
+        )}
+
+        {/* Keyed on the route so each screen resolves in rather than snapping. */}
+        <main
+          key={location}
+          className={cn(
+            'screen-in app-screen relative z-10 w-full px-4',
+            scrollable && 'app-scroll',
+          )}
+        >
+          {children}
+        </main>
+
+        {showTabs && <TabBar />}
+      </div>
     </div>
   );
 }
+
+/**
+ * A convenience for the many screens that want their content pinned to the
+ * bottom of the column with the headline riding above it.
+ */
+export function ScreenBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={cn('flex min-h-0 flex-1 flex-col', className)}>{children}</div>;
+}
+
+export { Link };

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
-import { Layout } from '@/components/layout';
+import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +12,7 @@ import {
   useDetectSpoof,
 } from '@workspace/api-client-react';
 import { v4 as uuidv4 } from 'uuid';
-import { UploadCloud, ShieldAlert, Activity, Check, AlertTriangle, AlertCircle } from 'lucide-react';
+import { UploadCloud, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EyebrowTag,
@@ -20,8 +20,6 @@ import {
   LiveDot,
   StatReadout,
   ScanFrame,
-  SectionHeader,
-  Card,
 } from '@/components/bureau';
 
 const SIGNAL_DESCRIPTIONS: Record<string, string> = {
@@ -251,7 +249,7 @@ export default function SpoofTheSystem() {
 
   if (gameState === 'rules') {
     return (
-      <Layout>
+      <Layout title="Spoof the System" back="/">
         <RulesScreen
           gameName="Spoof the System"
           premise="Generate a synthetic or AI face on your phone, upload it, and try to fool Bureau's detectors. Three attempts, getting stricter every time."
@@ -268,21 +266,22 @@ export default function SpoofTheSystem() {
 
   if (gameState === 'error') {
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center pt-12 md:pt-20">
-          <Card surface="ink" className="flex w-full flex-col items-center border-coral-600 p-12 text-center">
+      <Layout title="Spoof the System" back="/">
+        <ScreenBody>
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center px-4">
             <IconTile icon={ShieldAlert} size={60} />
-            <h1 className="mt-8 font-sans text-display-xl font-normal text-white">Save Failed</h1>
-            <p className="mt-4 max-w-[32ch] text-body-lg text-[var(--text-on-dark-muted)]">
+            <h1 className="mt-6 font-sans text-display-xl font-normal text-white">Save Failed</h1>
+            <p className="mt-3 max-w-[32ch] text-body-lg text-[var(--text-on-dark-muted)]">
               We couldn't record your run due to a network error. Your points are safe.
             </p>
-            <div className="mt-12 flex w-full justify-center">
-              <Button size="lg" onClick={handleRetrySubmit} disabled={submitRun.isPending} chevron>
-                {submitRun.isPending ? 'Retrying' : 'Retry Submit'}
-              </Button>
-            </div>
-          </Card>
-        </div>
+          </div>
+          
+          <div className="shrink-0 py-4 mt-auto">
+            <Button size="lg" onClick={handleRetrySubmit} disabled={submitRun.isPending} chevron className="w-full" variant="light">
+              {submitRun.isPending ? 'Retrying' : 'Retry Submit'}
+            </Button>
+          </div>
+        </ScreenBody>
       </Layout>
     );
   }
@@ -297,12 +296,12 @@ export default function SpoofTheSystem() {
     if (finalResult.pointsRecorded === 75) finalDraw = 'iPad MEGA Draw';
 
     return (
-      <Layout>
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center pt-12 md:pt-20">
-          <Card surface="ink" className="flex w-full flex-col items-center p-12 text-center">
+      <Layout title="Spoof the System" back="/">
+        <ScreenBody>
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center">
             <EyebrowTag tone="violet">Run Complete</EyebrowTag>
-
-            <div className="mb-12 mt-12">
+            
+            <div className="mt-8 mb-8">
               <StatReadout
                 value={finalResult.pointsRecorded}
                 caption="Points Secured"
@@ -311,19 +310,19 @@ export default function SpoofTheSystem() {
               />
             </div>
 
-            <div className="flex max-w-[40ch] flex-col items-center gap-3 text-center">
+            <div className="flex flex-col items-center gap-2 stagger-in">
               <p className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                 Tier <span className="ml-2 text-white">{finalTier}</span>
               </p>
 
               {finalDraw !== 'None' && (
-                <p className="mt-2 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-violet-400">
+                <p className="mt-1 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-violet-400">
                   Qualified for {finalDraw}
                 </p>
               )}
 
               {finalResult.standing && (
-                <p className="mt-4 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
+                <p className="mt-3 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
                   Global Rank #{finalResult.standing.rank}
                   {finalResult.isPersonalBest && (
                     <span className="ml-2 text-violet-400">(PB)</span>
@@ -331,22 +330,17 @@ export default function SpoofTheSystem() {
                 </p>
               )}
             </div>
-
-            <div className="mt-12 flex w-full flex-col justify-center gap-4 sm:flex-row">
-              <Button
-                size="lg"
-                variant="light"
-                chevron
-                onClick={() => window.location.reload()}
-              >
-                New Run
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => setLocation('/')}>
-                Exit
-              </Button>
-            </div>
-          </Card>
-        </div>
+          </div>
+          
+          <div className="shrink-0 py-4 flex flex-col gap-3 mt-auto">
+            <Button size="lg" variant="light" chevron onClick={() => window.location.reload()} className="w-full">
+              New Run
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full">
+              Exit
+            </Button>
+          </div>
+        </ScreenBody>
       </Layout>
     );
   }
@@ -360,288 +354,273 @@ export default function SpoofTheSystem() {
   }
 
   return (
-    <Layout>
-      <div className="flex w-full flex-col gap-stack pt-12 md:flex-row md:items-start md:pt-20">
-        <div className="flex flex-1 flex-col">
-          {gameState === 'uploading' && (
-            <div className="flex flex-col gap-6">
-              <SectionHeader
-                eyebrow="Spoof the System"
-                title={`Level ${level} Upload`}
-                clause="Provide a synthetic face to test the detector."
-              />
-              <ScanFrame id={`ATTEMPT-L${level}`} tone="violet">
-                <div className="flex min-h-[460px] flex-col items-center justify-center bg-ink-900 p-12 text-center">
-                  <IconTile icon={UploadCloud} size={60} />
-
-                  <h2 className="mt-8 font-sans text-card-title font-medium text-white">
-                    Select Payload
-                  </h2>
-                  <p className="mt-2 max-w-[32ch] text-body-md text-[var(--text-on-dark-muted)]">
-                    Max 10MB (JPEG, PNG, WebP). Image data is discarded after analysis.
+    <Layout
+      title="Spoof the System"
+      back="/"
+      headerRight={
+        <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+          Level {level}/3
+        </span>
+      }
+      showTabs={false}
+    >
+      {gameState === 'uploading' && (
+        <ScreenBody>
+          <div className="shrink-0 py-4">
+            <EyebrowTag tone="violet">Level {level} Upload</EyebrowTag>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Select Payload</h1>
+            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
+              Provide a synthetic face to test the detector.
+            </p>
+          </div>
+          
+          <div className="flex-1 min-h-0 flex flex-col relative mt-2">
+            {/* The frame takes the whole free column: a dropzone that stops
+                short of the CTA reads as a stray box rather than a target. */}
+            <ScanFrame id={`ATTEMPT-L${level}`} tone="violet" className="flex-1 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 text-center bg-ink-900">
+                <IconTile icon={UploadCloud} size={48} />
+                <h2 className="mt-6 font-sans text-card-title font-medium text-white">
+                  Ready for Image
+                </h2>
+                <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
+                  Max 10MB (JPEG, PNG, WebP).
+                </p>
+                
+                {errorMsg && (
+                  <p className="mt-4 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">
+                    {errorMsg}
                   </p>
+                )}
+              </div>
+            </ScanFrame>
+          </div>
+          
+          <div className="shrink-0 py-4 mt-auto">
+            <Button
+              size="lg"
+              chevron
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full"
+              variant="light"
+            >
+              Select Image
+            </Button>
+            <input
+              type="file"
+              accept="image/jpeg, image/png, image/webp"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+          </div>
+        </ScreenBody>
+      )}
 
-                  <div className="mt-8 w-full max-w-[240px]">
-                    <Button
-                      size="lg"
-                      chevron
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full"
-                    >
-                      Select Image
-                    </Button>
-                    <input
-                      type="file"
-                      accept="image/jpeg, image/png, image/webp"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleFileUpload}
-                    />
-                  </div>
-
-                  {errorMsg && (
-                    <p className="mt-6 font-mono text-body-sm uppercase tracking-[0.03em] text-coral-600">
-                      {errorMsg}
-                    </p>
-                  )}
+      {gameState === 'detecting' && (
+        <ScreenBody>
+          <div className="shrink-0 py-4">
+            <EyebrowTag tone="cyan">Analysis Active</EyebrowTag>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Scanning Payload</h1>
+          </div>
+          
+          <div className="flex-1 min-h-0 flex flex-col relative mt-2">
+            <ScanFrame id={`ANALYSIS-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone="cyan">
+              <div className="flex-1 min-h-0 relative flex flex-col items-center justify-center overflow-hidden bg-ink-900">
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Upload"
+                    className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-luminosity grayscale"
+                  />
+                )}
+                <div className="relative z-10 flex flex-col items-center gap-4">
+                  <LiveDot label="Analysis Active" />
+                  <h2 className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-cyan-500">
+                    Extracting Vectors
+                  </h2>
                 </div>
-              </ScanFrame>
+              </div>
+            </ScanFrame>
+          </div>
+          
+          <div className="shrink-0 py-4 mt-auto">
+            <div className="h-[60px] flex items-center justify-center border border-ink-800 bg-ink-900/50">
+              <span className="font-mono text-eyebrow-micro uppercase text-[var(--text-on-dark-muted)] animate-pulse">
+                Processing...
+              </span>
             </div>
-          )}
+          </div>
+        </ScreenBody>
+      )}
 
-          {gameState === 'detecting' && (
-            <div className="flex flex-col gap-6">
-              <SectionHeader
-                eyebrow="Analysis in Progress"
-                title="Scanning Payload"
-                clause="Extracting feature vectors and running heuristics."
-              />
-              <ScanFrame id={`ANALYSIS-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone="cyan">
-                <div className="relative flex min-h-[460px] flex-col items-center justify-center overflow-hidden bg-ink-900 p-12 text-center">
+      {gameState === 'reveal' && verdict && (
+        <ScreenBody>
+          <div className="shrink-0 py-4 flex items-end justify-between">
+            <div>
+              <EyebrowTag tone={revealTone}>Analysis Complete</EyebrowTag>
+              <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
+            </div>
+            <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] text-right pb-1">
+              CONF: {(verdict.confidence * 100).toFixed(1)}%
+            </div>
+          </div>
+          
+          <div className="flex-1 min-h-0 flex flex-col relative mt-2">
+            <ScanFrame id={`VERDICT-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone={revealTone}>
+              <div className="flex-1 min-h-0 flex flex-col bg-ink-900">
+                <div className="relative shrink-0 h-[35%] min-h-[140px] border-b border-ink-800 overflow-hidden">
                   {imagePreview && (
-                    <img
-                      src={imagePreview}
-                      alt="Upload"
-                      className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-luminosity grayscale"
-                    />
+                    <img src={imagePreview} alt="Upload" className="h-full w-full object-cover opacity-60" />
                   )}
 
-                  <div className="relative z-10 flex flex-col items-center gap-6">
-                    <LiveDot label="Analysis Active" />
-                    <h2 className="font-mono text-display-md font-medium uppercase tracking-[0.03em] text-cyan-500">
-                      Extracting Feature Vectors
-                    </h2>
-                  </div>
-                </div>
-              </ScanFrame>
-            </div>
-          )}
+                  {isRevealFinished &&
+                    verdict.heatmapRegions.map((box, i) => (
+                      <div
+                        key={i}
+                        className="absolute animate-resolve-in border border-coral-600"
+                        style={{
+                          left: `${box.x * 100}%`,
+                          top: `${box.y * 100}%`,
+                          width: `${box.w * 100}%`,
+                          height: `${box.h * 100}%`,
+                          backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.4})`,
+                        }}
+                      />
+                    ))}
 
-          {gameState === 'reveal' && verdict && (
-            <div className="flex flex-col gap-6">
-              <SectionHeader
-                eyebrow="Analysis Complete"
-                title="Detector Verdict"
-                clause="Reviewing signal trace and confidence score."
-              />
-              <ScanFrame id={`VERDICT-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone={revealTone}>
-                <div className="flex min-h-[460px] flex-col bg-ink-900 md:flex-row">
-                  <div className="relative min-h-[300px] w-full overflow-hidden border-b border-ink-800 md:w-1/2 md:border-b-0 md:border-r">
-                    {imagePreview && (
-                      <img src={imagePreview} alt="Upload" className="h-full w-full object-cover opacity-60" />
-                    )}
-
-                    {isRevealFinished &&
-                      verdict.heatmapRegions.map((box, i) => (
-                        <div
-                          key={i}
-                          className="absolute animate-resolve-in border border-coral-600"
-                          style={{
-                            left: `${box.x * 100}%`,
-                            top: `${box.y * 100}%`,
-                            width: `${box.w * 100}%`,
-                            height: `${box.h * 100}%`,
-                            backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.4})`,
-                          }}
-                        />
-                      ))}
-
-                    {isRevealFinished && (
+                  {isRevealFinished && (
+                    <div
+                      className={cn(
+                        'absolute inset-0 flex items-center justify-center animate-fade-in',
+                        verdict.fooled ? 'bg-[rgba(193,240,170,0.15)]' : 'bg-[rgba(253,118,58,0.15)]'
+                      )}
+                    >
                       <div
                         className={cn(
-                          'absolute inset-0 flex items-center justify-center animate-fade-in',
-                          verdict.fooled ? 'bg-[rgba(193,240,170,0.15)]' : 'bg-[rgba(253,118,58,0.15)]'
+                          'border bg-russian px-6 py-3 font-mono text-display-md font-medium uppercase tracking-[0.03em]',
+                          verdict.fooled ? 'border-lime-300 text-lime-300' : 'border-coral-600 text-coral-600'
                         )}
                       >
+                        {verdict.fooled ? 'FOOLED' : 'DETECTED'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-1 min-h-0 app-scroll bg-russian">
+                  <div className="flex flex-col">
+                    {verdict.signals.map((sig, i) => {
+                      const visible = revealStep > i;
+                      const isHit = sig.verdict === 'synthetic';
+                      const isPass = sig.verdict === 'authentic';
+
+                      return (
                         <div
+                          key={i}
                           className={cn(
-                            'border bg-russian px-6 py-4 font-mono text-display-lg font-medium uppercase tracking-[0.03em]',
-                            verdict.fooled ? 'border-lime-300 text-lime-300' : 'border-coral-600 text-coral-600'
+                            'flex flex-col border-b border-ink-800 px-4 py-3 transition-[opacity,background-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                            !visible ? 'opacity-0' : 'opacity-100',
+                            visible && isHit ? 'bg-[rgba(253,118,58,0.05)]' : ''
                           )}
                         >
-                          {verdict.fooled ? 'FOOLED' : 'DETECTED'}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex w-full flex-col md:w-1/2">
-                    <div className="flex items-center justify-between border-b border-ink-800 p-5">
-                      <h3 className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-white">
-                        {verdict.detectorName || `Detector Level ${level}`}
-                      </h3>
-                      <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                        CONF: {(verdict.confidence * 100).toFixed(1)}%
-                      </span>
-                    </div>
-
-                    <div className="flex flex-1 flex-col gap-3 p-5">
-                      {verdict.signals.map((sig, i) => {
-                        const visible = revealStep > i;
-                        const isHit = sig.verdict === 'synthetic';
-                        const isPass = sig.verdict === 'authentic';
-
-                        return (
-                          <div
-                            key={i}
-                            className={cn(
-                              // Fade only: the guideline allows fades and draws,
-                              // never a positional entrance.
-                              'flex flex-col border p-4 transition-[opacity,border-color,background-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]',
-                              !visible
-                                ? 'border-transparent opacity-0'
-                                : 'opacity-100',
-                              visible && isHit
-                                ? 'border-coral-600 bg-[rgba(253,118,58,0.05)]'
-                                : visible && isPass
-                                  ? 'border-ink-800'
-                                  : 'border-ink-800 bg-russian'
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <h4
-                                className={cn(
-                                  'font-mono text-body-sm uppercase tracking-[0.03em]',
-                                  isHit
-                                    ? 'text-coral-600'
-                                    : isPass
-                                      ? 'text-lime-300'
-                                      : 'text-[var(--text-on-dark-muted)]'
-                                )}
-                              >
-                                {sig.name}
-                              </h4>
-                              <span
-                                className={cn(
-                                  'font-mono text-eyebrow-micro uppercase tracking-[0.03em]',
-                                  isHit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'
-                                )}
-                              >
-                                {(sig.score * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            {isRevealFinished && isHit && SIGNAL_DESCRIPTIONS[sig.name] && (
-                              <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
-                                {SIGNAL_DESCRIPTIONS[sig.name]}
-                              </p>
-                            )}
+                          <div className="flex items-start justify-between gap-4">
+                            <span
+                              className={cn(
+                                'font-mono text-eyebrow-micro uppercase tracking-[0.03em]',
+                                isHit ? 'text-coral-600' : isPass ? 'text-lime-300' : 'text-[var(--text-on-dark-muted)]'
+                              )}
+                            >
+                              {sig.name}
+                            </span>
+                            <span
+                              className={cn(
+                                'font-mono text-eyebrow-micro uppercase tracking-[0.03em] shrink-0',
+                                isHit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'
+                              )}
+                            >
+                              {(sig.score * 100).toFixed(0)}%
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
+                          {isRevealFinished && isHit && SIGNAL_DESCRIPTIONS[sig.name] && (
+                            <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">
+                              {SIGNAL_DESCRIPTIONS[sig.name]}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </ScanFrame>
-            </div>
-          )}
-
-          {gameState === 'decision' && (
-            <div className="flex flex-col gap-6">
-              <SectionHeader
-                eyebrow="Analysis Complete"
-                title={`Level ${level} Bypassed`}
-                clause={`${winPoints} points secured.`}
-              />
-
-              <Card surface="ink" className="p-8 md:p-12">
-                <h2 className="font-mono text-body-lg uppercase tracking-[0.03em] text-white">
-                  Next Step
-                </h2>
-                <p className="mt-3 max-w-[46ch] text-body-md text-[var(--text-on-dark-muted)]">
-                  You can walk away with your secured points, or risk them against a stricter
-                  detector. If caught, you drop to the lowest baseline.
-                </p>
-
-                <div className="mt-12 flex flex-col gap-4 sm:flex-row">
-                  <Button size="lg" chevron onClick={handleContinue}>
-                    Risk Level {level + 1}
-                  </Button>
-                  <Button size="lg" variant="secondary" onClick={handleQuit}>
-                    Take {winPoints} Pts
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          )}
-        </div>
-
-        <div className="flex w-full flex-col md:w-[280px]">
-          <GameSidebar level={level} state={gameState} />
-        </div>
-      </div>
-    </Layout>
-  );
-}
-
-function GameSidebar({ level, state }: { level: number; state: GameState }) {
-  const rungs = [
-    { pts: 75, label: 'Level 3 Clear' },
-    { pts: 60, label: 'Level 2 Clear' },
-    { pts: 40, label: 'Level 1 Clear' },
-    { pts: 15, label: 'Caught (No Bank)' },
-  ];
-
-  let achievedPts = 0;
-  let targetPts = 0;
-
-  if (state === 'uploading' || state === 'detecting') {
-    achievedPts = level === 1 ? 0 : level === 2 ? 40 : 60;
-    targetPts = level === 1 ? 40 : level === 2 ? 60 : 75;
-  } else if (state === 'reveal') {
-    achievedPts = level === 1 ? 0 : level === 2 ? 40 : 60;
-    targetPts = level === 1 ? 40 : level === 2 ? 60 : 75;
-  } else if (state === 'decision') {
-    achievedPts = level === 1 ? 40 : level === 2 ? 60 : 75;
-  }
-
-  return (
-    <div className="flex w-full flex-col">
-      <EyebrowTag tone="muted">Prize Ladder</EyebrowTag>
-      <div className="mt-4 flex flex-col gap-px border border-ink-800 bg-ink-800 p-px">
-        {rungs.map((rung) => {
-          const isAchieved = achievedPts >= rung.pts;
-          const isTarget = targetPts === rung.pts;
-
-          return (
-            <div
-              key={rung.pts}
-              className={cn(
-                'flex items-center justify-between px-5 py-4 transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)]',
-                isAchieved
-                  ? 'bg-violet-700 text-white'
-                  : isTarget
-                    ? 'border-l-[3px] border-violet-700 bg-ink-900 text-white'
-                    : 'bg-russian text-[var(--text-on-dark-muted)]'
-              )}
-            >
-              <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em]">
-                {rung.label}
+              </div>
+            </ScanFrame>
+          </div>
+          
+          <div className="shrink-0 py-4 mt-auto">
+            <div className="h-[60px] flex items-center justify-center border border-ink-800 bg-ink-900/50">
+              <span className={cn('font-mono text-eyebrow-micro uppercase tracking-[0.03em]', isRevealFinished ? (verdict.fooled ? 'text-lime-300' : 'text-coral-600') : 'text-[var(--text-on-dark-muted)] animate-pulse')}>
+                {isRevealFinished ? (verdict.fooled ? 'System Bypassed' : 'Threat Blocked') : 'Reviewing Traces...'}
               </span>
-              <span className="font-mono text-body-sm tabular-nums">{rung.pts}</span>
             </div>
-          );
-        })}
-      </div>
-    </div>
+          </div>
+        </ScreenBody>
+      )}
+
+      {gameState === 'decision' && (
+        <ScreenBody>
+          <div className="shrink-0 pt-4">
+            <EyebrowTag tone="violet">Level {level} Bypassed</EyebrowTag>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Next Step</h1>
+            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
+              Take your {winPoints} points, or risk them against a stricter detector. If caught, you drop to the lowest baseline.
+            </p>
+          </div>
+
+          <div className="flex-1 min-h-0 flex flex-col justify-center py-6">
+            <div className="stagger-in flex flex-col gap-px border border-ink-800 bg-ink-800 p-px">
+              {[
+                { pts: 75, label: 'Level 3 Clear' },
+                { pts: 60, label: 'Level 2 Clear' },
+                { pts: 40, label: 'Level 1 Clear' },
+                { pts: 15, label: 'Caught (No Bank)' },
+              ].map((rung) => {
+                const isAchieved = winPoints >= rung.pts;
+                const isTarget = (level === 1 ? 60 : 75) === rung.pts;
+
+                return (
+                  <div
+                    key={rung.pts}
+                    className={cn(
+                      'flex items-center justify-between px-4 py-3 transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                      isAchieved
+                        ? 'bg-violet-700 text-white'
+                        : isTarget
+                          ? 'border-l-[3px] border-violet-700 bg-ink-900 text-white'
+                          : 'bg-russian text-[var(--text-on-dark-muted)]'
+                    )}
+                  >
+                    <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em]">
+                      {rung.label}
+                    </span>
+                    <span className="font-mono text-body-sm tabular-nums">
+                      {rung.pts}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="shrink-0 py-4 flex flex-col gap-3 mt-auto">
+            <Button size="lg" chevron onClick={handleContinue} className="w-full" variant="light">
+              Risk Level {level + 1}
+            </Button>
+            <Button size="lg" variant="outline" onClick={handleQuit} className="w-full">
+              Take {winPoints} Pts
+            </Button>
+          </div>
+        </ScreenBody>
+      )}
+    </Layout>
   );
 }
