@@ -5,7 +5,9 @@ import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
-import { CASES, PRIMER, BONUS, DetectiveCase } from '@/data/detective';
+import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
+import { GameEndScreen } from '@/components/game-end-screen';
+import { fetchDetectiveCasePack } from '@/lib/gamePack';
 import { v4 as uuidv4 } from 'uuid';
 import { Maximize, AlertCircle, MapPin, Fingerprint, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,12 +44,24 @@ export default function FraudDetective() {
     if (!runIdRef.current) runIdRef.current = uuidv4();
   }, []);
 
+  // Load a server-randomised case pack at game start.
+  const [casePack, setCasePack] = useState<DetectiveCase[] | null>(null);
+  useEffect(() => {
+    fetchDetectiveCasePack().then(cases => {
+      // Re-number cases 1–5 so the progress counter stays consistent.
+      const reordered = cases.map((c, i) => ({ ...c, order: i + 1 }));
+      setCasePack(reordered);
+    });
+  }, []);
+
+  const activeCases = casePack ?? CASES;
+
   const [caseScore, setCaseScore] = useState(0);
   const [bonusScore, setBonusScore] = useState(0);
   const [caseResults, setCaseResults] = useState<any[]>([]);
 
   // Current case state
-  const currentCase = CASES[caseIndex];
+  const currentCase = activeCases[caseIndex];
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -202,7 +216,7 @@ export default function FraudDetective() {
   };
 
   const handleNextCase = () => {
-    if (caseIndex + 1 < CASES.length) {
+    if (caseIndex + 1 < activeCases.length) {
       setCaseIndex(i => i + 1);
     } else {
       setGameState('bonus');
@@ -669,45 +683,18 @@ export default function FraudDetective() {
   }
 
   // gameover
-  if (!finalResult) return null;
+  if (gameState === 'gameover') {
+    if (!finalResult) return null;
+    return (
+      <GameEndScreen
+        currentGame="fraud_detective"
+        points={finalResult.pointsRecorded}
+        standing={finalResult.standing}
+        isPersonalBest={finalResult.isPersonalBest}
+        onPlayAgain={() => window.location.reload()}
+      />
+    );
+  }
 
-  return (
-    <Layout title="Debrief">
-      <ScreenBody className="pt-3 pb-safe">
-        <div className="flex min-h-0 flex-1 app-scroll flex-col border border-ink-800 bg-ink-900 p-4">
-          <EyebrowTag>Briefing Complete</EyebrowTag>
-          <h1 className="mt-3 font-sans text-display-xl font-normal text-white">Run Complete</h1>
-          
-          <div className="mt-8 flex flex-col items-center justify-center">
-            <StatReadout value={finalResult.pointsRecorded} caption="Points" size="lg" tone="on-dark" />
-          </div>
-
-          {finalResult.standing && (
-            <p className="mt-6 text-center font-mono text-body-sm text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
-              Global Rank <strong className="text-white">#{finalResult.standing.rank}</strong>
-              {finalResult.isPersonalBest && <span className="ml-2 text-violet-500 font-medium">Personal Best</span>}
-            </p>
-          )}
-
-          <div className="mt-8 w-full border-t border-ink-800 pt-6">
-            <h4 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">The Real Point</h4>
-            <p className="mt-3 text-body-md text-[var(--text-on-dark-muted)] leading-snug">{BONUS.payoff}</p>
-            <div className="mt-4 flex items-start gap-3 border border-violet-700 p-4 bg-russian">
-              <Fingerprint className="size-4 shrink-0 text-violet-500 mt-0.5" strokeWidth={1.5} />
-              <span className="font-sans text-body-sm text-white leading-snug">{BONUS.hook}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="shrink-0 pt-4 flex flex-col gap-3">
-          <Button size="lg" onClick={() => window.location.reload()} className="w-full" chevron>
-            Play again
-          </Button>
-          <Button size="lg" variant="secondary" onClick={() => setLocation('/')} className="w-full">
-            Back to booth
-          </Button>
-        </div>
-      </ScreenBody>
-    </Layout>
-  );
+  return null;
 }

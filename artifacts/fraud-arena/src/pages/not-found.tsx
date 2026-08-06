@@ -5,7 +5,7 @@ import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 
 export default function NotFound() {
   return (
-    <Layout showHeader={false} showTabs>
+    <Layout showHeader={false}>
       <div className="flex min-h-0 flex-1 flex-col justify-center">
         <EyebrowTag tone="coral">Signal Lost</EyebrowTag>
         <h1 className="mt-4 font-sans text-display-2xl font-normal text-white">

@@ -6,3 +6,4 @@
 - [tailwind-merge vs custom --text-* tokens](tailwind-merge-custom-text-tokens.md) — custom font-size names evict text colours through cn(), giving white-on-white buttons that typecheck and grep clean.
 - [Fitting force graphs on phones](force-graph-phone-fit.md) — scale the SVG viewBox, not the node positions; compressing positions packs fixed-size node boxes into each other.
 - [Fitting a whole app to one screen](no-scroll-token-clamping.md) — clamp the type and spacing tokens in cqi and the existing call sites become phone-sized for free.
+- [Question bank and case bank architecture](question-bank-architecture.md) — 140 Spot questions (quiz.ts + quiz-batch-b.ts), 52 Detective cases, DB tables exist but empty (fallback is local random). GameEndScreen and PlayerGate are shared components.

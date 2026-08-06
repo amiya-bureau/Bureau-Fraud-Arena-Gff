@@ -166,33 +166,33 @@
   --text-display-lg--line-height: 100%;
   --text-display-lg--letter-spacing: -0.02em;
 
-  --text-card-title: clamp(17px, 4.4cqi, 24px);
+  --text-card-title: clamp(18px, 4.6cqi, 24px);
   --text-card-title--line-height: 110%;
   --text-card-title--letter-spacing: -0.02em;
 
-  --text-lede: clamp(15px, 4cqi, 21px);
+  --text-lede: clamp(16px, 4.2cqi, 21px);
   --text-lede--line-height: 1.4;
 
-  --text-display-md: clamp(15px, 3.9cqi, 20px);
+  --text-display-md: clamp(16px, 4cqi, 20px);
   --text-display-md--line-height: 110%;
   --text-display-md--letter-spacing: -0.02em;
 
-  --text-body-lede: clamp(15px, 3.9cqi, 20px);
+  --text-body-lede: clamp(16px, 4cqi, 20px);
   --text-body-lede--line-height: 1.4;
 
-  --text-caption: clamp(14px, 3.7cqi, 20px);
+  --text-caption: clamp(15px, 3.8cqi, 20px);
 
-  --text-body-lg: clamp(15px, 3.7cqi, 18px);
+  --text-body-lg: clamp(16px, 4cqi, 18px);
   --text-body-lg--line-height: 140%;
 
-  --text-body-md: clamp(14px, 3.5cqi, 16px);
+  --text-body-md: clamp(15px, 3.7cqi, 17px);
   --text-body-md--line-height: 140%;
 
-  --text-body-sm: 14px;
+  --text-body-sm: 15px;
   --text-body-sm--line-height: 140%;
 
   /* Mono labels: always uppercase, weight 500, tracking 0.03em. */
-  --text-eyebrow: clamp(14px, 3.4cqi, 16px);
+  --text-eyebrow: clamp(14px, 3.5cqi, 16px);
   --text-eyebrow--line-height: 100%;
   --text-eyebrow--letter-spacing: 0.03em;
 

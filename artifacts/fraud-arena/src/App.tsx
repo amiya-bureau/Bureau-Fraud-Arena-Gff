@@ -5,6 +5,7 @@ import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
 import { useEffect, useState } from 'react';
+import { PlayerGate } from '@/components/player-gate';
 
 import Home from '@/pages/home';
 import Join from '@/pages/join';
@@ -16,23 +17,60 @@ import Admin from '@/pages/admin';
 
 const queryClient = new QueryClient();
 
-// Auth guard wrapper for games
-function ProtectedRoute({ component: Component, path }: { component: any, path: string }) {
-  const { session } = usePlayerSession();
+const GAME_LABELS: Record<string, string> = {
+  '/spot-the-fraud': 'Spot the Fraud',
+  '/spoof-the-system': 'Spoof the System',
+  '/fraud-detective': 'Fraud Detective',
+};
+
+/**
+ * Route guard for the three games.
+ *
+ * Three states:
+ * 1. No session → redirect to /join with a return path (registration gate).
+ * 2. Session exists, not yet confirmed for this route → show PlayerGate
+ *    ("Continue as [name] / New Player").
+ * 3. Session confirmed → render the game component.
+ *
+ * The confirmation is per-navigation: if the player leaves the game and comes
+ * back, they see the gate again. This is intentional — it keeps the handoff
+ * between booth visitors explicit rather than silent.
+ */
+function ProtectedRoute({ component: Component, path }: { component: any; path: string }) {
+  const { session, clearSession } = usePlayerSession();
   const [, setLocation] = useLocation();
   const [mounted, setMounted] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
+  // No session after mount → go to registration
   useEffect(() => {
     if (mounted && !session) {
-      setLocation(`/join?return=${path}`);
+      setConfirmed(false);
+      setLocation(`/join?return=${encodeURIComponent(path)}`, { replace: true });
     }
   }, [session, setLocation, mounted, path]);
 
-  if (!mounted || !session) return null;
+  if (!mounted) return null;
+  if (!session) return null;
+
+  // Session exists but not confirmed for this visit → show the gate
+  if (!confirmed) {
+    return (
+      <PlayerGate
+        firstName={session.player.firstName}
+        company={session.player.company}
+        gameName={GAME_LABELS[path] ?? 'the game'}
+        onContinue={() => setConfirmed(true)}
+        onNewPlayer={() => {
+          clearSession();
+          setLocation(`/join?return=${encodeURIComponent(path)}`, { replace: true });
+        }}
+      />
+    );
+  }
+
   return <Component />;
 }
 
@@ -44,12 +82,10 @@ function ProtectedRoute({ component: Component, path }: { component: any, path: 
  */
 function LegacyPrefixRedirect() {
   const [location, setLocation] = useLocation();
-
   useEffect(() => {
     const forwarded = location.replace(/^\/fraud-arena(?=\/|$)/, '') || '/';
     setLocation(forwarded, { replace: true });
   }, [location, setLocation]);
-
   return null;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,20 +12,12 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  useRegisterPlayer,
-  useGetPlayerStanding,
-  getGetPlayerStandingQueryKey,
-  PlayerInput,
-  GameKey,
-} from '@workspace/api-client-react';
+import { useRegisterPlayer, PlayerInput } from '@workspace/api-client-react';
 import { usePlayerSession } from '@/lib/store';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut } from 'lucide-react';
 import { Layout } from '@/components/layout';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
-import { PixelChevron } from '@/components/bureau/pixel-chevron';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -40,11 +32,21 @@ const formSchema = z.object({
   }),
 });
 
-const GAME_LABELS: { key: GameKey; label: string; href: string }[] = [
-  { key: 'spot_the_fraud', label: 'Spot the Fraud', href: '/spot-the-fraud' },
-  { key: 'spoof_the_system', label: 'Spoof the System', href: '/spoof-the-system' },
-  { key: 'fraud_detective', label: 'Fraud Detective', href: '/fraud-detective' },
-];
+/**
+ * The three games, and the only destinations this screen will forward to.
+ */
+const GAME_PATHS: Record<string, string> = {
+  '/spot-the-fraud': 'Spot the Fraud',
+  '/spoof-the-system': 'Spoof the System',
+  '/fraud-detective': 'Fraud Detective',
+};
+
+/** Never forward to whatever the query string asks for — only to a known game. */
+function getReturnPath(search: string): string {
+  const raw = new URLSearchParams(search).get('return');
+  // Own keys only: `in` would accept 'constructor' and friends.
+  return raw && Object.hasOwn(GAME_PATHS, raw) ? raw : '/';
+}
 
 const BureauInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -61,114 +63,28 @@ const BureauInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes
 BureauInput.displayName = 'BureauInput';
 
 /**
- * The "You" tab.
+ * Registration.
  *
- * Two screens behind one destination: registration when there is no session,
- * and the player's own standing once there is. A tab that dead-ends on a form
- * the player already filled in would be a wasted third of the tab bar.
+ * This is not a destination of its own — it is the gate in front of the three
+ * games. Tapping a game without a session lands here, and the moment a session
+ * exists the player is forwarded into the game they were reaching for, so the
+ * form is never something anyone sees twice.
  */
 export default function Join() {
   const { session } = usePlayerSession();
-  return session ? <PlayerCard /> : <RegistrationForm />;
-}
-
-function PlayerCard() {
-  const { session, clearSession } = usePlayerSession();
   const [, setLocation] = useLocation();
-  const playerId = session?.player.id ?? '';
+  const returnPath = getReturnPath(useSearch());
 
-  const { data: standing } = useGetPlayerStanding(playerId, 'today', {
-    query: {
-      enabled: !!playerId,
-      queryKey: getGetPlayerStandingQueryKey(playerId, 'today'),
-    },
-  });
+  useEffect(() => {
+    if (session) setLocation(returnPath, { replace: true });
+  }, [session, returnPath, setLocation]);
 
-  if (!session) return null;
-
-  const played = standing?.scores.filter((s) => s.played).length ?? 0;
-
-  return (
-    <Layout title="You" showTabs>
-      {/* Identity */}
-      <div className="shrink-0 pt-4">
-        <EyebrowTag>Registered</EyebrowTag>
-        <h1 className="mt-3 font-sans text-display-lg font-normal text-white">
-          {session.player.firstName}
-        </h1>
-        <p className="mt-1 font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-          {session.player.company}
-        </p>
-      </div>
-
-      {/* The two numbers that matter, stated bare. */}
-      <div className="mt-4 flex shrink-0 gap-px bg-ink-800">
-        <div className="flex-1 bg-russian py-3">
-          <div className="font-sans text-display-lg font-medium tabular-nums text-white">
-            {standing?.total ?? 0}
-          </div>
-          <div className="mt-1 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-            Points today
-          </div>
-        </div>
-        <div className="flex-1 bg-russian py-3 pl-3">
-          <div className="font-sans text-display-lg font-medium tabular-nums text-white">
-            {standing?.rank ?? '—'}
-          </div>
-          <div className="mt-1 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-            Rank
-          </div>
-        </div>
-      </div>
-
-      {/* Per-game progress: each row is also the way back into that game. */}
-      <div className="stagger-in mt-4 flex min-h-0 flex-1 flex-col border-t border-ink-800">
-        {GAME_LABELS.map(({ key, label, href }) => {
-          const score = standing?.scores.find((s) => s.game === key);
-          return (
-            <button
-              key={key}
-              onClick={() => setLocation(href)}
-              className="tap flex min-h-[44px] flex-1 items-center gap-3 border-b border-ink-800 text-left"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-sans text-body-md font-medium text-white">
-                  {label}
-                </div>
-                <div className="mt-0.5 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-                  {score?.played ? `${score.points} of ${score.cap} points` : 'Not played'}
-                </div>
-              </div>
-              <PixelChevron className="shrink-0 text-violet-500" />
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="shrink-0 py-3">
-        <p className="mb-2 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-          {played} of 3 games played
-        </p>
-        <Button
-          variant="outline"
-          size="default"
-          onClick={() => {
-            clearSession();
-            setLocation('/');
-          }}
-          className="w-full"
-        >
-          <LogOut className="size-4" strokeWidth={1.5} />
-          End session
-        </Button>
-      </div>
-    </Layout>
-  );
+  if (session) return null;
+  return <RegistrationForm gameLabel={GAME_PATHS[returnPath]} />;
 }
 
-function RegistrationForm() {
+function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
   const { saveSession } = usePlayerSession();
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const registerMutation = useRegisterPlayer();
   const [noWorkEmail, setNoWorkEmail] = useState(false);
@@ -201,10 +117,9 @@ function RegistrationForm() {
 
     registerMutation.mutate({ data: payload }, {
       onSuccess: (sessionData) => {
+        // Saving the session is what moves the player on: the gate above
+        // forwards as soon as one exists.
         saveSession(sessionData);
-        // Extract return path from query params, or go to home
-        const searchParams = new URLSearchParams(window.location.search);
-        const returnPath = searchParams.get('return') || '/';
 
         if (sessionData.returning) {
           toast({
@@ -212,8 +127,6 @@ function RegistrationForm() {
             description: "We've attached this run to your existing profile.",
           });
         }
-
-        setLocation(returnPath);
       },
       onError: () => {
         toast({
@@ -226,12 +139,10 @@ function RegistrationForm() {
   };
 
   return (
-    <Layout title="Registration" showTabs>
+    <Layout title="Registration" back="/">
       <div className="shrink-0 pt-4">
-        <h1 className="font-sans text-display-lg font-normal text-white">Join the Arena.</h1>
-        <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
-          Scores are added to the live leaderboard.
-        </p>
+        {gameLabel ? <EyebrowTag>Entering {gameLabel}</EyebrowTag> : null}
+        <h1 className="mt-3 font-sans text-display-lg font-normal text-white">Join the Arena.</h1>
       </div>
 
       <Form {...form}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
 import { Layout } from '@/components/layout';
@@ -6,6 +6,8 @@ import { RulesScreen } from '@/components/rules-screen';
 import { QrPanel } from '@/components/qr-panel';
 import { Button } from '@/components/ui/button';
 import { LEVELS, QUESTIONS, BUREAU_QUESTIONS, Level, Question, BureauQuestion } from '@/data/quiz';
+import { GameEndScreen } from '@/components/game-end-screen';
+import { fetchQuizGamePack } from '@/lib/gamePack';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ShieldAlert, ScanEye } from 'lucide-react';
@@ -13,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { StatReadout } from '@/components/bureau/stat-readout';
 import { IconTile } from '@/components/bureau/icon-tile';
+
 
 // We shuffle options but keep track of their original 1-based index
 interface ShuffledOption {
@@ -41,6 +44,12 @@ export default function SpotTheFraud() {
     }
   }, []);
 
+  // Load a server-randomised question pack at game start.
+  const [gamePack, setGamePack] = useState<Question[] | null>(null);
+  useEffect(() => {
+    fetchQuizGamePack().then(setGamePack);
+  }, []);
+
   const [score, setScore] = useState(0);
   const [bureauSeen, setBureauSeen] = useState(false);
   const [fiftyFifty, setFiftyFifty] = useState<'locked' | 'available' | 'used'>('locked');
@@ -48,8 +57,11 @@ export default function SpotTheFraud() {
   // Current question data
   const currentLevel = LEVELS[levelIndex];
   
-  // Pick a random question for this level
-  const questionPool = useMemo(() => QUESTIONS.filter(q => q.level === currentLevel?.level), [currentLevel]);
+  // Use the server pack if available, otherwise fall back to local QUESTIONS.
+  const questionPool = useMemo(() => {
+    const source = gamePack ?? QUESTIONS;
+    return source.filter(q => q.level === currentLevel?.level);
+  }, [gamePack, currentLevel]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [shuffledOptions, setShuffledOptions] = useState<ShuffledOption[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
@@ -466,62 +478,14 @@ export default function SpotTheFraud() {
 
   if (gameState === 'gameover') {
     if (!finalResult) return null;
-    
     return (
-      <Layout title="Spot the Fraud" back="/">
-        <div className="flex min-h-0 flex-1 flex-col pt-6 pb-4 text-center">
-          <div className="shrink-0 flex justify-center">
-            <EyebrowTag tone="cyan">Run Complete</EyebrowTag>
-          </div>
-          
-          <div className="mt-6 shrink-0 flex justify-center">
-            <StatReadout 
-              value={finalResult.pointsRecorded.toString()} 
-              caption="Total Points" 
-              tone="on-dark" 
-              size="md" 
-            />
-          </div>
-
-          <div className="mt-8 flex-1 min-h-0 flex flex-col items-center border-t border-ink-800 pt-8">
-            <div className="flex gap-8 text-left">
-              <div className="flex flex-col gap-1">
-                <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                  Levels Cleared
-                </span>
-                <span className="font-sans text-display-md text-white">
-                  {cleared.length}
-                </span>
-              </div>
-              
-              {finalResult.standing && (
-                <div className="flex flex-col gap-1 border-l border-ink-800 pl-8">
-                  <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                    Global Rank
-                  </span>
-                  <span className="font-sans text-display-md text-white">
-                    {finalResult.standing.rank}
-                    {finalResult.isPersonalBest && (
-                      <span className="ml-2 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">
-                        PB
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="shrink-0 flex flex-col gap-3">
-            <Button variant="light" size="lg" chevron onClick={() => window.location.reload()} className="w-full">
-              Play again
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => setLocation('/')} className="w-full">
-              Return to booth
-            </Button>
-          </div>
-        </div>
-      </Layout>
+      <GameEndScreen
+        currentGame="spot_the_fraud"
+        points={finalResult.pointsRecorded}
+        standing={finalResult.standing}
+        isPersonalBest={finalResult.isPersonalBest}
+        onPlayAgain={() => window.location.reload()}
+      />
     );
   }
 
@@ -543,25 +507,21 @@ export default function SpotTheFraud() {
       <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
         
         {/* Header HUD */}
-        <div className="shrink-0 flex flex-col gap-3 border-b border-ink-800 pb-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <EyebrowTag>{currentLevel.label}</EyebrowTag>
-              <span className="font-mono text-eyebrow-micro font-medium text-violet-500 uppercase tracking-[0.03em]">
-                {currentQuestion?.scope}
-              </span>
-            </div>
-            <div className="font-mono text-eyebrow-micro tabular-nums text-white uppercase tracking-[0.03em]">
-              Score <span className="text-violet-500">{score}</span>
-            </div>
-          </div>
-          
+        <div className="shrink-0 flex flex-col gap-2 border-b border-ink-800 pb-3">
+          {/* Level + score row */}
           <div className="flex items-center justify-between">
-            {/* Progress Bar - Discrete Cells */}
-            <div className="flex h-1.5 w-32 gap-px bg-ink-800 p-px">
+            <EyebrowTag>{currentLevel.label}</EyebrowTag>
+            <span className="font-mono text-eyebrow-micro tabular-nums text-white uppercase tracking-[0.03em]">
+              Score <span className="text-violet-500">{score}</span>
+            </span>
+          </div>
+
+          {/* Progress + lifelines row */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex h-2 flex-1 gap-px bg-ink-800 p-px">
               {LEVELS.map((_, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={cn(
                     "h-full flex-1 transition-colors duration-[var(--dur-base)]",
                     i === levelIndex ? "bg-cyan-500" : i < levelIndex ? "bg-violet-700" : "bg-ink-900"
@@ -569,23 +529,20 @@ export default function SpotTheFraud() {
                 />
               ))}
             </div>
-
-            {/* Lifelines */}
-            <div className="flex border border-ink-800">
+            <div className="flex shrink-0 border border-ink-800">
               {currentLevel.skip && (
-                <button 
-                  className="tap px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] transition-colors duration-[var(--dur-base)] hover:bg-ink-900 hover:text-white"
+                <button
+                  className="tap px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] hover:bg-ink-900 hover:text-white"
                   onClick={handleSkip}
                 >
                   Skip
                 </button>
               )}
-              
-              <button 
+              <button
                 className={cn(
-                  "tap border-l border-ink-800 px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] transition-colors duration-[var(--dur-base)]",
+                  "tap border-l border-ink-800 px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em]",
                   fiftyFifty === 'locked' && "text-[var(--text-on-dark-faint)]",
-                  fiftyFifty === 'used' && "text-[var(--text-on-dark-faint)]",
+                  fiftyFifty === 'used'   && "text-[var(--text-on-dark-faint)]",
                   fiftyFifty === 'available' && "text-violet-500 hover:bg-ink-900 hover:text-white"
                 )}
                 disabled={fiftyFifty !== 'available' || !currentLevel.fiftyFifty}
@@ -599,60 +556,62 @@ export default function SpotTheFraud() {
 
         {/* Question Area */}
         {currentQuestion && (
-          <div className="flex-1 min-h-0 flex flex-col py-3">
-            <h2 className="shrink-0 font-sans text-body-lg text-white">
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* Stem */}
+            <h2 className="shrink-0 pt-4 font-sans text-card-title font-medium leading-snug text-white">
               {currentQuestion.stem}
             </h2>
-            
+
             {currentQuestion.selectN > 1 && (
-              <div className="shrink-0 mt-1 font-mono text-eyebrow-micro font-medium text-violet-500 uppercase tracking-[0.03em]">
-                Select {currentQuestion.selectN} options
-              </div>
+              <p className="mt-2 shrink-0 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-violet-500">
+                Select {currentQuestion.selectN}
+              </p>
             )}
 
-            <div className="mt-3 flex-1 min-h-0 flex flex-col gap-1.5 stagger-in app-scroll pr-1">
+            {/* Options — naturally-sized cards, scrollable if they overflow */}
+            <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5 stagger-in">
               {shuffledOptions.map((opt, i) => {
                 if (opt.removed) return null;
                 const isSelected = selectedIndices.includes(opt.originalIndex);
-                
                 return (
                   <button
                     key={i}
                     onClick={() => toggleOption(opt.originalIndex)}
                     className={cn(
-                      "tap group flex flex-1 min-h-[44px] items-center gap-3 border p-3 text-left transition-colors duration-[var(--dur-base)]",
-                      isSelected ? "border-violet-700 bg-[rgba(71,21,255,0.05)]" : "border-ink-800 bg-ink-900 hover:border-violet-700"
+                      "tap group flex w-full shrink-0 items-center gap-3 border px-4 py-3.5 text-left transition-colors duration-[var(--dur-base)]",
+                      isSelected
+                        ? "border-violet-700 bg-[rgba(71,21,255,0.08)]"
+                        : "border-ink-800 bg-ink-900 hover:border-violet-700"
                     )}
                   >
-                    <div className={cn(
-                      "font-mono text-eyebrow-micro font-medium tabular-nums",
+                    <span className={cn(
+                      "shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums",
                       isSelected ? "text-violet-500" : "text-[var(--text-on-dark-muted)]"
                     )}>
                       {String(opt.originalIndex).padStart(2, '0')}
-                    </div>
-                    <span className="font-sans text-body-sm text-white flex-1 min-w-0 line-clamp-3">
+                    </span>
+                    <span className="min-w-0 flex-1 font-sans text-body-md leading-snug text-white">
                       {opt.text}
                     </span>
                     {currentQuestion.kind === 'image' && (
                       <ScanEye className={cn("size-4 shrink-0", isSelected ? "text-violet-500" : "text-ink-700")} strokeWidth={1.5} />
                     )}
                     <div className="shrink-0">
-                      {isSelected ? (
-                        <div className="size-2.5 bg-violet-500" />
-                      ) : (
-                        <div className="size-2.5 border border-ink-700" />
-                      )}
+                      {isSelected
+                        ? <div className="size-3 bg-violet-500" />
+                        : <div className="size-3 border border-ink-700" />
+                      }
                     </div>
                   </button>
                 );
               })}
             </div>
-            
+
             <div className="shrink-0 pt-3">
-              <Button 
-                variant="light" 
-                size="lg" 
-                chevron 
+              <Button
+                variant="light"
+                size="lg"
+                chevron
                 disabled={selectedIndices.length !== currentQuestion.selectN}
                 onClick={handleSubmit}
                 className="w-full"

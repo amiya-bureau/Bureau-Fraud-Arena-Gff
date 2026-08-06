@@ -1,7 +1,6 @@
 import { usePlayerSession } from '@/lib/store';
 import { ChevronLeft, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
-import { TabBar } from '@/components/bureau/tab-bar';
 import { cn } from '@/lib/utils';
 
 /**
@@ -9,8 +8,8 @@ import { cn } from '@/lib/utils';
  *
  * The arena is played on a handset at a booth, so the whole app is a fixed
  * 9:16 column that never scrolls: the shell owns the viewport height and each
- * screen fits into whatever is left after the app bar and the tab bar have
- * taken their share. Screens that genuinely cannot fit — only the host's admin
+ * screen fits into whatever is left after the app bar has taken its share.
+ * Navigation is placed by the screens themselves, inline in the content. Screens that genuinely cannot fit — only the host's admin
  * panel — opt into scrolling explicitly with `scrollable`.
  *
  * On a display wider than a handset the column is centred and the surrounding
@@ -24,7 +23,6 @@ export function Layout({
   title,
   back,
   headerRight,
-  showTabs = false,
   scrollable = false,
 }: {
   children: React.ReactNode;
@@ -36,8 +34,6 @@ export function Layout({
   back?: string | (() => void);
   /** Trailing app-bar slot — a timer, a counter, a step readout. */
   headerRight?: React.ReactNode;
-  /** Top-level destinations show the tab bar; flows and games do not. */
-  showTabs?: boolean;
   /** Escape hatch from the no-scroll rule. The admin panel is the only user. */
   scrollable?: boolean;
 }) {
@@ -104,14 +100,12 @@ export function Layout({
         <main
           key={location}
           className={cn(
-            'screen-in app-screen relative z-10 w-full px-4',
+            'screen-in app-screen pb-safe relative z-10 w-full px-4',
             scrollable && 'app-scroll',
           )}
         >
           {children}
         </main>
-
-        {showTabs && <TabBar />}
       </div>
     </div>
   );

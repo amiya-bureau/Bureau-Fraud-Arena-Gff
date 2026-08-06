@@ -27,7 +27,7 @@ export interface Question {
   stem: string; options: string[]; correct: number[]; why: string; hook: string;
 }
 
-export const QUESTIONS: Question[] = [
+const QUESTIONS_A: Question[] = [
   { id: "SF-A-L01-01", level: 1, scope: "Consumer scam", kind: 'text', selectN: 1,
     stem: "An SMS arrives: \"Your electricity connection will be disconnected tonight. Call 9XXXXXXXXX immediately.\" What is this most likely to be?",
     options: ["A genuine disconnection notice from the utility", "A scam using an artificial deadline to rush you into calling", "A message sent to the wrong number", "A promotional message from a bill-payment app"],
@@ -184,6 +184,15 @@ export interface BureauQuestion {
   id: string; stem: string; options: string[]; correct: number[]; why: string; host: string;
 }
 
+// Batch B — 110 additional questions (Indian fintech context, all 10 levels)
+import { BATCH_B_QUESTIONS } from './quiz-batch-b';
+
+// The merged bank. QUESTIONS is the canonical export consumed by the game.
+// New batches go in quiz-batch-?.ts and get spread in here.
+export const ALL_QUESTIONS: Question[] = [];
+
+// populated after BUREAU_QUESTIONS, see bottom of file
+
 // Answer is ALWAYS 'Bureau' (option index 1). Worth 0 points. Unlocks the 50:50.
 export const BUREAU_QUESTIONS: BureauQuestion[] = [
   { id: "BQ-01",
@@ -217,3 +226,6 @@ export const BUREAU_QUESTIONS: BureauQuestion[] = [
     why: "Bureau. One decision, four signal families. Stitching those together yourself is the project this replaces.",
     host: "The most 'sales' of the five - save it for visitors with a bank or lender badge." },
 ];
+
+// Merge all question batches into the canonical QUESTIONS export.
+export const QUESTIONS: Question[] = [...QUESTIONS_A, ...BATCH_B_QUESTIONS];

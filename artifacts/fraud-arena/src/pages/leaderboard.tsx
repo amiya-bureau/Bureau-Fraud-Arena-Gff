@@ -8,7 +8,8 @@ import {
 import { Layout } from '@/components/layout';
 import { usePlayerSession } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { LiveDot } from '@/components/bureau/live-dot';
+import { PrimaryNav } from '@/components/bureau/primary-nav';
+import { ArenaHeader } from '@/components/bureau/arena-header';
 
 type Tab = 'combined' | GameKey;
 
@@ -52,11 +53,10 @@ export default function LeaderboardPage() {
     leaderboard?.pinned && !rows.find((r) => r.playerId === leaderboard.pinned?.playerId);
 
   return (
-    <Layout
-      title="Leaderboard"
-      showTabs
-      headerRight={<LiveDot label="Live" className="mr-1" />}
-    >
+    <Layout showHeader={false} scrollable>
+      <ArenaHeader />
+      <PrimaryNav className="mt-4" />
+
       {/* Scope: a square segmented control, hairlines, no pills. */}
       <div className="mt-3 flex shrink-0 border border-ink-800">
         {(['today', 'cumulative'] as LeaderboardScope[]).map((s) => (
@@ -92,7 +92,7 @@ export default function LeaderboardPage() {
       </div>
 
       {/* The board is a white field floating on near-black. */}
-      <div className="stagger-in app-scroll flex min-h-0 flex-1 flex-col bg-white text-russian">
+      <div className="stagger-in mt-3 flex flex-col">
         {rows.map((row) => (
           <LeaderboardRow
             key={row.playerId}
@@ -102,7 +102,7 @@ export default function LeaderboardPage() {
         ))}
 
         {rows.length === 0 && (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2">
+          <div className="flex flex-col items-center justify-center gap-6 bg-white py-12">
             <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-faint)]">
               No scores recorded
             </p>
@@ -128,7 +128,10 @@ function LeaderboardRow({ row, isCurrentUser }: { row: any; isCurrentUser: boole
   return (
     <div
       className={cn(
-        'flex min-h-[44px] min-w-0 flex-1 items-center gap-3 border-b border-ice-300 px-3',
+        // Rows share the leftover height so a full board fills the screen,
+        // but they stop growing once they are comfortable — otherwise the
+        // first player of the day is one row stretched down the whole screen.
+        'flex min-h-[44px] max-h-[86px] min-w-0 flex-1 items-center gap-3 border-b border-ice-300 bg-white px-3 text-russian',
         isCurrentUser && 'bg-ice-100',
       )}
     >

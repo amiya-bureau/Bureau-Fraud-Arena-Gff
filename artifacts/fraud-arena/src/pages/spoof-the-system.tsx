@@ -41,6 +41,20 @@ type GameState =
   | 'gameover'
   | 'error';
 
+
+/**
+ * An inline QR code that points at the Spoof the System game.
+ * We render it with qrcode.react directly so the size tracks the container.
+ */
+import { QRCodeSVG } from 'qrcode.react';
+
+function QrCodeBlock() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const url = `${origin}${base}/spoof-the-system?src=qr`;
+  return <QRCodeSVG value={url} size={200} level="M" />;
+}
+
 export default function SpoofTheSystem() {
   const { session } = usePlayerSession();
   const [, setLocation] = useLocation();
@@ -362,7 +376,6 @@ export default function SpoofTheSystem() {
           Level {level}/3
         </span>
       }
-      showTabs={false}
     >
       {gameState === 'uploading' && (
         <ScreenBody>
@@ -378,20 +391,29 @@ export default function SpoofTheSystem() {
             {/* The frame takes the whole free column: a dropzone that stops
                 short of the CTA reads as a stray box rather than a target. */}
             <ScanFrame id={`ATTEMPT-L${level}`} tone="violet" className="flex-1 min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 text-center bg-ink-900">
-                <IconTile icon={UploadCloud} size={48} />
-                <h2 className="mt-6 font-sans text-card-title font-medium text-white">
-                  Ready for Image
-                </h2>
-                <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
-                  Max 10MB (JPEG, PNG, WebP).
-                </p>
-                
-                {errorMsg && (
-                  <p className="mt-4 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">
-                    {errorMsg}
+              {/*
+               * The frame IS the QR: scanning it opens this screen on the
+               * visitor's own phone so they can pick from their camera roll.
+               * We size the code to fill the available height so it is
+               * readable from arm's length at the booth.
+               */}
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-ink-900 px-8 py-6 text-center">
+                <div className="bg-white p-3">
+                  <QrCodeBlock />
+                </div>
+                <div>
+                  <p className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                    Scan to upload from your phone
                   </p>
-                )}
+                  <p className="mt-1 text-body-sm text-[var(--text-on-dark-faint)]">
+                    Use your camera to pick a synthetic face.
+                  </p>
+                  {errorMsg && (
+                    <p className="mt-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">
+                      {errorMsg}
+                    </p>
+                  )}
+                </div>
               </div>
             </ScanFrame>
           </div>
