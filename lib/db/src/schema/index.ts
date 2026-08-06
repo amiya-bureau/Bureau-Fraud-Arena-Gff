@@ -1,20 +1,14 @@
-// Export your models here. Add one export per file
-// export * from "./posts";
+// Export your models here. Add one export per file.
 //
-// Each model/table should ideally be split into different files.
-// Each model/table should define a Drizzle table, insert schema, and types:
+// Bureau Fraud Arena — booth games hub for Global Fintech Fest 2026.
 //
-//   import { pgTable, text, serial } from "drizzle-orm/pg-core";
-//   import { createInsertSchema } from "drizzle-zod";
-//   import { z } from "zod/v4";
-//
-//   export const postsTable = pgTable("posts", {
-//     id: serial("id").primaryKey(),
-//     title: text("title").notNull(),
-//   });
-//
-//   export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true });
-//   export type InsertPost = z.infer<typeof insertPostSchema>;
-//   export type Post = typeof postsTable.$inferSelect;
+// Two real tables carry the game data: `players` (identity, keyed on the
+// lowercased work email) and `runs` (append-only, one row per completed play).
+// Everything a leaderboard needs is derived from `runs` by the views in
+// ./leaderboard — no aggregated score is ever written to a row.
 
-export {}
+export * from "./players";
+export * from "./runs";
+export * from "./spoofUploads";
+export * from "./appSettings";
+export * from "./leaderboard";

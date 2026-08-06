@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startUploadPurge } from "./lib/uploads";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Spoof uploads carry a printed 24-hour deletion promise, so the purge runs
+  // on a timer rather than only when someone happens to hit the endpoint.
+  startUploadPurge();
 });

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Bureau Fraud Arena"
+description = "The game hub for Bureau's booth at Global Fintech Fest 2026. Hosts three fraud-detection games (Spot the Fraud, Spoof the System, Fraud Detective) behind a shared lead-capture entry form, with per-game scores, a cumulative leaderboard, QR phone play, and a host admin panel. Built for booth visitors on kiosks and their own phones."
+version = "1.0.0"
+id = "artifacts/fraud-arena"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24550
+
+[services.development]
+run = "pnpm --filter @workspace/fraud-arena run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/fraud-arena", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/fraud-arena/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24550"
+BASE_PATH = "/"

@@ -1,0 +1,730 @@
+# Replit build prompt - Bureau GFF 2026 Booth Games Hub
+
+One web app hosting three games, a shared lead-capture form, per-game scores and one cumulative leaderboard.
+
+Paste everything between the two horizontal rules into Replit Agent as your first message. It is long on purpose - Replit Agent builds far better from a complete spec than from a vague one it has to guess at. The two data blocks at the end are content, not suggestions.
+
+---
+
+Build a full-stack web app called **Bureau Fraud Arena** - the game hub for Bureau's booth at Global Fintech Fest 2026 (Booth G8, 9-11 Sep 2026, Jio World Convention Centre Mumbai). It runs on three touchscreen kiosks at the booth and on visitors' own phones via QR code.
+
+Three games, one entry form, one leaderboard. Every play is a consented sales lead, so the form is not optional decoration - it is the reason the booth exists.
+
+## Tech stack
+
+- **Next.js 14+ App Router, TypeScript, Tailwind CSS.**
+- **Replit's native SQL Database** for persistence - the Postgres one, created from the Tools dock. It auto-injects `DATABASE_URL`, so read the connection string from that env var and never hardcode credentials.
+- **Drizzle ORM** with a migration file, plus a seed script. Replit's built-in Drizzle Studio then gives the ops desk a visual table browser for free, which is genuinely useful mid-event.
+
+### Use the SQL database, not the key-value store
+
+Replit offers two native databases and only one of them works here. Use **Replit SQL Database (Postgres)**. Do **not** use **Replit DB, the key-value store**, and do not let it get substituted in as a convenient default. Three reasons, in order of how badly each one bites:
+
+1. **Concurrency.** Three kiosks and an unknown number of phones write at the same time. The leaderboard needs read-modify-write on shared aggregates, and a KV store gives no transactions, so simultaneous plays silently clobber each other's scores. On a trade-show floor that surfaces as "my score disappeared" in front of a prospect.
+2. **No aggregation.** Best-run-per-player-per-day, per-game ranks, the all-three bonus and the CSV export are all queries. In Postgres they are a view. In KV they are a full scan of every key on every leaderboard poll, every ten seconds, on venue WiFi.
+3. **Limits.** Replit DB caps at roughly 5,000 keys and 50 MiB. Players plus runs plus any index keys across a two-day event with three games will crowd that ceiling, and hitting it mid-event is unrecoverable.
+
+Also do not use SQLite (a redeploy wipes it), an in-memory store, or `localStorage` for anything that matters. A kiosk browser refresh must not cost anyone their score.
+
+Set the database up and prove `DATABASE_URL` connects **before writing any UI**. If it is missing, stop and tell me rather than falling back to another store.
+- `qrcode` npm package for QR generation, rendered server-side to a data URL.
+- No auth, no third-party analytics, no payment anything.
+
+## Data model
+
+```
+players
+  id              uuid pk
+  work_name       text not null
+  email           text not null            -- lowercased, the identity key
+  phone           text not null            -- 10-digit Indian mobile
+  company         text not null
+  consent_at      timestamptz not null     -- DPDP consent, never null
+  created_at      timestamptz default now()
+  unique(email)
+
+runs
+  id              uuid pk
+  player_id       uuid fk -> players.id
+  game            text  -- 'spot_the_fraud' | 'spoof_the_system' | 'fraud_detective'
+  points          int not null
+  detail          jsonb  -- per-game breakdown, see each game section
+  source          text  -- 'kiosk' | 'phone'
+  event_day       date  -- derived from created_at in Asia/Kolkata
+  created_at      timestamptz default now()
+
+-- Leaderboard is a VIEW, not a table. Never store aggregate scores.
+```
+
+**The one scoring rule that governs everything:** a player's score for a game is their **best single run** for that game, per day. Not their latest, not their sum. Replays are allowed and encouraged - the leaderboard just ignores the worse ones. Identity is the lowercased email, so a kiosk play and a phone play by the same person merge automatically.
+
+## Shared entry form
+
+Every game starts with the identical form. Fields, all required:
+
+- **Work name** - non-empty, at least 2 characters
+- **Work email** - valid format. Reject obvious free-mail domains (gmail, yahoo, outlook, hotmail, rediffmail, proton) with the inline message "Please use your work email" - this is a B2B booth and the lead quality matters more than the play count. Allow an override link reading "I don't have one" that accepts any valid email but flags the row.
+- **Phone** - exactly 10 digits, first digit 6-9. Strip spaces, dashes and a leading +91 before validating.
+- **Company** - non-empty
+- **DPDP consent checkbox** - unticked by default, and the consent text must be visible on screen, not hidden behind a link. Use: "I agree that Bureau may contact me about its products and store the details above. I can withdraw consent any time by writing to privacy@bureau.id." Nothing submits until this is ticked.
+
+If the email already exists, do not error and do not create a duplicate - recognise them, greet them by first name ("Welcome back, Priya"), skip straight to the rules screen, and attach the new run to the existing player.
+
+Every field needs a large touch target and the numeric keypad on phones (`inputMode="numeric"` for phone). Assume wet fingers, bad lighting and someone waiting behind them.
+
+## Rules screen - before every game, every time
+
+Each game shows a rules screen after the form and before play. Non-negotiable, and it must be skimmable in about eight seconds:
+
+- Game name and a one-line premise
+- How scoring works, with the maximum stated plainly ("Up to 100 points")
+- What ends a run
+- Lifelines or attempts available
+- A large "Start" button, and a "Show me an example" link that expands one worked example inline
+
+Also show the player's current standing if they have played before: "Your best so far: 62 pts, rank 14."
+
+## QR code on every game
+
+Every game's kiosk screen shows a QR in a persistent corner panel, plus a full-screen QR on the attract loop. Scanning it opens that game directly on the visitor's phone at `/{game}?src=qr`.
+
+A phone play is an **independent run**. The player fills the form on their phone (or is recognised by email if they already played), plays their own game, and their score merges into the same leaderboard under the same email. There is no session handoff between kiosk and phone and no pairing code - keep it stateless and simple. Tag the run `source = 'phone'` so we can report on it afterwards.
+
+Print the caption "Scan to play on your phone - your score counts the same" under every QR. Generate QRs server-side against the deployed Replit URL read from an env var, never a hardcoded localhost.
+
+---
+
+# GAME 1 - Spot the Fraud
+
+A ten-level ladder of fraud questions that get harder as you climb. Caps at **100 points**.
+
+Read `LEVELS` and `QUESTIONS` from the Spot the Fraud data block. All content is authored and DS-vetted - use it verbatim, do not write your own questions.
+
+## The ladder
+
+Points per level are 4, 5, 6, 7, 8, 10, 12, 14, 16, 18 and total exactly 100. Assert this on boot and log loudly if it ever fails.
+
+- **Levels 1-5** single answer. **Levels 6-10** multi-select, option count rising 6 to 8.
+- **Levels 3, 7, 9** are spot-the-fake image questions. The other seven are text questions about fraud - mostly network-level fraud (rings, mule chains, device farms, identity clusters), with Level 1 as an easier consumer-scam on-ramp.
+- Per-level timers come from the data (15-40 seconds). Timer expiry ends the run.
+- Clearing Level 5 earns the **Achiever** tier, clearing Level 10 earns **Master**, playing at all earns **Participation**.
+
+## Scoring
+
+Single-answer levels: correct scores the level's points and advances; wrong or timeout scores 0 for that level and **ends the run**.
+
+Multi-select levels: an exact set scores full points and advances. Exactly one swap - one wrong option in place of one correct one - scores `nearMiss` (half the level value, rounded down) and ends the run without counting as cleared. Two or more swaps, or a timeout, scores 0 and ends the run.
+
+**Points banked at each level are always kept.** There is no all-or-nothing forfeit. Someone who dies at Level 6 walks away with 40 points and the feeling that Level 7 was reachable, which is exactly what makes them replay.
+
+On multi-select levels the header states how many to pick ("Select 2 of 6") and **Submit stays disabled until exactly that many are selected**. This stops people selecting everything and means the only possible error is a swap.
+
+## Lifelines
+
+**Skip** - available from the start on Levels 1-4 and 6-9, blocked on 5 and 10 because the tier gates must be earned. Advances the player, scores 0 for that level, preserves the run.
+
+**50:50** - starts **locked**. It is unlocked by the Bureau question (below) and then works on Levels 5-10 only. Removes wrong options only, never a correct one, using `fiftyRemoves` from the data. Costs 3 points off that level's award, floored at 1. On image grids it removes real (non-fake) tiles.
+
+Render both buttons at all times with distinct locked / available / used states. A greyed-out 50:50 reading "Unlocks at the Bureau question" is doing real work - it builds anticipation for the brand moment.
+
+## The Bureau question
+
+Between Level 4 and Level 5, once per run, drawn at random from `BUREAU_QUESTIONS`. **The answer is always "Bureau."** This is the sponsor-question mechanic from the Amazon app quizzes.
+
+- Worth **zero points** - it cannot move the score, so the 100 cap holds.
+- Answering it **unlocks the 50:50** for Levels 5-10.
+- **No timer, no fail state.** A wrong tap shakes the card and re-prompts. Nobody can lose here or get stuck.
+- Style it visibly apart from the ladder - Bureau blue background, a "Bonus - unlock your 50:50" banner. It should read as a gift, not an ad.
+- **Fallback that matters:** if a run ends before Level 4, show the Bureau question on the game-over screen instead, as a consolation unlock granting a 50:50 for their next run. Every player must see it exactly once per run.
+
+## Image questions
+
+The real photography does not exist yet. Render each image option as a **labelled placeholder**: neutral grey tile, dashed border, image icon, the option text from the data (which describes the photo and its visual tell) in small type, tile number in the corner. Build one `<ImageTile>` component taking an optional `src` prop so swapping in real assets later is one URL per option and no logic change. Comment it `TODO: swap placeholder for real asset`.
+
+Grid sizes: Level 3 shows 2 side by side, Level 7 shows 6 in a 3x2, Level 9 shows 8 in a 4x2.
+
+## Explain screen
+
+After **every** answer, right or wrong, show the question's `why` text and its `hook` - the Bureau capability that catches this in production. Auto-advance after 4 seconds with a visible progress bar, plus a Next button to skip the wait.
+
+This screen is the entire commercial point of the game. It is where the host starts a conversation. Give it real visual weight; do not degrade it to a toast.
+
+## Run detail to store
+
+```json
+{ "levelReached": 7, "cleared": [1,2,3,4,5,6], "nearMiss": 7, "skipped": [2],
+  "fiftyUsed": true, "bureauSeen": true, "tier": "Achiever", "perLevel": [...] }
+```
+
+---
+
+# GAME 2 - Spoof the System
+
+The jackpot challenge. Three attempts against progressively stricter detectors. Caps at **75 points**.
+
+## Flow
+
+Entry form, rules, then: the visitor generates a synthetic or AI image on their own phone using any tool they like, uploads it, and watches Bureau's detectors run. Three attempts, each against a stricter detector level. Fool it and climb; fail and the run ends. After each successful fool, offer an explicit **quit-or-continue** choice - banked points are kept either way.
+
+Because the upload happens from a phone, this game's QR is the primary path, not a secondary one. The kiosk should show a large QR and a live status panel; the actual upload UI is the phone view.
+
+## The ladder
+
+| Outcome | Points | Reward |
+|---|---|---|
+| 1st attempt fails | 15 | Game over - Participation tier |
+| 1st fool, 2nd fails | 40 | Achiever tier gift |
+| 1st + 2nd fool, 3rd fails | 60 | AirPods finale draw entry |
+| All three fooled | 75 | iPad MEGA draw entry + wall of fame |
+
+Everyone scores at least 15 for turning up and trying. Detector level 3 is deliberately tuned so full-ladder qualifiers stay in single digits across the event.
+
+## The detector - read this carefully
+
+**We do not have a real detector API in this build.** So implement the verdict behind exactly one clearly marked async function and nothing else:
+
+```ts
+// lib/detector.ts
+// TODO: REPLACE WITH BUREAU'S REAL DETECTOR API BEFORE THE EVENT.
+// This is the ONLY place detector logic lives. Everything else - the ladder,
+// the UI, the scoring, the draw pools - must work unchanged when this is swapped.
+export async function runDetector(
+  image: Buffer,
+  level: 1 | 2 | 3
+): Promise<DetectorVerdict> { ... }
+```
+
+`DetectorVerdict` must be shaped like a real multi-signal detector response, because that is what the UI renders and what the real API will return:
+
+```ts
+interface DetectorVerdict {
+  fooled: boolean;              // true = the visitor beat this level
+  confidence: number;           // 0-1
+  signals: {                    // per-signal breakdown, rendered as a list
+    name: string;               // e.g. 'Frequency-domain artefacts'
+    verdict: 'synthetic' | 'authentic' | 'inconclusive';
+    score: number;              // 0-1
+  }[];
+  heatmapRegions: {             // normalised 0-1 boxes over suspect areas
+    x: number; y: number; w: number; h: number; intensity: number;
+  }[];
+  latencyMs: number;
+}
+```
+
+For the stub: derive a deterministic pseudo-random result from a hash of the image bytes so the same image always gets the same verdict (visitors will retry and notice inconsistency). Weight it so level 1 is beatable roughly 35% of the time, level 2 about 15%, level 3 about 4%. Generate 2-4 plausible heatmap boxes weighted toward the image centre and upper third where faces sit. Add a realistic 900-1800ms latency so the "detectors running" animation has something to cover.
+
+Name at least five signals so the panel looks like a real product: frequency-domain artefacts, noise-residual consistency, facial-landmark geometry, compression-history analysis, colour-channel correlation.
+
+## The reveal - the most important screen in this game
+
+Show the uploaded image with the **heatmap overlaid** as translucent warm boxes, and the signal breakdown ticking in one row at a time with a short stagger. Do not resolve all five at once; the suspense is the product demo.
+
+Then the verdict, large and unambiguous: **DETECTED** or **FOOLED US**. On a detection, name the single strongest signal in plain language - "the noise residual across your image is too uniform to be camera output." On a fool, be a good sport about it and immediately raise the stakes for the next level.
+
+## Uploads
+
+Accept JPEG, PNG and WebP up to 10 MB. Reject anything else with a clear message. Store uploads in Replit's object storage or the filesystem under `/tmp` keyed by run id, and **write a scheduled purge that deletes every upload older than 24 hours** - this is a DPDP commitment in the event plan, not a nice-to-have. Add a visible "images are deleted within 24 hours" note on the upload screen.
+
+Add a basic content gate: reject images whose filename or EXIF description contains obvious slurs, and give the host panel a one-tap "remove this upload" control. A trade-show floor needs an escape hatch.
+
+## Run detail to store
+
+```json
+{ "attempts": [ {"level":1,"fooled":true,"confidence":0.42},
+                {"level":2,"fooled":false,"confidence":0.88} ],
+  "laddderReached": 2, "quitVoluntarily": false,
+  "drawPool": null, "tier": "Achiever" }
+```
+
+Store `drawPool` as `'airpods'` for players who fooled exactly 2, `'ipad'` for all 3, otherwise null. The host needs to pull those two pools at the Day 2 finale, so expose them in the admin panel as exportable lists.
+
+---
+
+# GAME 3 - Fraud Detective
+
+Five graph investigation cases plus a bonus trivia round. Caps at **100 points**.
+
+Read `CASES`, `PRIMER` and `BONUS` from the Fraud Detective data block.
+
+## Flow
+
+Rules screen, then the **primer** (`PRIMER` - a short explainer on community detection with a small two-cluster diagram showing a bridge account), then five cases in order, then the bonus round, then the summary.
+
+## Each case
+
+Two-pane layout. On a kiosk that is a left case-file panel and a right graph canvas; on a phone the graph goes on top and the case file scrolls underneath.
+
+**Left panel - the case file:**
+- Sector tag (`sector`) and case title
+- "CASE NOTES" header with the line "unfiled - nobody's connected these yet" in a mono, slightly hand-filed style
+- The three `clues`, each as a note card on a vertical thread with a small amber pin
+- The `brief` paragraph, then the `instruction` in italics
+- A "WRONG GUESSES: n" counter
+- **Submit Accusation** (disabled until a node is selected) and **Reveal Answer** buttons
+
+**Right panel - the graph:**
+- Force-directed node-link layout from `nodes` and `edges`. Nodes are labelled circles; tapping one selects it and rings it in Bureau blue.
+- Colour nodes by `clusters` so the communities read at a glance, but **do not visually mark the answer** - finding it is the game.
+- Render `edgeLabels` on the relevant edges and `nodeLabels` beside nodes (amounts, "guarantees").
+- Must be **pan and pinch-zoom** on touch, with a reset-view button. Fix the layout seed per case so it looks identical on every play and the host can learn it.
+- On a correct submission, animate the answer node to green and highlight its edges.
+
+## Case scoring - 16 points per case, 80 across five
+
+| Result | Points |
+|---|---|
+| Correct, no wrong guesses | 16 |
+| Correct after 1 wrong guess | 10 |
+| Correct after 2 wrong guesses | 6 |
+| Correct after 3+ wrong guesses | 2 |
+| Revealed without solving | 0 |
+
+There is no timer and no game over. Every case is attemptable and the player always reaches the bonus round, because the explanations are the sales content and cutting people off before they read them defeats the purpose.
+
+After each case, show the `explanation` and the `hook`, with a Next Case button.
+
+## Bonus round - Six Degrees, 20 points
+
+Four questions, 5 points each, from `BONUS`. This is deliberately **not** fraud - it is Kevin Bacon film trivia, and the tonal break is the point.
+
+Render concentric dashed rings labelled 1, 2 and 3 degrees with Kevin Bacon at the centre. For each of the four figures, the player taps the ring they think that person sits on. 5 points for a correct ring, 0 otherwise, no penalty. After each answer, animate the figure snapping onto its true ring with a connecting path.
+
+Close on the `payoff` text, which lands the actual argument: almost nobody is more than three hops from anyone else, so "these two accounts have no connection" is nearly always false. The interesting question is not whether a path exists but how short and how deliberate it is. That is the bridge back to fraud graphs, and it is the line the host should be ready to pick up.
+
+**Flag for the team, not for the build:** the four degree values in the data are marked `caution` and need verifying against oracleofbacon.org before the event. Surface that caution string in the admin panel so nobody forgets.
+
+## Run detail to store
+
+```json
+{ "cases": [ {"id":"FD-01","points":16,"wrongGuesses":0,"revealed":false}, ... ],
+  "casePoints": 64, "bonusPoints": 15, "tier": "Achiever" }
+```
+
+---
+
+# Unified points and the leaderboard
+
+| Game | Max | How it scores |
+|---|---|---|
+| Spot the Fraud | 100 | 4-18 per level cleared, weighted by difficulty |
+| Spoof the System | 75 | 15 / 40 / 60 / 75 by ladder outcome |
+| Fraud Detective | 100 | 16 per case (80) + 5 per bonus question (20) |
+| **Fraud Fighter bonus** | **40** | Awarded once for playing all three games |
+| **Maximum** | **315** | |
+
+Compute the Fraud Fighter bonus in the leaderboard view, not as a stored run - it is derived from whether all three games have a run, and storing it invites drift.
+
+## Leaderboard screens
+
+**Live board** - full-screen, designed to be readable across the booth on a wall display. Rank, first name, company, the three per-game scores as small badges, bonus badge, total. Top 10 plus the current player's row pinned at the bottom if they are below the cut. Poll every 10 seconds; animate rank changes so movement catches the eye.
+
+**Today vs cumulative** - a toggle. Today's board resets daily; the cumulative board spans the event and decides the Event Champion at the Day 2 5 PM finale.
+
+**Per-game boards** - three tabs so someone who only played one game still sees themselves ranked.
+
+Seed 12 plausible fake entries (Indian first names, real-sounding Indian fintech and bank company names, scores spread 25-280) so the board never looks empty on day one morning. Mark them `is_demo` in the database and give the admin panel a one-tap "clear demo rows" button for the moment real traffic starts.
+
+# Host / admin panel at /admin
+
+Gate it behind a simple passcode from an env var - not real auth, just enough that a curious visitor cannot reach it. It needs:
+
+- Live counts: plays per game, unique players, plays by kiosk vs phone
+- Lead export as CSV: name, email, phone, company, consent timestamp, games played, tier per game, total points
+- The two Spoof draw pools (AirPods qualifiers, iPad qualifiers) as exportable lists
+- Per-question accuracy for Spot the Fraud and per-case accuracy for Fraud Detective, so a broken or impossible item can be spotted and pulled mid-event
+- A read-only answer-and-rationale view per question, for settling disputes at the station
+- Grant a goodwill re-run to a named player
+- Remove a Spoof upload
+- Clear demo leaderboard rows
+- The Six Degrees verification caution, displayed prominently until someone ticks it off
+
+# Design
+
+Dark, confident, fintech-serious. This sits beside enterprise sales conversations, so no cartoon gamification.
+
+- Background `#0B1220`, surfaces `#151E33`, panels `#1B2A4A`
+- Bureau blue `#2E5BFF` for primary actions and focus rings
+- Correct `#0FA968`, wrong `#E5484D`, near-miss and case-note pins amber `#F5A623`
+- Sans-serif throughout with tight heading tracking. A mono face for account IDs, case notes and code-like labels - it makes the investigation screens feel like a real tool.
+- **Kiosk target is 1080x1920 portrait touch.** Question text at least 22px, options at least 18px, every tap target at least 64px tall. No hover-only affordances anywhere.
+- **Phone must work properly**, not just technically render - it is a first-class path via QR, and for Spoof it is the main path.
+- Motion 200-300ms with a spring on selection. Never add waiting time to a queue.
+- Accessibility: never signal correctness by colour alone, always pair with an icon and text. Keyboard navigable. Respect `prefers-reduced-motion`.
+
+**Attract loop** on each kiosk when idle for 45 seconds: game name, a rotating fraud stat, the top 5, and a large QR. It has to pull someone in from three metres away.
+
+# Reliability - this runs on venue WiFi
+
+- Every write goes through an API route that returns fast and is safe to retry. Use an idempotency key per run so a double-tap on a flaky connection cannot double-post a score.
+- Wrap the run-submission write in a **transaction** and do the best-run comparison inside it. Two kiosks finishing a run for the same email in the same second must not race. This is the specific thing the key-value store could not have given us.
+- If the database is unreachable, queue the run in memory, show "score will sync" rather than an error, and retry with backoff. Never lose a play and never block a player on a network round trip.
+- Graph rendering, question flow and the detector stub must all work with no network after initial load.
+- A kiosk reload must never lose the current run - persist run progress server-side on each level transition, keyed by run id in the URL.
+
+# Database notes worth getting right
+
+- Replit's Postgres is **serverless (Neon-backed)**, so it sleeps and it counts connections. Use a single shared Drizzle client as a module-level singleton, not a new client per request - Next.js route handlers will otherwise exhaust the connection pool under kiosk polling. In dev, cache the client on `globalThis` so hot reload does not leak connections on every save.
+- The leaderboard polls every ten seconds from up to four screens at once. Serve it from a **single query against a view**, not from several round trips stitched together in JavaScript.
+- Store `event_day` as a real date column derived in **Asia/Kolkata**, not UTC. A run at 11:30 PM IST on day one belongs to day one; computing the day from a UTC timestamp puts it on day two and quietly corrupts the daily leaderboard and the 5 PM draw.
+- Index `runs(player_id, game)` and `runs(event_day, game)`. Without them the leaderboard view degrades as the event fills up, and it will be at its slowest exactly when the booth is busiest.
+- Never store aggregate or total scores. Every total is derived. A stored total is a total that will drift from its runs.
+
+# Build in this order
+
+Do not attempt the whole app in one pass. Build and verify in these steps:
+
+1. Project skeleton, Tailwind, the dark design tokens. Create the Replit SQL Database from the Tools dock, confirm `DATABASE_URL` resolves, then run the Drizzle migration and the seed script. Verify a row round-trips through Drizzle Studio before writing any UI - everything downstream assumes this works.
+2. Shared entry form with full validation, player upsert by email, the rules-screen shell, the QR component.
+3. **Spot the Fraud** end to end, including the Bureau question and both lifelines. Verify a correct answer at Level 8 scores 14 and not 0 before moving on.
+4. **Fraud Detective** end to end, graph rendering first, then case flow, then the bonus round.
+5. **Spoof the System** with the stubbed detector, upload handling and the 24-hour purge.
+6. Leaderboard views, the three per-game tabs, the today/cumulative toggle, polling.
+7. Admin panel and CSV export.
+8. Attract loop, kiosk polish, offline resilience, idempotency.
+
+# Acceptance tests - run these before calling it done
+
+1. Spot the Fraud level points sum to exactly 100, and a clean ten-level run scores 100.
+2. **Option order is shuffled on display, and a correct answer still scores as correct at every one of the ten levels.** The authored `correct` arrays are 1-based indices into the original option order, so map through the shuffle rather than mutating the key. This is the single most likely bug in the whole build - test it explicitly at Levels 6, 8 and 10 where multiple answers are correct.
+3. The 50:50 is locked until the Bureau question and unavailable on Levels 1-4 even after unlocking.
+4. A run ending at Level 2 still shows the Bureau question on the game-over screen.
+5. Fraud Detective: 5 cases correct first try plus 4 correct bonus rings equals exactly 100.
+6. Spoof: failing attempt 1 scores 15, not 0.
+7. Playing all three games as one email awards the 40-point bonus exactly once, and the total never exceeds 315.
+8. Two runs of the same game by the same email keep the **higher** score on the leaderboard, not the later one.
+9. A kiosk play and a phone play under the same email appear as one leaderboard row.
+10. Entry form rejects a 9-digit phone, a malformed email and an unticked consent box.
+11. Every screen is usable at 1080x1920 portrait and on a 390px-wide phone.
+
+---
+
+## Data block 1 - Spot the Fraud
+
+```ts
+// data/quiz.ts
+// Authored content. Do NOT rewrite, paraphrase or invent questions.
+
+export type Kind = 'text' | 'image';
+
+export interface Level {
+  level: number; label: string; kind: Kind; optionCount: number;
+  correctCount: number; timerSec: number; points: number; nearMiss: number;
+  fiftyFifty: boolean; skip: boolean; theme: string; fiftyRemoves: number;
+}
+
+export const LEVELS: Level[] = [
+  { level: 1, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 4, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Consumer scams - the on-ramp: phishing SMS, fake payment proof, KYC links", fiftyRemoves: 0 },
+  { level: 2, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 5, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Network basics - fraud rings, mule chains, device-linked clusters", fiftyRemoves: 0 },
+  { level: 3, label: "Spot the Fake (2 images)", kind: 'image', optionCount: 2, correctCount: 1, timerSec: 20, points: 6, nearMiss: 0, fiftyFifty: false, skip: true, theme: "First image level - replay attacks, doctored docs, synthetic faces", fiftyRemoves: 0 },
+  { level: 4, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 7, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Ring mechanics - device farms, account ageing, co-ordinated bust-outs", fiftyRemoves: 0 },
+  { level: 5, label: "CHECKPOINT - MCQ single", kind: 'text', optionCount: 5, correctCount: 1, timerSec: 20, points: 8, nearMiss: 0, fiftyFifty: true, skip: false, theme: "Network at scale - mule fan-out, linking two applications to one ring (A2 Achiever gate)", fiftyRemoves: 2 },
+  { level: 6, label: "MCQ - multi (select 2)", kind: 'text', optionCount: 6, correctCount: 2, timerSec: 25, points: 10, nearMiss: 5, fiftyFifty: true, skip: true, theme: "Cross-application signals, how mule networks are actually built", fiftyRemoves: 2 },
+  { level: 7, label: "Spot the Fake grid (6 img)", kind: 'image', optionCount: 6, correctCount: 2, timerSec: 25, points: 12, nearMiss: 6, fiftyFifty: true, skip: true, theme: "High-quality synthetic faces + synthetic merchant storefronts", fiftyRemoves: 2 },
+  { level: 8, label: "MCQ - multi (select 3)", kind: 'text', optionCount: 6, correctCount: 3, timerSec: 30, points: 14, nearMiss: 7, fiftyFifty: true, skip: true, theme: "Synthetic identity clusters, mule farming networks", fiftyRemoves: 1 },
+  { level: 9, label: "Spot the Fake grid (8 img)", kind: 'image', optionCount: 8, correctCount: 3, timerSec: 40, points: 16, nearMiss: 8, fiftyFifty: true, skip: true, theme: "Near-photorealistic diffusion output, forged documents", fiftyRemoves: 2 },
+  { level: 10, label: "EXPERT - MCQ multi (sel 3)", kind: 'text', optionCount: 8, correctCount: 3, timerSec: 40, points: 18, nearMiss: 9, fiftyFifty: true, skip: false, theme: "Expert ring attribution - clean files, hidden links (A3 Master gate)", fiftyRemoves: 2 },
+];
+
+export interface Question {
+  id: string; level: number; scope: string; kind: Kind; selectN: number;
+  stem: string; options: string[]; correct: number[]; why: string; hook: string;
+}
+
+export const QUESTIONS: Question[] = [
+  { id: "SF-A-L01-01", level: 1, scope: "Consumer scam", kind: 'text', selectN: 1,
+    stem: "An SMS arrives: \"Your electricity connection will be disconnected tonight. Call 9XXXXXXXXX immediately.\" What is this most likely to be?",
+    options: ["A genuine disconnection notice from the utility", "A scam using an artificial deadline to rush you into calling", "A message sent to the wrong number", "A promotional message from a bill-payment app"],
+    correct: [2],
+    why: "Every scam needs you to act before you think, so it manufactures a deadline. Utilities send notices through your bill and their own app - not a panic SMS with a mobile number to call.",
+    hook: "Consumer fraud awareness / smishing typology" },
+  { id: "SF-A-L01-02", level: 1, scope: "Consumer scam", kind: 'text', selectN: 1,
+    stem: "A buyer on a resale app says they have already paid you and sends a screenshot as proof. Nothing has appeared in your account. What should you do?",
+    options: ["Ship the item - the screenshot is proof of payment", "Wait until the credit appears in your own bank record before shipping", "Ship it and ask them to send the money again if it fails", "Share your account number again so they can retry"],
+    correct: [2],
+    why: "A screenshot is an image, not a payment. Only your own bank record proves money arrived - and a convincing fake payment screenshot takes about thirty seconds to produce.",
+    hook: "Consumer fraud awareness / fake payment confirmation scams" },
+  { id: "SF-A-L01-03", level: 1, scope: "Consumer scam", kind: 'text', selectN: 1,
+    stem: "A message reads: \"Your KYC has expired. Click this link within 24 hours or your account will be frozen.\" What is the safest thing to do?",
+    options: ["Click the link and complete the KYC to be safe", "Reply asking the sender to prove who they are", "Ignore the link and contact the bank through its official app or the number printed on your card", "Forward it to family so they can check whether they got it too"],
+    correct: [3],
+    why: "Never authenticate through a channel somebody else chose for you. Going back to the bank by a route you control costs one minute and defeats the entire attack, whether or not the message was genuine.",
+    hook: "Consumer fraud awareness / KYC-expiry phishing" },
+  { id: "SF-A-L02-01", level: 2, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "What is a 'fraud ring'?",
+    options: ["A single fraudster who reoffends repeatedly", "A group operating co-ordinated applications and accounts that look unrelated one at a time but share hidden links", "A category of high-risk merchants", "A ring of stolen cards sold together on a marketplace"],
+    correct: [2],
+    why: "The word that matters is co-ordinated. A ring is not many frauds happening near each other - it is one operation wearing many faces, and the only place it exists is in the links.",
+    hook: "Network intelligence / ring detection" },
+  { id: "SF-A-L02-02", level: 2, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "Scam money almost never lands in one account and stop. What is a 'mule chain'?",
+    options: ["A queue of victims targeted by the same scam script", "A sequence of accounts the money is hopped through to break the trail before it is cashed out", "A list of blocked accounts shared between banks", "A group of ATMs used for the same withdrawal"],
+    correct: [2],
+    why: "Layering is the whole trick: each hop costs the fraudster almost nothing and costs an investigator a subpoena. Following the chain is how the money is actually traced, and blocking one link rarely stops it.",
+    hook: "Mule network detection / transaction graph analysis" },
+  { id: "SF-A-L02-03", level: 2, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "Twelve accounts at a bank have never transacted with each other and share no personal details - but all twelve were opened from the same three devices. What is this?",
+    options: ["A coincidence in a large customer base", "A family or small business sharing devices", "A device-linked cluster - twelve accounts under one operator", "A data quality problem in the onboarding logs"],
+    correct: [3],
+    why: "Three devices for twelve unrelated strangers is not a coincidence, it is an inventory. Fraudsters vary the identity data because it is cheap and reuse the hardware because it is not.",
+    hook: "Device intelligence / entity linking" },
+  { id: "SF-A-L03-01", level: 3, scope: "Synthetic media", kind: 'image', selectN: 1,
+    stem: "Two bank statement pages submitted for an income check. One has been doctored. Pick it.",
+    options: ["Image A - running balance reconciles row to row, uniform digit spacing throughout", "Image B - running balance fails to reconcile across three consecutive rows, one credit amount uses slightly different digit spacing"],
+    correct: [2],
+    why: "Whoever edits a statement fixes the number they care about and leaves the arithmetic broken. Reconciling the balance column is faster and more reliable than looking at the pixels.",
+    hook: "Statement analysis / income verification" },
+  { id: "SF-A-L03-02", level: 3, scope: "Synthetic media", kind: 'image', selectN: 1,
+    stem: "One of these two faces does not belong to a real person. Pick it.",
+    options: ["Image A - real photograph, catchlights in both eyes agree on one light source", "Image B - AI-generated: the two eyes' catchlights point at different light sources and one pupil is not quite circular"],
+    correct: [2],
+    why: "Specular highlights should agree between the eyes because there is only one room. Generators sample each eye independently, so the lighting story falls apart at the pupils.",
+    hook: "Faceguard (synthetic image detection)" },
+  { id: "SF-A-L03-03", level: 3, scope: "Synthetic media", kind: 'image', selectN: 1,
+    stem: "Both selfies were submitted for onboarding. One is not a live capture. Pick it.",
+    options: ["Image A - live selfie, even skin lighting, no reflections", "Image B - photo of a phone screen: moire banding across the frame, a sliver of screen bezel, a rectangular light reflection"],
+    correct: [2],
+    why: "A screen replay is the cheapest presentation attack there is. Moire and a rectangular reflection are the fingerprints of a display, and liveness catches both in milliseconds.",
+    hook: "Liveness / presentation attack detection" },
+  { id: "SF-A-L04-01", level: 4, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "Fifty loan applications arrive inside one hour. Different names, different PANs, different phone numbers - but the same device fingerprint. Most likely explanation?",
+    options: ["A referral campaign that went viral", "A single device or app-cloning farm running an application ring", "Applicants sharing an office WiFi network", "A submission bug duplicating one application"],
+    correct: [2],
+    why: "Identity data is cheap to vary; device and behavioural signals are not. Shared WiFi would share an IP address, not a device fingerprint - and that distinction is the whole game.",
+    hook: "Device intelligence" },
+  { id: "SF-A-L04-02", level: 4, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "Rings routinely 'age' their accounts - opening them, using them normally, and waiting months before the real activity starts. Why is that worth the wait?",
+    options: ["Older accounts pay better interest", "A clean history defeats rules that only scrutinise new accounts, and it raises the transaction limits available before the cash-out", "Banks cannot close accounts older than six months", "Ageing an account removes it from the credit bureau"],
+    correct: [2],
+    why: "Patience is the cheapest attack tool there is. Age converts an account from suspicious to trusted, and trust is what gets converted into headroom - which is exactly why account age on its own is a weak signal. Roughly 60% of identified mule accounts are more than a year old.",
+    hook: "Behavioural monitoring / network intelligence" },
+  { id: "SF-A-L04-03", level: 4, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "Forty borrowers each build a spotless six-month repayment record, then all draw down their full limits and disappear within the same fortnight. What is this?",
+    options: ["A seasonal spike in genuine defaults", "A co-ordinated bust-out ring", "A collections process failure", "A pricing error that attracted risky borrowers"],
+    correct: [2],
+    why: "A bust-out looks like your best cohort right up until the week it doesn't. Individually every file is exemplary - the fraud is only visible in the synchronisation, which is a network signal by definition.",
+    hook: "Network intelligence / bust-out detection" },
+  { id: "SF-A-L05-01", level: 5, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "CHECKPOINT. Which account pattern most strongly indicates a mule?",
+    options: ["Salary credit on the 1st, rent debit on the 5th, every month", "A dormant account suddenly receives a large credit which is fanned out to several accounts within minutes, leaving a near-zero balance", "Frequent small UPI payments to food delivery and ride apps", "A single large credit that stays in the account for six weeks", "Several failed transactions followed by a successful one"],
+    correct: [2],
+    why: "Mules are measured in velocity and residual balance, not amount. Money that stays is savings; money that leaves in minutes is laundering.",
+    hook: "Mule detection / behavioural account monitoring" },
+  { id: "SF-A-L05-02", level: 5, scope: "Network fraud", kind: 'text', selectN: 1,
+    stem: "CHECKPOINT. Two loan applications share no name, no PAN, no phone number and no address. What would most strongly indicate they belong to the same ring?",
+    options: ["They were submitted within the same hour", "They name the same employer", "They share a device fingerprint and name the same beneficiary account for disbursal", "They are from the same city", "They both chose the longest available tenure"],
+    correct: [3],
+    why: "Rings vary what is cheap to vary and reuse what is expensive. Two applications with nothing personal in common but a shared device and a shared payout account are one operation - and no amount of per-application checking will ever see it.",
+    hook: "Entity linking / device intelligence / beneficiary risk" },
+  { id: "SF-A-L06-01", level: 6, scope: "Network fraud", kind: 'text', selectN: 2,
+    stem: "Select the TWO signals that only exist when you look across applications, and are invisible inside any single one.",
+    options: ["The same device fingerprint appearing on applications with no personal details in common", "The same beneficiary account named by applicants with no other connection to each other", "A blurry selfie upload", "A declared income above the segment average", "An OCR mismatch between the name on the form and the name on the document", "A mistyped PIN on the first attempt"],
+    correct: [1, 2],
+    why: "The last four are all decidable from one application on its own. The first two do not exist inside one application at all - they are properties of the space between applications, which is what a network view is for.",
+    hook: "Network intelligence / entity linking" },
+  { id: "SF-A-L06-02", level: 6, scope: "Network fraud", kind: 'text', selectN: 2,
+    stem: "Select the TWO statements that are true of mule networks.",
+    options: ["Accounts are typically recruited from real people - often through fake job or easy-money offers - rather than hacked", "The chain is layered so that no single account holder can see the whole route the money takes", "Mule accounts are always newly opened", "Blocking one mule account disables the network", "Every mule knows they are laundering money", "Mule networks only move cash, never digital payments"],
+    correct: [1, 2],
+    why: "A mule network is a recruitment business with a laundering output. Compartmentalisation is deliberate - it means catching one holder tells you almost nothing, and it is why the network has to be mapped rather than picked off.",
+    hook: "Mule network detection / recruitment pattern analysis" },
+  { id: "SF-A-L07-01", level: 7, scope: "Synthetic media", kind: 'image', selectN: 2,
+    stem: "Six onboarding selfies. TWO are AI-generated. Select both.",
+    options: ["Image 1 - real", "Image 2 - AI-generated (teeth boundaries merge into one another)", "Image 3 - real", "Image 4 - real", "Image 5 - AI-generated (the two ears differ in shape; an earring terminates in nothing)", "Image 6 - real"],
+    correct: [2, 5],
+    why: "At this quality the artefacts have moved to the fiddly bits: teeth, ears, jewellery, where the hairline meets skin. Two of six is a realistic hit rate for what actually arrives in production.",
+    hook: "Faceguard (synthetic image detection at scale)" },
+  { id: "SF-A-L07-02", level: 7, scope: "Synthetic media", kind: 'image', selectN: 2,
+    stem: "Six storefront photos uploaded during merchant onboarding. TWO are AI-generated. Select both.",
+    options: ["Image 1 - real", "Image 2 - real", "Image 3 - AI-generated (signage is letter-shaped but not words)", "Image 4 - real", "Image 5 - AI-generated (shadows fall in two directions; shutter slats change pitch mid-panel)", "Image 6 - real"],
+    correct: [3, 5],
+    why: "Fake merchant onboarding is a large and under-policed fraud surface - a synthetic storefront photo is all some flows ask for. Text and shadow direction are where generators still give it away.",
+    hook: "Merchant onboarding risk / synthetic media detection" },
+  { id: "SF-A-L08-01", level: 8, scope: "Network fraud", kind: 'text', selectN: 3,
+    stem: "Select the THREE signals that indicate a synthetic identity CLUSTER rather than one isolated synthetic identity.",
+    options: ["Several identities sharing one device or one residential address", "Identities that transact or cross-guarantee almost exclusively with each other", "A set of files that all begin thin and then build limits in the same sequence across the same lenders", "One applicant with a thin credit file", "A single chargeback filed within 24 hours of purchase", "A mailing address that matches the bureau record"],
+    correct: [1, 2, 3],
+    why: "A cluster is manufactured on a production line, so it leaves production-line marks: shared infrastructure, a closed transaction loop, and identical cultivation sequences. One synthetic identity is a detection problem; a cluster is a graph problem.",
+    hook: "Network intelligence / synthetic identity cluster detection" },
+  { id: "SF-A-L08-02", level: 8, scope: "Network fraud", kind: 'text', selectN: 3,
+    stem: "A newly opened account may be being farmed as a mule. Select the THREE strongest signals.",
+    options: ["The onboarding selfie matches an existing customer under a different name", "The first inbound credits arrive from nine unrelated payers within twenty minutes", "The registered device already holds credentials for five other accounts", "The customer opted for a physical debit card", "The account was opened on a weekend", "The KYC address is a rented flat"],
+    correct: [1, 2, 3],
+    why: "Mule farming shows up as one-to-many and many-to-one relationships across faces, devices and payers. None of it is visible inside a single account's own file - which is why account-level rules keep missing it.",
+    hook: "Mule detection / device intelligence / face de-duplication" },
+  { id: "SF-A-L09-01", level: 9, scope: "Synthetic media", kind: 'image', selectN: 3,
+    stem: "Eight portraits. THREE are AI-generated at current-generation quality. Select all three.",
+    options: ["Image 1 - real", "Image 2 - AI (an eyelash crosses the iris boundary)", "Image 3 - real", "Image 4 - AI (collar seam does not continue behind the neck)", "Image 5 - real", "Image 6 - real", "Image 7 - AI (hair strands terminate in mid-air)", "Image 8 - real"],
+    correct: [2, 4, 7],
+    why: "At this quality the honest answer is that eyes are no longer sufficient. Most players will miss at least one - which is the entire point of the level and the best sales line at the booth.",
+    hook: "Faceguard - why detection has to be machine-side" },
+  { id: "SF-A-L09-02", level: 9, scope: "Synthetic media", kind: 'image', selectN: 3,
+    stem: "Eight identity and address documents. THREE are forged. Select all three.",
+    options: ["Doc 1 - genuine template", "Doc 2 - genuine template", "Doc 3 - forged (security pattern repeats with a visible seam)", "Doc 4 - genuine template", "Doc 5 - forged (a date's baseline sits a pixel off the row)", "Doc 6 - genuine template", "Doc 7 - forged (photo noise profile differs from the card around it)", "Doc 8 - genuine template"],
+    correct: [3, 5, 7],
+    why: "Forgery detection at this level is forensic, not visual: pattern periodicity, baseline alignment, noise consistency. A human eye at a kiosk is the wrong instrument - and that is the message.",
+    hook: "Document verification / forensic checks" },
+  { id: "SF-A-L10-01", level: 10, scope: "Network fraud", kind: 'text', selectN: 3,
+    stem: "EXPERT. An applicant clears liveness, clears document verification, and has a clean bureau file. Select the THREE signals that should still stop this application.",
+    options: ["The same face embedding appears on six approved applications under different PANs", "The device that submitted this application also submitted eleven others in the last thirty days", "The declared employer, address and disbursal account all match a cluster already marked as a ring", "The application was submitted at 11:15 PM", "The applicant is new-to-credit", "The declared income sits above the segment average", "The selfie was taken indoors under artificial light", "The applicant's browser language is not English"],
+    correct: [1, 2, 3],
+    why: "A clean bureau file is a statement about the past and a clean KYC is a statement about one session. All three real signals here live outside the application entirely - and every distractor is something millions of legitimate Indian applicants do every day.",
+    hook: "Network intelligence + device intelligence + face de-duplication in one decision" },
+  { id: "SF-A-L10-02", level: 10, scope: "Network fraud", kind: 'text', selectN: 3,
+    stem: "EXPERT. Select the THREE statements that are true about detecting fraud rings.",
+    options: ["A ring is detected from the links between entities, not from any single entity's attributes", "Rings vary identity data because it is cheap and reuse infrastructure - devices, addresses, payout accounts - because it is not", "A well-built ring can pass every individual KYC and bureau check by construction", "Document forensics on each application in isolation is sufficient to catch rings", "Every ring shares a single IP address", "Blocking the highest-risk member disables the ring", "Ring members always apply within the same hour", "Rings only target unsecured lending"],
+    correct: [1, 2, 3],
+    why: "Statement three is the uncomfortable one: passing every check is not evidence of legitimacy, because a ring is designed to pass every check. Note the word 'isolation' in option 4 - document forensics is genuinely useful against rings, but only once you compare documents across applications, which is a network view by another name. Tightening per-application rules produces friction without producing catches.",
+    hook: "Network intelligence / graph-based ring detection" },
+  { id: "SF-A-L10-03", level: 10, scope: "Network fraud", kind: 'text', selectN: 3,
+    stem: "EXPERT. Six accounts at your bank have never transacted with each other, share no personal details, and each passed KYC independently. Select the THREE facts that would justify treating them as a single ring.",
+    options: ["Five of the six were onboarded from two device fingerprints", "All six name payout accounts at the same two downstream banks - and those payout accounts are shared between them", "Each account lay dormant for roughly forty days, then activated inside the same six-hour window", "All six holders are new-to-credit", "All six accounts were opened in the same city", "All six holders chose the same account type", "All six holders are under thirty", "Two of the six holders share a first name"],
+    correct: [1, 2, 3],
+    why: "Shared infrastructure, a shared payout layer and synchronised activation are three independent links that no coincidence explains together. The five distractors are all true of a large slice of any genuine customer base - which is exactly how a weak ring rule generates false positives instead of catches.",
+    hook: "Network intelligence / ring attribution and case building" },
+];
+
+export interface BureauQuestion {
+  id: string; stem: string; options: string[]; correct: number[]; why: string; host: string;
+}
+
+// Answer is ALWAYS 'Bureau' (option index 1). Worth 0 points. Unlocks the 50:50.
+export const BUREAU_QUESTIONS: BureauQuestion[] = [
+  { id: "BQ-01",
+    stem: "Unlock your 50:50. Whose Faceguard, device intelligence and alternate-data products are on show at this booth?",
+    options: ["Bureau", "A government agency", "An open-source consortium", "The event organiser"],
+    correct: [1],
+    why: "Bureau. Everything you have played so far runs on the same stack we sell - identity, device, behaviour and network signals in one decision.",
+    host: "Point at the banner. This is the one question nobody gets wrong, and that is the point - it buys you ten seconds of eye contact." },
+  { id: "BQ-02",
+    stem: "Unlock your 50:50. You watched a liveness check finish in ten seconds at the Verify Me kiosk. Whose technology was that?",
+    options: ["Bureau", "Your own bank's app", "The kiosk manufacturer's", "A standard phone camera feature"],
+    correct: [1],
+    why: "Bureau. Same liveness engine our customers run in production - the ten seconds is not a demo shortcut.",
+    host: "Good opener if they have already done Verify Me. Ask them how long they thought it took." },
+  { id: "BQ-03",
+    stem: "Unlock your 50:50. Which company catches fraud rings by reading the links between identities, devices and beneficiary accounts rather than checking one applicant at a time?",
+    options: ["Bureau", "A credit bureau", "A KYC vendor", "The applicant's own bank"],
+    correct: [1],
+    why: "Bureau. A credit bureau tells you about one file's past. We tell you who that file is connected to right now.",
+    host: "The strongest of the five. Use it when the visitor has been doing well on the network questions." },
+  { id: "BQ-04",
+    stem: "Unlock your 50:50. The Spoof the System challenge at this booth dares you to fool a detector. Whose detector is it?",
+    options: ["Bureau", "An open-source model", "The phone's own camera check", "The venue WiFi provider"],
+    correct: [1],
+    why: "Bureau. Our own detectors, running live, with no safety net - which is why the iPad is still sitting in the box.",
+    host: "Use this to walk them across to the Spoof pod afterwards." },
+  { id: "BQ-05",
+    stem: "Unlock your 50:50. Which company's platform combines identity, device, behaviour and network signals into a single decision?",
+    options: ["Bureau", "A payment gateway", "A core banking system", "An SMS provider"],
+    correct: [1],
+    why: "Bureau. One decision, four signal families. Stitching those together yourself is the project this replaces.",
+    host: "The most 'sales' of the five - save it for visitors with a bank or lender badge." },
+];
+```
+
+## Data block 2 - Fraud Detective
+
+```ts
+// Captured from Bureau's Investigation Sandbox. Points rescaled to 16/case so the game caps at 100.
+
+export interface DetectiveCase {
+  id: string; order: number; sector: string; title: string; clues: string[];
+  brief: string; instruction: string; nodes: string[];
+  clusters: Record<string, string[]>; edges: [string, string][];
+  edgeLabels?: Record<string, string>; nodeLabels?: Record<string, string>;
+  answer: string[]; explanation: string; hook: string;
+}
+
+export const PRIMER = {"title": "What is Community Detection?", "body": ["In any network of accounts, transactions, or connections, some groups of nodes are far more tightly linked to each other than they are to the rest of the graph. Those tight-knit groups are communities.", "Fraud rings behave the same way. The accounts running a scheme transact with each other far more than they do with random legitimate accounts. Community detection algorithms find these dense clusters automatically - nobody has to tell the system what a ring looks like in advance.", "Once the communities are visible, the patterns jump out: a single account bridging two clusters that should never touch, a hub with unusually high in-degree, a cluster that formed suspiciously fast. That is exactly what the cases below are testing you on."]};
+
+export const CASES: DetectiveCase[] = [
+  {
+    id: "FD-01", order: 1, sector: "BANKING", title: "The Bridge",
+    clues: ["Ring A cluster: six banking customers opened accounts within an 11-day window, same onboarding device fingerprint.", "Ring B cluster: different city, different device cluster, opened four months later.", "One login session in the last 30 days doesn't match either cluster's usual device pattern."],
+    brief: "Two banking customer clusters, formed months apart, show no business reason to ever touch. But somewhere in this graph, exactly one account sits between them. Find the account bridging the two communities.",
+    instruction: "Tap the account you believe is bridging the two rings, then submit.",
+    nodes: ["AC-1001", "AC-1002", "AC-1003", "AC-1004", "AC-1005", "AC-1006", "AC-3390", "AC-2001", "AC-2002", "AC-2003", "AC-2004", "AC-2005", "AC-2006"],
+    clusters: {"Ring A": ["AC-1001", "AC-1002", "AC-1003", "AC-1004", "AC-1005", "AC-1006"], "Ring B": ["AC-2001", "AC-2002", "AC-2003", "AC-2004", "AC-2005", "AC-2006"], "Bridge": ["AC-3390"]},
+    edges: [["AC-1001", "AC-1006"], ["AC-1001", "AC-1004"], ["AC-1005", "AC-1006"], ["AC-1005", "AC-1004"], ["AC-1002", "AC-1004"], ["AC-1002", "AC-1003"], ["AC-1002", "AC-1005"], ["AC-2001", "AC-2006"], ["AC-2001", "AC-2002"], ["AC-2002", "AC-2005"], ["AC-2002", "AC-2003"], ["AC-2003", "AC-2004"], ["AC-2005", "AC-2006"], ["AC-3390", "AC-1006"], ["AC-3390", "AC-2001"]],
+    answer: ["AC-3390"],
+    explanation: "AC-3390 is the only account with edges into both Ring A and Ring B. A single node linking two otherwise isolated communities is the signature of a bridge account - usually a mule or cut-out used to move value across rings built to look unrelated. Bureau's graph layer flags this as a cross-community edge the moment it forms.",
+    hook: "Network intelligence - cross-community edge detection",
+  },
+  {
+    id: "FD-02", order: 2, sector: "LENDING · DEALER FRAUD", title: "The Dealer Ring",
+    clues: ["Six loan applications were submitted by the same dealer this month, each for a different named borrower.", "None of the six borrowers has ever visited the branch or spoken with a loan officer.", "All six disbursements, once released, ended up at the same downstream account."],
+    brief: "One auto dealer submitted six loan applications this month - six different customers, six different PANs, all approved. But every one of those loans has to be funded somewhere once it's disbursed. Find where the money actually lands.",
+    instruction: "Tap the account you believe all six disbursements reconverge on, then submit.",
+    nodes: ["DLR-4402", "LN-7101", "LN-7102", "LN-7103", "LN-7104", "LN-7105", "LN-7106", "AC-9931", "AC-9950", "LN-7201", "AC-9401", "LN-7202", "AC-9402"],
+    clusters: {"Dealer": ["DLR-4402"], "Ring loans": ["LN-7101", "LN-7102", "LN-7103", "LN-7104", "LN-7105", "LN-7106"], "Fan-in": ["AC-9931"], "Control group": ["AC-9950", "LN-7201", "AC-9401", "LN-7202", "AC-9402"]},
+    edges: [["DLR-4402", "LN-7101"], ["DLR-4402", "LN-7102"], ["DLR-4402", "LN-7103"], ["DLR-4402", "LN-7104"], ["DLR-4402", "LN-7105"], ["DLR-4402", "LN-7106"], ["LN-7101", "AC-9931"], ["LN-7102", "AC-9931"], ["LN-7103", "AC-9931"], ["LN-7104", "AC-9931"], ["LN-7105", "AC-9931"], ["LN-7106", "AC-9931"], ["LN-7201", "AC-9401"], ["LN-7202", "AC-9402"], ["AC-9950", "LN-7201"]],
+    edgeLabels: {"LN-7101|AC-9931": "$285,000", "LN-7102|AC-9931": "$310,000", "LN-7103|AC-9931": "$265,000", "LN-7104|AC-9931": "$295,000", "LN-7105|AC-9931": "$275,000", "LN-7106|AC-9931": "$305,000", "LN-7201|AC-9401": "$220,000", "LN-7202|AC-9402": "$240,000"},
+    nodeLabels: {"AC-9931": "$1,735,000"},
+    answer: ["AC-9931"],
+    explanation: "All six loans reference different borrowers, but every disbursement lands on AC-9931 - an account the dealer controls. This is a classic cash-funding scheme: a dealer manufactures paperwork for borrowers who don't really exist, or never see the money, and redirects every disbursement back to itself. The fan-in pattern gives it away long before any single loan file would.",
+    hook: "Network intelligence - fan-in / beneficiary convergence",
+  },
+  {
+    id: "FD-03", order: 3, sector: "LENDING · CIRCULAR GUARANTEE", title: "The Guarantor Chain",
+    clues: ["Three loan files each list a different person as their guarantor.", "Two of those guarantor relationships lead to genuine third parties with no loans of their own.", "One guarantor relationship leads back to a borrower who already appears earlier in the same chain."],
+    brief: "Three loan files each name a guarantor - standard practice. But trace the guarantees far enough on one of these chains, and the backing turns out to be circular: nobody outside the group is actually on the hook. Find the file that closes the circle.",
+    instruction: "Tap the loan file whose guarantee leads back into its own chain, then submit.",
+    nodes: ["LN-8801", "LN-8802", "LN-8803", "LN-8804", "LN-8805", "GRT-001", "LN-8806", "GRT-002"],
+    clusters: {"Circular chain": ["LN-8801", "LN-8802", "LN-8803"], "Clean chains": ["LN-8804", "LN-8805", "GRT-001", "LN-8806", "GRT-002"]},
+    edges: [["LN-8801", "LN-8802"], ["LN-8802", "LN-8803"], ["LN-8803", "LN-8801"], ["LN-8804", "GRT-001"], ["LN-8805", "GRT-001"], ["LN-8806", "GRT-002"]],
+    edgeLabels: {"LN-8801|LN-8802": "guarantees", "LN-8802|LN-8803": "guarantees", "LN-8803|LN-8801": "guarantees", "LN-8804|GRT-001": "guarantees", "LN-8805|GRT-001": "guarantees", "LN-8806|GRT-002": "guarantees"},
+    answer: ["LN-8803"],
+    explanation: "LN-8803 lists LN-8801 as its guarantor - the same borrower that opened this chain three hops earlier. A circular guarantee like this means there is no real external backing at all: three borrowers are just vouching for each other in a loop, each one's security being another loan that is just as unsecured. Bureau's graph flags this the moment a guarantee edge closes a cycle instead of terminating at a genuine third party.",
+    hook: "Network intelligence - cycle detection on guarantee edges",
+  },
+  {
+    id: "FD-04", order: 4, sector: "E-COMMERCE · ATO", title: "The Kingpin Device",
+    clues: ["Seven customer accounts, all in good standing for over a year, logged in from a device none of them had ever used before.", "All seven logins happened within the same six-hour window.", "One high-value order was placed and shipped before any of the seven customers noticed anything unusual."],
+    brief: "Seven loyal e-commerce accounts - different customers, different cities, years of normal order history - all logged in from the same unfamiliar device within hours of each other. Find the device that's really behind the wheel.",
+    instruction: "Tap the device you believe is common to all seven accounts, then submit.",
+    nodes: ["AC-6601", "AC-6602", "AC-6603", "AC-6604", "AC-6605", "AC-6606", "AC-6607", "DEV-88F2", "AC-6690", "AC-6611", "AC-6612", "DEV-3B10", "AC-6691"],
+    clusters: {"Compromised accounts": ["AC-6601", "AC-6602", "AC-6603", "AC-6604", "AC-6605", "AC-6606", "AC-6607"], "Attacker device": ["DEV-88F2"], "Control group": ["AC-6690", "AC-6611", "AC-6612", "DEV-3B10", "AC-6691"]},
+    edges: [["AC-6601", "DEV-88F2"], ["AC-6602", "DEV-88F2"], ["AC-6603", "DEV-88F2"], ["AC-6604", "DEV-88F2"], ["AC-6605", "DEV-88F2"], ["AC-6606", "DEV-88F2"], ["AC-6607", "DEV-88F2"], ["DEV-88F2", "AC-6690"], ["AC-6611", "DEV-3B10"], ["AC-6612", "DEV-3B10"], ["DEV-3B10", "AC-6691"]],
+    edgeLabels: {"DEV-88F2|AC-6690": "$86,400", "DEV-3B10|AC-6691": "$1,200"},
+    answer: ["DEV-88F2"],
+    explanation: "Every one of the seven long-standing accounts authenticated from DEV-88F2 inside a six-hour window, and that same device pushed the high-value order out to AC-6690. A device with a sudden high in-degree across unrelated, previously clean accounts is account takeover at scale - the accounts are real, the history is real, and only the device is new. Bureau's device intelligence catches the shared fingerprint on login number two, not after the order ships.",
+    hook: "Device intelligence - shared-device in-degree spike",
+  },
+  {
+    id: "FD-05", order: 5, sector: "E-COMMERCE · SELF-DEALING", title: "The Fake Storefront",
+    clues: ["Five 'different' buyers all purchased from the same seller within 48 hours, each leaving a five-star review.", "None of the five buyer accounts have ever ordered from any other seller.", "All five refunds eventually route to the same payout account the seller already uses."],
+    brief: "Five buyer accounts, five different names, all bought from the same seller this week and all left glowing reviews. All five also requested refunds. Find where those refunds actually end up.",
+    instruction: "Tap the account you believe all five refunds land on, then submit.",
+    nodes: ["SLR-3081", "AC-8801", "AC-8802", "AC-8803", "AC-8804", "AC-8805", "AC-2210", "AC-8890", "AC-2298", "AC-8891", "AC-2299"],
+    clusters: {"Seller": ["SLR-3081"], "Sock-puppet buyers": ["AC-8801", "AC-8802", "AC-8803", "AC-8804", "AC-8805"], "Payout account": ["AC-2210"], "Control group": ["AC-8890", "AC-2298", "AC-8891", "AC-2299"]},
+    edges: [["AC-8801", "SLR-3081"], ["AC-8802", "SLR-3081"], ["AC-8803", "SLR-3081"], ["AC-8804", "SLR-3081"], ["AC-8805", "SLR-3081"], ["AC-8801", "AC-2210"], ["AC-8802", "AC-2210"], ["AC-8803", "AC-2210"], ["AC-8804", "AC-2210"], ["AC-8805", "AC-2210"], ["SLR-3081", "AC-2210"], ["AC-8890", "AC-2298"], ["AC-8891", "AC-2299"]],
+    edgeLabels: {"AC-8801|AC-2210": "$1,850", "AC-8802|AC-2210": "$2,100", "AC-8803|AC-2210": "$1,650", "AC-8804|AC-2210": "$1,975", "AC-8805|AC-2210": "$1,725", "AC-8890|AC-2298": "$1,400", "AC-8891|AC-2299": "$1,900"},
+    answer: ["AC-2210"],
+    explanation: "All five buyers paid seller SLR-3081 - and every one of their refunds lands on AC-2210, the exact account the seller uses for its own payouts. This is a self-dealing ring: one seller generating its own sales, its own five-star reviews, and its own refunds, using accounts that only ever transact with this one seller. Real buyers touch many sellers over time; these five touch exactly one.",
+    hook: "Network intelligence - closed transaction loop / self-dealing",
+  },
+];
+
+export const BONUS = {"id": "FD-BONUS", "title": "The Center of Hollywood", "badge": "PURE FILM TRIVIA - NO FRAUD HERE", "brief": "Kevin Bacon once said he'd worked with everybody in Hollywood - or someone who has. Below are four legends from completely different eras, industries and continents. Guess how close each one really sits to him, then watch them snap into place.", "instruction": "Tap the ring on the web where you think they land.", "rings": [{"degree": 1, "label": "1 degree - worked together directly"}, {"degree": 2, "label": "2 degrees - one film apart"}, {"degree": 3, "label": "3 degrees - still pretty close"}], "questions": [{"n": 1, "subject": "Amitabh Bachchan", "answer": 2, "note": "Bachchan connects through his Hollywood crossover work in two hops - a reminder that the film graph is far denser than it looks from the outside. VERIFY against the Oracle of Bacon before the event."}, {"n": 2, "subject": "Charlie Chaplin", "answer": 3, "note": "Different era entirely, still only three hops. VERIFY before the event."}, {"n": 3, "subject": "Bruce Lee", "answer": 3, "note": "Different continent and industry, still three hops. VERIFY before the event."}, {"n": 4, "subject": "Marilyn Monroe", "answer": 3, "note": "Died six years before Bacon was born, still three hops via co-stars who outlived her. VERIFY before the event."}], "payoff": "Almost nobody in film is more than three hops from anybody else, which is the whole point. A fraud graph behaves the same way - which is why 'these two accounts have no connection' is almost never true, and why the interesting question is not whether a path exists but how short and how deliberate it is.", "hook": "Network intelligence - small-world graphs and path length", "caution": "The four degree values above are placeholders pending verification against the Oracle of Bacon (oracleofbacon.org). Confirm each one before the event - a wrong trivia answer at a booth full of film buffs is an avoidable embarrassment."};
+```
+
+---
+
+## After Replit builds it
+
+1. Replit gives you a live URL automatically. Set `NEXT_PUBLIC_BASE_URL` to it so the QR codes point somewhere real, then hard-refresh and re-scan one QR from your phone to confirm.
+2. Work through the eleven acceptance tests above in order. Test 2 is the one that will actually be broken.
+3. Deploy via **Replit Deployments** (Autoscale) rather than leaving it on the dev URL - a dev repl sleeps, and a sleeping kiosk at 10am on day one is the failure everyone remembers.
+4. Print QR posters at A5 per station, and test a scan from 40cm in bright light before the floor opens.
+5. Set each kiosk browser to fullscreen kiosk mode, disable pinch-zoom on the page chrome (but not on the graph canvas), disable pull-to-refresh, and disable sleep on the machines.
+
+## Known gaps to close before the event
+
+- **The detector is stubbed.** `lib/detector.ts` must be pointed at Bureau's real Faceguard endpoint. Everything else is built to survive that swap untouched.
+- **Image assets for Spot the Fraud Levels 3, 7 and 9** do not exist - 21 real and 13 synthetic for the current rotation. Every image licensed, Bureau-shot with a release, or generated in-house. No third-party faces, no real customer documents, every specimen document marked SPECIMEN with fabricated data.
+- **The question bank is 25 items, not 150.** The full target is ten levels x five questions x three daily rotation sets, which lands at 105 text and 45 image. Add rotation-set switching to the admin panel when the rest arrive.
+- **Six Degrees answers need verifying** against oracleofbacon.org.
+- **HubSpot** should receive each entry-form submission tagged by game and tier reached, so tier becomes an intent signal for follow-up sequencing. Not in this build.
+- **No external database service is needed.** Replit's native SQL Database covers this entirely - nobody has to provision Supabase or RDS, and there is no extra vendor to get through procurement before the event.
+- **Prize fulfilment** is deliberately manual and off-app. The admin panel exports the draw pools; the ops desk runs the draw at the Day 2 5 PM finale.

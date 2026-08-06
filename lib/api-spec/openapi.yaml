@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Booth visitor identity and lead capture
+  - name: runs
+    description: Game run submission and scoring
+  - name: leaderboard
+    description: Live leaderboard reads
+  - name: spoof
+    description: Spoof the System detector
+  - name: admin
+    description: Host admin panel
 paths:
   /healthz:
     get:
@@ -24,7 +34,375 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /players:
+    post:
+      operationId: registerPlayer
+      tags: [players]
+      summary: Register or recognise a player
+      description: >
+        Upserts a player keyed on the lowercased work email. A returning email
+        does not create a duplicate; it returns the existing player so kiosk and
+        phone runs merge onto one identity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerInput"
+      responses:
+        "200":
+          description: Player registered or recognised
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerSession"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /players/{playerId}/standing/{scope}:
+    get:
+      operationId: getPlayerStanding
+      tags: [players]
+      summary: Current standing for one player
+      description: >
+        Best-run-per-day scores for each game, the all-three bonus, the day
+        total and the player's rank. Used by the rules screen and the
+        post-game screens. Scope is a path segment rather than a query
+        parameter so the generated param types stay unambiguous.
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/LeaderboardScope"
+      responses:
+        "200":
+          description: Player standing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStanding"
+        "404":
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /runs:
+    post:
+      operationId: submitRun
+      tags: [runs]
+      summary: Submit a completed game run
+      description: >
+        Records one run. Idempotent on idempotencyKey so a kiosk reload or a
+        flaky network never double-counts. Points are clamped server-side to the
+        per-game cap. A player's score for a game is their best single run that
+        day, so a weaker replay never lowers a standing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunInput"
+      responses:
+        "200":
+          description: Run recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResult"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /runs/progress:
+    post:
+      operationId: saveRunProgress
+      tags: [runs]
+      summary: Persist in-flight run progress
+      description: >
+        Stores the current level, banked points and lifeline state for a run in
+        progress so a kiosk browser reload resumes rather than losing the run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunProgressInput"
+      responses:
+        "200":
+          description: Progress saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunProgress"
+
+  /runs/progress/{idempotencyKey}:
+    get:
+      operationId: getRunProgress
+      tags: [runs]
+      summary: Resume in-flight run progress
+      parameters:
+        - name: idempotencyKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Progress found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunProgress"
+        "404":
+          description: No progress stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Live leaderboard
+      description: >
+        Top rows plus, when playerId is supplied, that player pinned even if
+        they fall outside the top slice. Scores are derived from the best run
+        per game per day; nothing is stored pre-aggregated.
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/LeaderboardScope"
+        - name: game
+          in: query
+          required: false
+          description: Filter to a single game, or omit for the combined board.
+          schema:
+            $ref: "#/components/schemas/GameKey"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+        - name: playerId
+          in: query
+          required: false
+          description: Pin this player to the response even if outside the top slice.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leaderboard"
+
+  /spoof/detect:
+    post:
+      operationId: detectSpoof
+      tags: [spoof]
+      summary: Run the liveness detector against an uploaded image
+      description: >
+        Sends one image to the detector at the requested strictness level and
+        returns the verdict, the signals that fired and the heatmap regions to
+        overlay. Uploads are retained for at most 24 hours.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpoofAttemptInput"
+      responses:
+        "200":
+          description: Detector verdict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectorVerdict"
+        "400":
+          description: Rejected upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Live booth counts
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/leads:
+    get:
+      operationId: getAdminLeads
+      tags: [admin]
+      summary: Captured leads
+      description: Every player row with the games they played and the tier they reached.
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      responses:
+        "200":
+          description: Leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLead"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/draw-pools:
+    get:
+      operationId: getDrawPools
+      tags: [admin]
+      summary: Prize draw pools
+      description: >
+        The AirPods pool (fooled the detector exactly twice) and the iPad pool
+        (fooled it three times), plus the all-three-games Fraud Fighter pool.
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      responses:
+        "200":
+          description: Draw pools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrawPools"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/accuracy:
+    get:
+      operationId: getContentAccuracy
+      tags: [admin]
+      summary: Per-question and per-case accuracy
+      description: >
+        Which Spot the Fraud questions and which Fraud Detective cases are
+        landing, so the host can retire an item that is too hard or too easy.
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      responses:
+        "200":
+          description: Accuracy report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccuracyReport"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/uploads:
+    get:
+      operationId: getSpoofUploads
+      tags: [admin]
+      summary: Retained spoof uploads
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      responses:
+        "200":
+          description: Uploads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpoofUpload"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
+  /admin/actions:
+    post:
+      operationId: runAdminAction
+      tags: [admin]
+      summary: Host actions
+      description: >
+        Clear seeded demo rows, void a run so a visitor can replay after a
+        genuine technical failure, delete a retained upload on request, or tick
+        off the Six Degrees verification caution.
+      parameters:
+        - $ref: "#/components/parameters/AdminPasscode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionInput"
+      responses:
+        "200":
+          description: Action applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        "401":
+          description: Bad passcode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+
 components:
+  parameters:
+    AdminPasscode:
+      name: x-admin-passcode
+      in: header
+      required: true
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +412,543 @@ components:
       required:
         - status
 
+    ApiErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        field:
+          type: ["string", "null"]
+
+    GameKey:
+      type: string
+      enum:
+        - spot_the_fraud
+        - spoof_the_system
+        - fraud_detective
+
+    RunSource:
+      type: string
+      enum: [kiosk, phone]
+
+    LeaderboardScope:
+      type: string
+      enum: [today, cumulative]
+
+    PlayerInput:
+      type: object
+      required: [workName, email, phone, company, consent]
+      properties:
+        workName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+        phone:
+          type: string
+          description: Indian mobile number; spaces, dashes and a +91 prefix are stripped server-side.
+        company:
+          type: string
+          minLength: 1
+        consent:
+          type: boolean
+          description: Must be true. Reflects the DPDP consent checkbox, which is unticked by default.
+        noWorkEmail:
+          type: boolean
+          description: >
+            Set when the visitor used the "I don't have a work email" override.
+            Flags the row rather than blocking the entry.
+
+    Player:
+      type: object
+      description: |
+        The public view of a booth visitor. Deliberately carries no stored PII:
+        registration is an open endpoint, so returning it would let anyone submit
+        a guessed work email and read back that person's full name and phone.
+        First name and company match what the leaderboard already shows publicly.
+        Email and phone appear only in AdminLead, behind the host passcode.
+      required: [id, firstName, company, isDemo, createdAt]
+      properties:
+        id:
+          type: string
+        firstName:
+          type: string
+        company:
+          type: string
+        noWorkEmail:
+          type: boolean
+        isDemo:
+          type: boolean
+        consentAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PlayerSession:
+      type: object
+      required: [player, returning, standing]
+      properties:
+        player:
+          $ref: "#/components/schemas/Player"
+        returning:
+          type: boolean
+          description: True when this email had already been captured, so the UI greets by first name and skips to the rules.
+        standing:
+          $ref: "#/components/schemas/PlayerStanding"
+
+    GameScore:
+      type: object
+      required: [game, points, cap, played]
+      properties:
+        game:
+          $ref: "#/components/schemas/GameKey"
+        points:
+          type: number
+          description: Best single run for this game within the scope.
+        cap:
+          type: number
+        played:
+          type: boolean
+
+    PlayerStanding:
+      type: object
+      required: [playerId, scope, scores, bonus, total, maxTotal, rank, playedAllThree]
+      properties:
+        playerId:
+          type: string
+        scope:
+          $ref: "#/components/schemas/LeaderboardScope"
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameScore"
+        bonus:
+          type: number
+          description: The 40-point Fraud Fighter bonus, derived - never stored.
+        total:
+          type: number
+        maxTotal:
+          type: number
+        rank:
+          type: ["number", "null"]
+        playedAllThree:
+          type: boolean
+
+    RunInput:
+      type: object
+      required: [playerId, game, points, source, idempotencyKey]
+      properties:
+        playerId:
+          type: string
+        game:
+          $ref: "#/components/schemas/GameKey"
+        points:
+          type: number
+          minimum: 0
+        source:
+          $ref: "#/components/schemas/RunSource"
+        idempotencyKey:
+          type: string
+          minLength: 8
+        detail:
+          type: object
+          additionalProperties: true
+          description: >
+            Per-game breakdown. Spot the Fraud records each level outcome and lifeline
+            use; Spoof the System records the three attempts; Fraud Detective
+            records per-case guesses and the bonus round.
+
+    RunResult:
+      type: object
+      required: [runId, game, pointsSubmitted, pointsRecorded, isPersonalBest, duplicate, standing]
+      properties:
+        runId:
+          type: string
+        game:
+          $ref: "#/components/schemas/GameKey"
+        pointsSubmitted:
+          type: number
+        pointsRecorded:
+          type: number
+          description: Submitted points after clamping to the per-game cap.
+        isPersonalBest:
+          type: boolean
+          description: True when this run beat the player's previous best for the day.
+        duplicate:
+          type: boolean
+          description: True when this idempotency key had already been recorded.
+        standing:
+          $ref: "#/components/schemas/PlayerStanding"
+
+    RunProgressInput:
+      type: object
+      required: [idempotencyKey, playerId, game, state]
+      properties:
+        idempotencyKey:
+          type: string
+        playerId:
+          type: string
+        game:
+          $ref: "#/components/schemas/GameKey"
+        state:
+          type: object
+          additionalProperties: true
+
+    RunProgress:
+      type: object
+      required: [idempotencyKey, playerId, game, state, updatedAt]
+      properties:
+        idempotencyKey:
+          type: string
+        playerId:
+          type: string
+        game:
+          $ref: "#/components/schemas/GameKey"
+        state:
+          type: object
+          additionalProperties: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    LeaderboardRow:
+      type: object
+      required: [rank, playerId, displayName, company, total, isDemo]
+      properties:
+        rank:
+          type: number
+        playerId:
+          type: string
+        displayName:
+          type: string
+        company:
+          type: string
+        spotTheFraud:
+          type: number
+        spoofTheSystem:
+          type: number
+        fraudDetective:
+          type: number
+        bonus:
+          type: number
+        total:
+          type: number
+        gamesPlayed:
+          type: number
+        isDemo:
+          type: boolean
+
+    Leaderboard:
+      type: object
+      required: [scope, rows, totalPlayers, updatedAt]
+      properties:
+        scope:
+          $ref: "#/components/schemas/LeaderboardScope"
+        game:
+          type: ["string", "null"]
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardRow"
+        pinned:
+          description: The requested player, present only when they fall outside the returned rows.
+          oneOf:
+            - $ref: "#/components/schemas/LeaderboardRow"
+            - type: "null"
+        totalPlayers:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+
+    SpoofAttemptInput:
+      type: object
+      required: [playerId, level, image, mimeType]
+      properties:
+        playerId:
+          type: string
+        level:
+          type: number
+          minimum: 1
+          maximum: 3
+        image:
+          type: string
+          description: Base64-encoded image bytes, without a data URL prefix.
+        mimeType:
+          type: string
+          description: One of image/jpeg, image/png or image/webp.
+        fileName:
+          type: string
+
+    HeatmapRegion:
+      type: object
+      required: [x, y, w, h, intensity]
+      description: Normalised 0-1 box over a suspect area of the image.
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        w:
+          type: number
+        h:
+          type: number
+        intensity:
+          type: number
+
+    DetectorSignal:
+      type: object
+      required: [name, verdict, score]
+      properties:
+        name:
+          type: string
+          description: e.g. "Frequency-domain artefacts"
+        verdict:
+          type: string
+          enum: [synthetic, authentic, inconclusive]
+        score:
+          type: number
+          description: 0-1
+
+    DetectorVerdict:
+      type: object
+      required: [fooled, confidence, signals, heatmapRegions, latencyMs, level, uploadId]
+      properties:
+        fooled:
+          type: boolean
+        confidence:
+          type: number
+          description: Detector confidence that the image is a spoof, 0-1.
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectorSignal"
+        heatmapRegions:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatmapRegion"
+        latencyMs:
+          type: number
+        level:
+          type: number
+        uploadId:
+          type: string
+        detectorName:
+          type: string
+
+    SpoofUpload:
+      type: object
+      required: [id, playerId, level, mimeType, sizeBytes, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+        playerId:
+          type: string
+        playerName:
+          type: string
+        level:
+          type: number
+        mimeType:
+          type: string
+        sizeBytes:
+          type: number
+        fooled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    AdminGameCount:
+      type: object
+      required: [game, runs, players, averagePoints, bestPoints]
+      properties:
+        game:
+          $ref: "#/components/schemas/GameKey"
+        runs:
+          type: number
+        players:
+          type: number
+        averagePoints:
+          type: number
+        bestPoints:
+          type: number
+
+    AdminStats:
+      type: object
+      required: [playersToday, playersTotal, runsToday, runsTotal, perGame, runsByKiosk, runsByPhone, demoRowCount, sixDegreesCautionAcknowledged, uploadsRetained]
+      properties:
+        playersToday:
+          type: number
+        playersTotal:
+          type: number
+        runsToday:
+          type: number
+        runsTotal:
+          type: number
+        playedAllThreeToday:
+          type: number
+        perGame:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminGameCount"
+        runsByKiosk:
+          type: number
+        runsByPhone:
+          type: number
+        demoRowCount:
+          type: number
+        uploadsRetained:
+          type: number
+        sixDegreesCautionAcknowledged:
+          type: boolean
+        eventDay:
+          type: string
+
+    AdminLead:
+      type: object
+      required: [playerId, workName, email, phone, company, noWorkEmail, consentAt, gamesPlayed, total, createdAt, isDemo]
+      properties:
+        playerId:
+          type: string
+        workName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        company:
+          type: string
+        noWorkEmail:
+          type: boolean
+        consentAt:
+          type: ["string", "null"]
+          format: date-time
+        gamesPlayed:
+          type: number
+        spotTheFraud:
+          type: number
+        spoofTheSystem:
+          type: number
+        fraudDetective:
+          type: number
+        bonus:
+          type: number
+        total:
+          type: number
+        tier:
+          type: string
+          description: Reached tier label, derived from the cumulative total.
+        isDemo:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    DrawEntry:
+      type: object
+      required: [playerId, workName, email, company, fools]
+      properties:
+        playerId:
+          type: string
+        workName:
+          type: string
+        email:
+          type: string
+        company:
+          type: string
+        phone:
+          type: string
+        fools:
+          type: number
+
+    DrawPools:
+      type: object
+      required: [airpods, ipad, fraudFighter]
+      properties:
+        airpods:
+          type: array
+          description: Fooled the detector exactly twice.
+          items:
+            $ref: "#/components/schemas/DrawEntry"
+        ipad:
+          type: array
+          description: Fooled the detector all three times.
+          items:
+            $ref: "#/components/schemas/DrawEntry"
+        fraudFighter:
+          type: array
+          description: Played all three games.
+          items:
+            $ref: "#/components/schemas/DrawEntry"
+
+    ItemAccuracy:
+      type: object
+      required: [id, label, attempts, correct, accuracy]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        level:
+          type: ["number", "null"]
+        attempts:
+          type: number
+        correct:
+          type: number
+        accuracy:
+          type: number
+
+    AccuracyReport:
+      type: object
+      required: [questions, cases, bonusQuestions]
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemAccuracy"
+        cases:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemAccuracy"
+        bonusQuestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemAccuracy"
+
+    AdminActionInput:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum:
+            - clear_demo_rows
+            - seed_demo_rows
+            - void_run
+            - delete_upload
+            - acknowledge_six_degrees_caution
+        runId:
+          type: string
+        uploadId:
+          type: string
+        playerId:
+          type: string
+
+    AdminActionResult:
+      type: object
+      required: [action, applied, message]
+      properties:
+        action:
+          type: string
+        applied:
+          type: boolean
+        affected:
+          type: number
+        message:
+          type: string
