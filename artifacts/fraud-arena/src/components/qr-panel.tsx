@@ -1,4 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
+import { cn } from '@/lib/utils';
 
 interface QrPanelProps {
   game: string;
@@ -6,6 +7,10 @@ interface QrPanelProps {
   size?: number;
 }
 
+/**
+ * The scan-to-play block. Violet is used here as a solid field — a block, not
+ * a gradient wash — with the code sitting on white inside it.
+ */
 export function QrPanel({ game, className = '', size = 100 }: QrPanelProps) {
   // Build the ?src=qr URL for the current game
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -13,12 +18,15 @@ export function QrPanel({ game, className = '', size = 100 }: QrPanelProps) {
   const targetUrl = `${origin}${baseUrl}/${game}?src=qr`;
 
   return (
-    <div className={`flex flex-col items-center bg-card text-card-foreground p-4 rounded-xl border border-border shadow-lg ${className}`}>
-      <div className="bg-white p-2 rounded-lg mb-3">
+    <div className={cn('flex flex-col items-center bg-violet-700 p-6 text-white', className)}>
+      <div className="bg-white p-3">
         <QRCodeSVG value={targetUrl} size={size} level="M" />
       </div>
-      <p className="text-xs text-center font-mono text-muted-foreground leading-tight max-w-[150px]">
-        Scan to play on your phone - your score counts the same
+      <p className="mt-4 max-w-[180px] text-center font-mono text-body-sm uppercase leading-tight tracking-[0.03em]">
+        Scan to play on your phone
+      </p>
+      <p className="mt-2 max-w-[180px] text-center text-body-sm opacity-70">
+        Your score counts the same.
       </p>
     </div>
   );

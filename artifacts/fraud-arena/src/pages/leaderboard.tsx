@@ -1,12 +1,24 @@
-import { useState, useEffect } from 'react';
-import { useGetLeaderboard, LeaderboardScope, GameKey, getGetLeaderboardQueryKey } from '@workspace/api-client-react';
+import { useState } from 'react';
+import {
+  useGetLeaderboard,
+  LeaderboardScope,
+  GameKey,
+  getGetLeaderboardQueryKey,
+} from '@workspace/api-client-react';
 import { Layout } from '@/components/layout';
 import { usePlayerSession } from '@/lib/store';
-import { Card } from '@/components/ui/card';
-import { Trophy, Medal, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
+import { LiveDot } from '@/components/bureau/live-dot';
 
 type Tab = 'combined' | GameKey;
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'combined', label: 'Combined Total' },
+  { key: 'spot_the_fraud', label: 'Spot the Fraud' },
+  { key: 'spoof_the_system', label: 'Spoof the System' },
+  { key: 'fraud_detective', label: 'Fraud Detective' },
+];
 
 export default function LeaderboardPage() {
   const { session } = usePlayerSession();
@@ -23,154 +35,181 @@ export default function LeaderboardPage() {
   const { data: leaderboard } = useGetLeaderboard(leaderboardParams, {
     query: {
       refetchInterval: 10000,
-      queryKey: getGetLeaderboardQueryKey(leaderboardParams)
-    }
+      queryKey: getGetLeaderboardQueryKey(leaderboardParams),
+    },
   });
+
+  const rows = leaderboard?.rows ?? [];
 
   return (
     <Layout>
-      <div className="w-full max-w-5xl mx-auto py-8 md:py-12 flex flex-col h-full min-h-[80vh]">
-        
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight flex items-center gap-4">
-            <Trophy className="w-10 h-10 text-primary" /> 
-            Leaderboard
-          </h1>
-
-          <div className="flex p-1 bg-card border border-border rounded-full shadow-sm">
-            <button
-              onClick={() => setScope('today')}
-              className={cn("px-6 py-2 rounded-full font-bold text-sm transition-all", scope === 'today' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground")}
-            >
-              TODAY
-            </button>
-            <button
-              onClick={() => setScope('cumulative')}
-              className={cn("px-6 py-2 rounded-full font-bold text-sm transition-all", scope === 'cumulative' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground")}
-            >
-              CUMULATIVE
-            </button>
-          </div>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar">
-          <TabButton active={activeTab === 'combined'} onClick={() => setActiveTab('combined')}>Combined Total</TabButton>
-          <TabButton active={activeTab === 'spot_the_fraud'} onClick={() => setActiveTab('spot_the_fraud')}>Spot The Fraud</TabButton>
-          <TabButton active={activeTab === 'spoof_the_system'} onClick={() => setActiveTab('spoof_the_system')}>Spoof The System</TabButton>
-          <TabButton active={activeTab === 'fraud_detective'} onClick={() => setActiveTab('fraud_detective')}>Fraud Detective</TabButton>
-        </div>
-
-        <Card className="flex-1 bg-card/50 backdrop-blur-sm border-border p-2 md:p-6 overflow-hidden rounded-3xl shadow-xl flex flex-col gap-2">
-          
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 text-xs font-mono font-bold text-muted-foreground uppercase border-b border-border/50">
-            <div className="col-span-1 text-center">Rank</div>
-            <div className="col-span-5 md:col-span-4">Player</div>
-            <div className="hidden md:block col-span-5">Scores</div>
-            <div className="col-span-6 md:col-span-2 text-right">Total</div>
+      <div className="mx-auto flex min-h-[80vh] w-full max-w-5xl flex-col py-8 md:py-12">
+        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div>
+            <EyebrowTag>Standings</EyebrowTag>
+            <h1 className="mt-4 font-sans text-display-xl font-normal text-white">Leaderboard</h1>
           </div>
 
-          <div className="flex flex-col gap-2 overflow-y-auto">
-            {leaderboard?.rows.map(row => (
-              <LeaderboardRow key={row.playerId} row={row} isCurrentUser={row.playerId === session?.player.id} />
+          {/* Square segmented control — hairlines, no pills, no shadows. */}
+          <div className="flex border border-ink-800">
+            {(['today', 'cumulative'] as LeaderboardScope[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                className={cn(
+                  'px-6 py-3 font-mono text-body-sm font-medium uppercase tracking-[0.03em] transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                  scope === s
+                    ? 'bg-violet-700 text-white'
+                    : 'text-[var(--text-on-dark-muted)] hover:text-white',
+                )}
+              >
+                {s === 'today' ? 'Today' : 'Cumulative'}
+              </button>
             ))}
-            
-            {leaderboard?.rows.length === 0 && (
-              <div className="py-20 text-center text-muted-foreground font-mono">
-                No scores recorded yet. Be the first!
+          </div>
+        </div>
+
+        <div className="mt-8 flex gap-px overflow-x-auto border-b border-ink-800">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={cn(
+                'whitespace-nowrap border-b px-5 py-3 font-mono text-body-sm font-medium uppercase tracking-[0.03em] transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                activeTab === t.key
+                  ? 'border-violet-700 text-white'
+                  : 'border-transparent text-[var(--text-on-dark-muted)] hover:text-white',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* The board is a white field floating on near-black. */}
+        <div className="mt-px flex flex-1 flex-col bg-white text-russian">
+          <div className="grid grid-cols-12 items-center gap-4 border-b border-ice-300 px-6 py-4 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-muted)]">
+            <div className="col-span-2 md:col-span-1">Rank</div>
+            <div className="col-span-6 md:col-span-4">Player</div>
+            <div className="hidden md:col-span-5 md:block">Scores</div>
+            <div className="col-span-4 text-right md:col-span-2">Total</div>
+          </div>
+
+          <div className="flex flex-col">
+            {rows.map((row) => (
+              <LeaderboardRow
+                key={row.playerId}
+                row={row}
+                isCurrentUser={row.playerId === session?.player.id}
+              />
+            ))}
+
+            {rows.length === 0 && (
+              <div className="py-section-0 flex flex-col items-center gap-3 py-20">
+                <p className="font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-faint)]">
+                  No scores recorded
+                </p>
+                <p className="text-body-lg text-[var(--text-muted)]">Be the first on the board.</p>
               </div>
             )}
-            
-            {leaderboard?.pinned && !leaderboard.rows.find(r => r.playerId === leaderboard.pinned?.playerId) && (
-              <>
-                <div className="py-2 flex items-center justify-center">
-                  <div className="w-1 h-1 rounded-full bg-border" />
-                  <div className="w-1 h-1 rounded-full bg-border mx-2" />
-                  <div className="w-1 h-1 rounded-full bg-border" />
-                </div>
-                <LeaderboardRow row={leaderboard.pinned} isCurrentUser={true} />
-              </>
-            )}
-          </div>
-        </Card>
 
+            {leaderboard?.pinned &&
+              !rows.find((r) => r.playerId === leaderboard.pinned?.playerId) && (
+                <>
+                  <div className="flex items-center justify-center gap-1.5 py-3">
+                    <span className="size-[3px] bg-[var(--text-faint)]" />
+                    <span className="size-[3px] bg-[var(--text-faint)]" />
+                    <span className="size-[3px] bg-[var(--text-faint)]" />
+                  </div>
+                  <LeaderboardRow row={leaderboard.pinned} isCurrentUser />
+                </>
+              )}
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <span className="font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+            {scope === 'today' ? 'Today' : 'All days'}
+          </span>
+          <LiveDot label="Updating" />
+        </div>
       </div>
     </Layout>
   );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean, onClick: () => void, children: React.ReactNode }) {
+function LeaderboardRow({ row, isCurrentUser }: { row: any; isCurrentUser: boolean }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       className={cn(
-        "px-5 py-3 rounded-xl font-bold whitespace-nowrap transition-all active:scale-95 border",
-        active ? "bg-card text-primary border-primary shadow-sm" : "bg-transparent border-transparent text-muted-foreground hover:bg-card/50"
+        'grid grid-cols-12 items-center gap-4 border-b border-ice-300 px-6 py-5',
+        isCurrentUser && 'bg-ice-100',
       )}
     >
-      {children}
-    </button>
-  );
-}
-
-function LeaderboardRow({ row, isCurrentUser }: { row: any, isCurrentUser: boolean }) {
-  const isTop3 = row.rank <= 3;
-  
-  return (
-    <div className={cn(
-      "grid grid-cols-12 gap-4 px-4 py-4 md:px-6 rounded-2xl items-center transition-all",
-      isCurrentUser ? "bg-primary/10 border border-primary/30" : "bg-background border border-border/50 hover:border-border",
-      isTop3 && !isCurrentUser && "bg-card border-border shadow-sm"
-    )}>
-      
-      <div className="col-span-1 flex justify-center">
-        {row.rank === 1 ? <Trophy className="w-6 h-6 text-warning" /> :
-         row.rank === 2 ? <Medal className="w-6 h-6 text-zinc-400" /> :
-         row.rank === 3 ? <Medal className="w-6 h-6 text-amber-700" /> :
-         <span className="font-mono font-bold text-muted-foreground">{row.rank}</span>}
+      <div className="col-span-2 md:col-span-1">
+        {row.rank === 1 ? (
+          <span className="inline-flex size-8 items-center justify-center bg-violet-700 font-mono text-body-md font-medium tabular-nums text-white">
+            1
+          </span>
+        ) : (
+          <span className="inline-flex size-8 items-center justify-center font-mono text-body-md font-medium tabular-nums text-[var(--text-muted)]">
+            {row.rank}
+          </span>
+        )}
       </div>
 
-      <div className="col-span-5 md:col-span-4 flex flex-col justify-center overflow-hidden">
-        <div className="font-bold text-lg truncate flex items-center gap-2">
-          {row.displayName}
-          {isCurrentUser && <span className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground px-2 py-0.5 rounded-full">You</span>}
+      <div className="col-span-6 flex flex-col overflow-hidden md:col-span-4">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-sans text-body-lg font-medium text-russian">
+            {row.displayName}
+          </span>
+          {isCurrentUser && (
+            <span className="shrink-0 bg-violet-700 px-2 py-0.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">
+              You
+            </span>
+          )}
         </div>
-        <div className="text-xs text-muted-foreground font-mono truncate">{row.company}</div>
+        <span className="truncate font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-muted)]">
+          {row.company}
+        </span>
       </div>
 
-      <div className="hidden md:flex col-span-5 gap-2 items-center">
-        {row.spotTheFraud !== undefined && (
-          <Badge label="STF" score={row.spotTheFraud} max={100} />
-        )}
-        {row.spoofTheSystem !== undefined && (
-          <Badge label="SPOOF" score={row.spoofTheSystem} max={75} />
-        )}
-        {row.fraudDetective !== undefined && (
-          <Badge label="DETECT" score={row.fraudDetective} max={100} />
-        )}
+      <div className="hidden items-center gap-2 md:col-span-5 md:flex">
+        <ScoreChip label="STF" score={row.spotTheFraud} />
+        <ScoreChip label="Spoof" score={row.spoofTheSystem} />
+        <ScoreChip label="Detect" score={row.fraudDetective} />
         {row.bonus > 0 && (
-          <div className="flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded-md text-accent text-[10px] font-bold uppercase shrink-0">
-            <Star className="w-3 h-3" /> +{row.bonus}
-          </div>
+          <span className="shrink-0 bg-coral-600 px-2 py-1 font-mono text-body-sm font-medium tabular-nums text-russian">
+            +{row.bonus}
+          </span>
         )}
       </div>
 
-      <div className="col-span-6 md:col-span-2 text-right flex flex-col justify-center items-end">
-        <div className={cn("text-2xl font-black font-mono leading-none", isTop3 ? "text-primary" : "")}>
+      <div className="col-span-4 flex flex-col items-end text-right md:col-span-2">
+        <span
+          className={cn(
+            'font-sans text-card-title font-medium tabular-nums',
+            row.rank <= 3 ? 'text-violet-700' : 'text-russian',
+          )}
+        >
           {row.total}
-        </div>
-        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Points</div>
+        </span>
+        <span className="mt-0.5 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-faint)]">
+          Points
+        </span>
       </div>
-      
     </div>
   );
 }
 
-function Badge({ label, score, max }: { label: string, score: number, max: number }) {
-  if (score === 0) return null;
+function ScoreChip({ label, score }: { label: string; score?: number }) {
+  if (score === undefined || score === 0) return null;
   return (
-    <div className="flex flex-col bg-background border border-border px-2 py-1 rounded-md min-w-[50px] shrink-0">
-      <span className="text-[9px] text-muted-foreground font-bold">{label}</span>
-      <span className="font-mono text-sm leading-none mt-0.5">{score}</span>
-    </div>
+    <span className="flex shrink-0 items-baseline gap-2 border border-[rgba(0,2,36,0.1)] px-2 py-1">
+      <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-faint)]">
+        {label}
+      </span>
+      <span className="font-mono text-body-sm tabular-nums text-russian">{score}</span>
+    </span>
   );
 }

@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,14 +11,16 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRegisterPlayer, PlayerInput } from '@workspace/api-client-react';
 import { usePlayerSession } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldAlert } from 'lucide-react';
-import { useState } from 'react';
+import { Layout } from '@/components/layout';
+import { IconTile } from '@/components/bureau/icon-tile';
+import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   workName: z.string().min(2, "Work name must be at least 2 characters"),
@@ -31,8 +34,22 @@ const formSchema = z.object({
   }),
 });
 
+const BureauInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => (
+    <input
+      ref={ref}
+      className={cn(
+        "flex h-14 w-full border border-ink-800 bg-ink-900 px-4 py-3 font-sans text-body-lg text-white placeholder:text-[var(--text-on-dark-faint)] transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] hover:border-violet-700 focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
+        className
+      )}
+      {...props}
+    />
+  )
+);
+BureauInput.displayName = 'BureauInput';
+
 export default function Join() {
-  const { saveSession, session } = usePlayerSession();
+  const { saveSession } = usePlayerSession();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const registerMutation = useRegisterPlayer();
@@ -91,118 +108,127 @@ export default function Join() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 bg-background relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[120px] pointer-events-none" />
-
-      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-8 relative z-10">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-lg shadow-primary/20">
-            <ShieldAlert className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Bureau Fraud Arena</h1>
-          <p className="text-muted-foreground text-center">
-            Register to play. Your score will be added to the live leaderboard.
+    <Layout showHeader={false}>
+      <div className="mx-auto flex w-full max-w-[640px] flex-col py-12 md:py-24">
+        <IconTile icon={ShieldAlert} size={60} />
+        
+        <div className="mt-8">
+          <EyebrowTag>Registration</EyebrowTag>
+          <h1 className="mt-4 font-sans text-display-xl font-normal text-white">Join the Arena.</h1>
+          <p className="mt-4 text-body-lede text-[var(--text-on-dark-muted)]">
+            Register to play. Scores are added to the live leaderboard.
           </p>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="workName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">Work Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="E.g. Priya Sharma" className="h-14 text-lg" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex justify-between items-baseline">
-                    <FormLabel className="text-lg">Work Email</FormLabel>
-                    {!noWorkEmail && (
-                      <button 
-                        type="button" 
-                        onClick={() => setNoWorkEmail(true)}
-                        className="text-xs text-muted-foreground underline"
-                      >
-                        I don't have one
-                      </button>
-                    )}
-                  </div>
-                  <FormControl>
-                    <Input type="email" placeholder="priya@company.com" className="h-14 text-lg" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">Phone Number</FormLabel>
-                  <FormControl>
-                    <Input type="tel" inputMode="numeric" placeholder="9XXXXXXXXX" className="h-14 text-lg" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">Company</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Your organisation" className="h-14 text-lg" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="consent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-xl border border-border p-4 bg-background/50">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="mt-1 w-6 h-6 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="font-normal text-sm leading-relaxed text-muted-foreground">
-                      I agree that Bureau may contact me about its products and store the details above. I can withdraw consent any time by writing to privacy@bureau.id.
+        <div className="mt-stack border-t border-ink-800 pt-8">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
+              <FormField
+                control={form.control}
+                name="workName"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                      Work Name
                     </FormLabel>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
+                    <FormControl>
+                      <BureauInput placeholder="e.g. Priya Sharma" {...field} />
+                    </FormControl>
+                    <FormMessage className="font-mono text-body-sm text-coral-600" />
+                  </FormItem>
+                )}
+              />
 
-            <Button type="submit" size="lg" className="w-full h-16 text-xl font-bold" disabled={registerMutation.isPending}>
-              {registerMutation.isPending ? "REGISTERING..." : "JOIN THE ARENA"}
-            </Button>
-          </form>
-        </Form>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <FormLabel className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                        Work Email
+                      </FormLabel>
+                      {!noWorkEmail && (
+                        <button 
+                          type="button" 
+                          onClick={() => setNoWorkEmail(true)}
+                          className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] underline decoration-1 underline-offset-4 transition-colors hover:text-white"
+                        >
+                          I don't have one
+                        </button>
+                      )}
+                    </div>
+                    <FormControl>
+                      <BureauInput type="email" placeholder="priya@company.com" {...field} />
+                    </FormControl>
+                    <FormMessage className="font-mono text-body-sm text-coral-600" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                      Phone Number
+                    </FormLabel>
+                    <FormControl>
+                      <BureauInput type="tel" inputMode="numeric" placeholder="9XXXXXXXXX" {...field} />
+                    </FormControl>
+                    <FormMessage className="font-mono text-body-sm text-coral-600" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                      Company
+                    </FormLabel>
+                    <FormControl>
+                      <BureauInput placeholder="Your organisation" {...field} />
+                    </FormControl>
+                    <FormMessage className="font-mono text-body-sm text-coral-600" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="consent"
+                render={({ field }) => (
+                  <FormItem className="mt-4 flex flex-row items-start gap-4 space-y-0 border border-ink-800 bg-ink-900 p-6">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-none border border-ink-700 bg-russian transition-colors focus-visible:outline-none focus-visible:ring-0 data-[state=checked]:border-violet-700 data-[state=checked]:bg-violet-700 data-[state=checked]:text-white"
+                      />
+                    </FormControl>
+                    <div className="flex flex-col gap-2">
+                      <FormLabel className="font-sans text-body-md leading-relaxed text-[var(--text-on-dark-muted)]">
+                        I agree that Bureau may contact me about its products and store the details above. I can withdraw consent any time by writing to privacy@bureau.id.
+                      </FormLabel>
+                      <FormMessage className="font-mono text-body-sm text-coral-600" />
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <div className="mt-4">
+                <Button type="submit" size="lg" chevron className="w-full" disabled={registerMutation.isPending}>
+                  {registerMutation.isPending ? "Registering" : "Join the Arena"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }

@@ -1,4 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap');
+/*
+  Bureau Design System — Fraud Arena
+  ==================================
+  Transcribed from the Bureau Design System guideline. Values are verbatim,
+  including the deliberately odd ones (the 22.041px grid cell, the 0.501px
+  hairline, the 118px stat readout).
+
+  The rules this file enforces, so components do not have to re-litigate them:
+    - Radius 0 everywhere. Bureau is square.
+    - No drop shadows. Depth comes from 1px hairlines and layering.
+    - No blur. No frosted glass, no backdrop filters.
+    - Denim carries the voice; Geist Mono is the technical register.
+    - Cyan is reserved for "live". It is never a fill for a large area.
+*/
+
+/* Geist Mono is the technical register and is served from Google Fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap');
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -6,124 +22,440 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-popover-border: hsl(var(--popover-border));
-
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-border: var(--primary-border);
-
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-secondary-border: var(--secondary-border);
-
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-muted-border: var(--muted-border);
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-accent-border: var(--accent-border);
-
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-destructive-border: var(--destructive-border);
-
-  --color-success: hsl(var(--success));
-  --color-success-foreground: hsl(var(--success-foreground));
-  
-  --color-warning: hsl(var(--warning));
-  --color-warning-foreground: hsl(var(--warning-foreground));
-
-  --font-sans: 'Geist', sans-serif;
-  --font-mono: 'Geist Mono', monospace;
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+/*
+  Denim is the brand voice (trial cut supplied by the brand team). Referenced
+  relatively so Vite fingerprints it and rewrites the URL against the artifact
+  base path — a root-absolute /fonts/… would break the moment this app is
+  served from anywhere other than the site root.
+*/
+@font-face {
+  font-family: 'Denim';
+  src: url('./assets/fonts/denim-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Denim';
+  src: url('./assets/fonts/denim-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 
-:root, .dark {
-  /* Bureau Palette */
-  --bureau-blue: 253 100% 54%;
-  --bureau-violet: 242 100% 71%;
-  --bureau-navy: 238 100% 7%;
-  --bureau-navy-deep: 237 97% 11%;
-  --bureau-navy-lifted: 234 70% 23%;
-  --bureau-ink: 229 64% 35%;
-  --bureau-pale: 215 83% 96%;
-  --bureau-surface: 216 100% 98%;
-  --bureau-border: 219 71% 90%;
-  --bureau-orange: 18 98% 61%;
-  
-  --semantic-correct: 155 84% 36%;
-  --semantic-wrong: 358 76% 60%;
-  --semantic-warn: 38 90% 55%;
+@theme inline {
+  /* ---- Semantic colour roles ------------------------------------------ */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  /* Theme mappings (Dark by default) */
-  --background: var(--bureau-navy);
-  --foreground: var(--bureau-surface);
-  
-  --card: var(--bureau-navy-deep);
-  --card-foreground: var(--bureau-surface);
-  --card-border: var(--bureau-navy-lifted);
-  
-  --popover: var(--bureau-navy-deep);
-  --popover-foreground: var(--bureau-surface);
-  --popover-border: var(--bureau-navy-lifted);
-  
-  --primary: var(--bureau-blue);
-  --primary-foreground: var(--bureau-surface);
-  
-  --secondary: var(--bureau-navy-lifted);
-  --secondary-foreground: var(--bureau-surface);
-  
-  --muted: var(--bureau-ink);
-  --muted-foreground: var(--bureau-pale);
-  
-  --accent: var(--bureau-orange);
-  --accent-foreground: var(--bureau-navy);
-  
-  --destructive: var(--semantic-wrong);
-  --destructive-foreground: var(--bureau-surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-border: var(--card-border);
 
-  --success: var(--semantic-correct);
-  --success-foreground: var(--bureau-surface);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover-border: var(--popover-border);
 
-  --warning: var(--semantic-warn);
-  --warning-foreground: var(--bureau-navy);
-  
-  --border: var(--bureau-navy-lifted);
-  --input: var(--bureau-navy-lifted);
-  --ring: var(--bureau-blue);
-  
-  --radius: 0.75rem;
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-border: var(--primary-border);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-border: var(--secondary-border);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted-border: var(--muted-border);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-border: var(--accent-border);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-border: var(--destructive-border);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  /* ---- Bureau palette, addressable directly -------------------------- */
+  --color-russian: #000224;
+  --color-ink-900: #010439;
+  --color-ink-800: #111962;
+  --color-ink-700: #203592;
+  --color-violet-700: #4715ff;
+  --color-violet-600: #5244fc;
+  --color-violet-500: #706cff;
+  --color-lilac-400: #b082ff;
+  --color-cyan-500: #01ffff;
+  --color-cyan-300: #a5fffd;
+  --color-cyan-100: #e1fffd;
+  --color-coral-600: #fd763a;
+  --color-coral-500: #fe988c;
+  --color-coral-400: #ffa8a1;
+  --color-coral-300: #ffc4c0;
+  --color-peach-300: #ffe8da;
+  --color-peach-200: #fedec7;
+  --color-peach-100: #fcf1eb;
+  --color-ice-300: #d1dff9;
+  --color-ice-100: #ebf3fe;
+  --color-lime-300: #c1f0aa;
+
+  /* ---- Type ----------------------------------------------------------- */
+  --font-sans: 'Denim', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Denim', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Editorial scale. Tracking is -0.02em almost everywhere. */
+  --text-stat: 118px;
+  --text-stat--line-height: 100%;
+  --text-stat--letter-spacing: -0.02em;
+
+  --text-hero: 72px;
+  --text-hero--line-height: 1.28;
+  --text-hero--letter-spacing: -0.02em;
+
+  --text-display-3xl: 68px;
+  --text-display-3xl--line-height: 68px;
+  --text-display-3xl--letter-spacing: -0.02em;
+
+  --text-slide: 60px;
+  --text-slide--line-height: 100%;
+  --text-slide--letter-spacing: -0.02em;
+
+  --text-display-2xl: 56px;
+  --text-display-2xl--line-height: 62px;
+  --text-display-2xl--letter-spacing: -0.02em;
+
+  --text-module: 54px;
+  --text-module--line-height: 100%;
+  --text-module--letter-spacing: -0.02em;
+
+  --text-display-xl: 48px;
+  --text-display-xl--line-height: 60px;
+  --text-display-xl--letter-spacing: -0.01em;
+
+  --text-article: 40px;
+  --text-article--line-height: 1.28;
+  --text-article--letter-spacing: -0.02em;
+
+  --text-display-lg: 32px;
+  --text-display-lg--line-height: 100%;
+  --text-display-lg--letter-spacing: -0.02em;
+
+  --text-card-title: 24px;
+  --text-card-title--line-height: 100%;
+  --text-card-title--letter-spacing: -0.02em;
+
+  --text-lede: 21px;
+  --text-lede--line-height: 1.4;
+
+  --text-display-md: 20px;
+  --text-display-md--line-height: 100%;
+  --text-display-md--letter-spacing: -0.02em;
+
+  --text-body-lede: 20px;
+  --text-body-lede--line-height: 1.4;
+
+  --text-caption: 20px;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 140%;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 140%;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 140%;
+
+  /* Mono labels: always uppercase, weight 500, 16px, tracking 0.03em. */
+  --text-eyebrow: 16px;
+  --text-eyebrow--line-height: 100%;
+  --text-eyebrow--letter-spacing: 0.03em;
+
+  /* The source doc sets this at 7px, but the same spec puts a hard floor of
+     14px on anything in a UI — and this runs on a booth screen. Floor wins. */
+  --text-eyebrow-micro: 14px;
+  --text-eyebrow-micro--line-height: 100%;
+  --text-eyebrow-micro--letter-spacing: 0.03em;
+
+  /* ---- Spacing, named for the roles the guideline gives them ---------- */
+  --spacing-card: 48px;
+  --spacing-module: 70px;
+  --spacing-inset: 136px;
+  --spacing-inset-lg: 176px;
+  --spacing-stack: 68px;
+  --spacing-section: 208px;
+  --spacing-grid: 22.041px;
+
+  /* ---- Radius: zero. Bureau is square. ------------------------------- */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /* ---- No drop shadows anywhere in this system ----------------------- */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+  --inset-shadow-2xs: none;
+  --inset-shadow-xs: none;
+  --inset-shadow-sm: none;
+  --drop-shadow-xs: none;
+  --drop-shadow-sm: none;
+  --drop-shadow-md: none;
+  --drop-shadow-lg: none;
+  --drop-shadow-xl: none;
+
+  /* ---- Motion: things resolve into place, they never bounce ---------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  --animate-live-pulse: live-pulse 1600ms linear infinite;
+  --animate-fade-in: fade-in 420ms cubic-bezier(0.2, 0, 0.2, 1) both;
+  --animate-resolve-in: resolve-in 420ms cubic-bezier(0.2, 0, 0.2, 1) both;
+  --animate-trace: trace 1600ms cubic-bezier(0.2, 0, 0.2, 1) forwards;
+}
+
+:root,
+.dark {
+  /* Bureau palette */
+  --russian: #000224;
+  --ink-900: #010439;
+  --ink-800: #111962;
+  --ink-700: #203592;
+  --violet-700: #4715ff;
+  --violet-600: #5244fc;
+  --violet-500: #706cff;
+  --cyan-500: #01ffff;
+  --coral-600: #fd763a;
+  --ice-300: #d1dff9;
+  --ice-100: #ebf3fe;
+  --lime-300: #c1f0aa;
+  --white: #ffffff;
+
+  /* Durations */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 420ms;
+  --dur-trace: 1600ms;
+
+  /* The matrix: 22.041px cell, 0.501px hairline, plus the 8px dot field. */
+  --grid-cell: 22.041px;
+  --grid-hairline: 0.501px;
+  --border-grid: var(--ink-800);
+  --dot-matrix-size: 8px 8px;
+
+  /* Hairlines carry all the depth in this system. */
+  --border-hairline: var(--ice-300);
+  --border-hairline-dark: rgba(0, 2, 36, 0.1);
+  --border-hairline-on-dark: rgba(255, 255, 255, 0.2);
+
+  /* Opacity is a type tool. */
+  --text-on-dark: var(--white);
+  --text-on-dark-muted: rgba(255, 255, 255, 0.7);
+  /* Ink at 40% disappears on a near-black field, so dark surfaces get their
+     own faint step. Use the -on-dark pair on russian/ink, the plain pair on
+     white/ice. */
+  --text-on-dark-faint: rgba(255, 255, 255, 0.4);
+  --text-primary: var(--russian);
+  --text-muted: rgba(0, 2, 36, 0.6);
+  --text-faint: rgba(0, 2, 36, 0.4);
+
+  /* ---- Semantic mappings. Black Russian carries most of the weight. --- */
+  --background: var(--russian);
+  --foreground: var(--white);
+
+  /* Dark fields, not lifted cards — depth is layering plus a hairline. */
+  --card: var(--ink-900);
+  --card-foreground: var(--white);
+  --card-border: var(--ink-800);
+
+  --popover: var(--ink-900);
+  --popover-foreground: var(--white);
+  --popover-border: var(--ink-800);
+
+  /* Electric Violet marks where the system is doing work. */
+  --primary: var(--violet-700);
+  --primary-foreground: var(--white);
+  --primary-border: var(--violet-700);
+
+  --secondary: var(--ink-800);
+  --secondary-foreground: var(--white);
+  --secondary-border: var(--ink-700);
+
+  --muted: var(--ink-800);
+  --muted-foreground: var(--text-on-dark-muted);
+  --muted-border: var(--ink-700);
+
+  /* Coral is the signal colour — where a relationship surfaced. */
+  --accent: var(--coral-600);
+  --accent-foreground: var(--russian);
+  --accent-border: var(--coral-600);
+
+  --destructive: var(--coral-600);
+  --destructive-foreground: var(--russian);
+  --destructive-border: var(--coral-600);
+
+  --success: var(--lime-300);
+  --success-foreground: var(--russian);
+
+  --warning: var(--peach-200, #fedec7);
+  --warning-foreground: var(--russian);
+
+  --border: var(--ink-800);
+  --input: var(--ink-800);
+  --ring: var(--violet-700);
+
+  --radius: 0px;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-weight: 400;
+    letter-spacing: -0.02em;
   }
-  
+
+  /*
+    Focus: 1px violet outline offset 2px, square. Applied globally so no
+    component has to remember it, and so the ring never becomes a glow.
+  */
+  :focus-visible {
+    outline: 1px solid var(--violet-700);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  /* Disabled is 40% opacity and not-allowed, everywhere. */
+  [disabled],
+  [aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Numbers are stated bare and pre-formatted — keep them tabular. */
+  .font-mono,
+  code,
+  kbd,
+  samp {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Disable pull-to-refresh on mobile for kiosk games */
-  html, body {
+  html,
+  body {
     overscroll-behavior-y: none;
     touch-action: pan-x pan-y;
   }
+
+  /* Motion is fades and draws only. Respect the user's preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---- Keyframes: fades and draws only, no springs, no scale-up -------- */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+  Entrances resolve into place: a fade plus a small positional settle, never a
+  scale-up. 420ms on --ease-standard.
+*/
+@keyframes resolve-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes trace {
+  from {
+    stroke-dashoffset: var(--trace-length, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---- The matrix, texture and hairline utilities ---------------------- */
+@utility bureau-matrix {
+  /* The 22.041px hairline grid that sits behind every dark field. */
+  background-image:
+    linear-gradient(to right, var(--border-grid) var(--grid-hairline), transparent var(--grid-hairline)),
+    linear-gradient(to bottom, var(--border-grid) var(--grid-hairline), transparent var(--grid-hairline));
+  background-size: var(--grid-cell) var(--grid-cell);
+}
+
+@utility bureau-dots {
+  /* The 8px dot field. */
+  background-image: radial-gradient(var(--border-grid) 0.8px, transparent 0.9px);
+  background-size: var(--dot-matrix-size);
+}
+
+@utility hairline {
+  box-shadow: inset 0 0 0 1px var(--border-hairline);
+}
+
+@utility hairline-on-dark {
+  box-shadow: inset 0 0 0 1px var(--border-hairline-on-dark);
+}
+
+@utility hairline-scan {
+  box-shadow: inset 0 0 0 1px var(--violet-700);
+}
+
+/*
+  The one protection gradient the system allows: a top-down fade that lets a
+  texture die out under a headline.
+*/
+@utility field-fade {
+  mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
 }

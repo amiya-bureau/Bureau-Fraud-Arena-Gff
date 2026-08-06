@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { PlayerStanding } from '@workspace/api-client-react';
+import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 
 interface RulesScreenProps {
   gameName: string;
@@ -21,74 +21,63 @@ export function RulesScreen({
   lifelines,
   standing,
   gameKey,
-  onStart
+  onStart,
 }: RulesScreenProps) {
-  
-  const scoreBadge = standing?.scores.find(s => s.game === gameKey);
+  const scoreBadge = standing?.scores.find((s) => s.game === gameKey);
+
+  const rules = [
+    { label: 'Scoring', body: scoring },
+    { label: 'Game Over', body: endsWhen },
+    ...(lifelines ? [{ label: 'Lifelines & Attempts', body: lifelines }] : []),
+  ];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center w-full max-w-2xl mx-auto py-12">
-      <Card className="w-full p-8 md:p-12 flex flex-col gap-8 bg-card border-card-border shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary" />
-        
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground uppercase">{gameName}</h1>
-          <p className="text-xl text-muted-foreground">{premise}</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-12">
+      <EyebrowTag>Briefing</EyebrowTag>
 
-        <div className="space-y-6 text-lg">
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-primary font-bold">1</span>
-            </div>
+      <h1 className="mt-6 font-sans text-display-xl font-normal text-white">{gameName}</h1>
+      <p className="mt-4 max-w-[56ch] text-body-lede text-[var(--text-on-dark-muted)]">{premise}</p>
+
+      {/* Hairline-separated rows — no cards inside a card, no shadows. */}
+      <div className="mt-stack border-t border-ink-800">
+        {rules.map((rule, i) => (
+          <div key={rule.label} className="flex items-start gap-6 border-b border-ink-800 py-6">
+            <span className="mt-1 w-6 shrink-0 font-mono text-body-md font-medium tabular-nums text-violet-500">
+              {String(i + 1).padStart(2, '0')}
+            </span>
             <div>
-              <strong className="block text-foreground mb-1">Scoring</strong>
-              <span className="text-muted-foreground">{scoring}</span>
+              <h2 className="font-mono text-eyebrow font-medium uppercase tracking-[0.03em] text-white">
+                {rule.label}
+              </h2>
+              <p className="mt-2 max-w-[64ch] text-body-lg text-[var(--text-on-dark-muted)]">
+                {rule.body}
+              </p>
             </div>
           </div>
-          
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border">
-            <div className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-destructive font-bold">2</span>
-            </div>
-            <div>
-              <strong className="block text-foreground mb-1">Game Over</strong>
-              <span className="text-muted-foreground">{endsWhen}</span>
-            </div>
-          </div>
+        ))}
+      </div>
 
-          {lifelines && (
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border">
-              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-accent font-bold">3</span>
-              </div>
-              <div>
-                <strong className="block text-foreground mb-1">Lifelines & Attempts</strong>
-                <span className="text-muted-foreground">{lifelines}</span>
-              </div>
-            </div>
-          )}
+      {scoreBadge && scoreBadge.played && (
+        <div className="mt-8 flex items-baseline gap-4 border border-violet-700 px-6 py-5">
+          <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-violet-500">
+            Your best
+          </span>
+          <span className="font-sans text-card-title font-medium tabular-nums text-white">
+            {scoreBadge.points} pts
+          </span>
+          {standing?.rank ? (
+            <span className="font-mono text-body-sm uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              rank {standing.rank}
+            </span>
+          ) : null}
         </div>
+      )}
 
-        {scoreBadge && scoreBadge.played && (
-          <div className="text-center p-4 rounded-xl bg-primary/10 border border-primary/20">
-            <p className="text-primary-foreground font-mono">
-              Your best so far: <strong className="text-xl">{scoreBadge.points} pts</strong>
-              {standing?.rank && <>, rank {standing.rank}</>}
-            </p>
-          </div>
-        )}
-
-        <div className="pt-4 flex flex-col gap-4">
-          <Button size="lg" className="w-full h-16 text-xl font-bold tracking-wider" onClick={onStart}>
-            START GAME
-          </Button>
-          {/* Example placeholder */}
-          <p className="text-center text-sm text-muted-foreground underline decoration-muted-foreground/30 underline-offset-4 cursor-not-allowed opacity-50">
-            Show me an example
-          </p>
-        </div>
-      </Card>
+      <div className="mt-stack">
+        <Button variant="light" size="lg" chevron onClick={onStart} className="w-full">
+          Start game
+        </Button>
+      </div>
     </div>
   );
 }
