@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Bureau Website Design"
+description = "A high-fidelity stylescape and design system showcase for Bureau, a creative agency website. Displays brand identity, typography, color palette, UI components, and portfolio sections in a rich horizontal layout. Built for designers and clients to review the full visual direction of the Bureau website."
+version = "1.0.0"
+id = "artifacts/figma-design"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24154
+
+[services.development]
+run = "pnpm --filter @workspace/figma-design run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/figma-design", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/figma-design/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24154"
+BASE_PATH = "/"
