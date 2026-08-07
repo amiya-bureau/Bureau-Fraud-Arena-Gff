@@ -68,6 +68,11 @@ export function usePlayerSession() {
 
   const saveSession = useCallback((next: PlayerSession) => {
     window.localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(next));
+    // Mark this as a freshly-created session so ProtectedRoute can skip the
+    // "Continue as / New Player" gate for the first navigation after register.
+    // sessionStorage clears when the tab closes, so the next booth visitor
+    // still sees the gate when they open the arena fresh.
+    window.sessionStorage.setItem('arena_fresh_session', 'true');
     setSession(next);
   }, []);
 

@@ -116,16 +116,14 @@ export function GameEndScreen({ currentGame, points, standing, isPersonalBest, o
         )}
       </div>
 
-      {/* Other games to try (or empty state when all played) */}
-      <div className="mt-5 flex min-h-0 flex-1 flex-col gap-2">
-        {!allPlayed && (
-          <p className="shrink-0 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
+      {/* Other games to try */}
+      {!allPlayed && (
+        <div className="mt-5 flex flex-col gap-2">
+          <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
             Try another game
           </p>
-        )}
 
-        {!allPlayed &&
-          otherGames.map((g) => {
+          {otherGames.map((g) => {
             const tf = TONE_FIELD[g.tone];
             const tt = TONE_TITLE[g.tone];
             const tb = TONE_BODY[g.tone];
@@ -135,23 +133,24 @@ export function GameEndScreen({ currentGame, points, standing, isPersonalBest, o
                 key={g.key}
                 onClick={() => handlePlayOther(g.href)}
                 className={cn(
-                  'tap flex min-h-[64px] flex-1 items-center gap-4 px-4 text-left',
+                  'tap flex w-full items-center gap-4 px-4 py-4 text-left',
                   tf,
                 )}
               >
-                <g.icon className={cn('size-6 shrink-0', tm)} strokeWidth={1.5} aria-hidden="true" />
+                <g.icon className={cn('size-5 shrink-0', tm)} strokeWidth={1.5} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <h2 className={cn('truncate font-sans text-card-title font-medium', tt)}>{g.label}</h2>
+                  <h2 className={cn('truncate font-sans text-body-lg font-medium', tt)}>{g.label}</h2>
                   <p className={cn('mt-0.5 font-mono text-body-sm', tb)}>{g.sub}</p>
                 </div>
                 <PixelChevron className={cn('shrink-0', tm)} />
               </button>
             );
           })}
-      </div>
+        </div>
+      )}
 
-      {/* Actions */}
-      <div className="flex shrink-0 flex-col gap-3 py-4">
+      {/* Actions — pushed to the bottom of the flex column */}
+      <div className="mt-auto flex shrink-0 flex-col gap-3 pt-5 pb-4">
         <Button variant="light" size="lg" chevron onClick={onPlayAgain} className="w-full">
           Play again
         </Button>

@@ -40,7 +40,15 @@ function ProtectedRoute({ component: Component, path }: { component: any; path: 
   const { session, clearSession } = usePlayerSession();
   const [, setLocation] = useLocation();
   const [mounted, setMounted] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  // Auto-confirm when the player just registered in this tab session so they
+  // go straight to the game without seeing the gate. The flag is cleared once
+  // consumed so the gate still appears on the next navigation back.
+  const [confirmed, setConfirmed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const fresh = window.sessionStorage.getItem('arena_fresh_session') === 'true';
+    if (fresh) window.sessionStorage.removeItem('arena_fresh_session');
+    return fresh;
+  });
 
   useEffect(() => { setMounted(true); }, []);
 
