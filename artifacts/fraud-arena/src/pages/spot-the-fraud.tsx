@@ -493,15 +493,6 @@ export default function SpotTheFraud() {
     <Layout 
       title="Spot the Fraud" 
       back="/"
-      headerRight={
-        <div className={cn(
-          "flex items-center gap-1.5 font-mono text-eyebrow font-medium tabular-nums uppercase tracking-[0.03em]",
-          timeLeft <= 5 ? "text-coral-600" : "text-cyan-500"
-        )}>
-          <span className={cn("size-1.5 shrink-0 bg-current", timeLeft <= 5 && "animate-live-pulse")} />
-          {timeLeft}S
-        </div>
-      }
     >
       <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
         
@@ -551,6 +542,17 @@ export default function SpotTheFraud() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Timer bar — full width, shrinks linearly to zero as time runs out */}
+        <div className="shrink-0 h-1 w-full bg-ink-800 mt-3">
+          <div
+            className={cn(
+              "h-full transition-[width] duration-1000 ease-linear",
+              timeLeft <= 5 ? "bg-coral-600" : "bg-cyan-500"
+            )}
+            style={{ width: `${currentLevel ? (timeLeft / currentLevel.timerSec) * 100 : 0}%` }}
+          />
         </div>
 
         {/* Question Area */}
