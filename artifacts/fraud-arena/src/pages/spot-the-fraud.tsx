@@ -354,39 +354,38 @@ export default function SpotTheFraud() {
             </p>
           </div>
           
-          <div className="mt-4 flex flex-1 min-h-0 flex-col gap-2">
-            <div className="shrink-0 border border-ink-800 bg-ink-900 p-4">
-              <p className="font-sans text-body-md text-white">
-                {bureauQuestion.stem}
-              </p>
-            </div>
-            
-            <div className="flex flex-1 min-h-0 flex-col gap-1.5 stagger-in">
-              {bureauQuestion.options.map((opt, idx) => (
-                <button 
-                  key={idx} 
-                  className="tap flex flex-1 min-h-[44px] items-center gap-3 border border-ink-800 bg-ink-900 p-3 text-left transition-colors duration-[var(--dur-base)] hover:border-violet-700 active:bg-[rgba(71,21,255,0.05)]"
-                  onClick={() => {
-                    if (idx + 1 === 1) {
-                      if (isConsolation) {
-                        // Submit the run rather than jumping straight to 'gameover',
-                        // which renders null until finalResult exists and would have
-                        // discarded the run entirely.
-                        setBureauSeen(true);
-                        endRun(true);
-                      } else {
-                        handleBureauAnswer(idx + 1);
-                      }
+          {/* Question stem */}
+          <div className="mt-4 shrink-0 border border-ink-800 bg-ink-900 p-4">
+            <p className="font-sans text-body-md leading-snug text-white">
+              {bureauQuestion.stem}
+            </p>
+          </div>
+
+          {/* Options — same compact-card pattern as the main quiz */}
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto stagger-in">
+            {bureauQuestion.options.map((opt, idx) => (
+              <button
+                key={idx}
+                className="tap flex w-full shrink-0 items-center gap-3 border border-ink-800 bg-ink-900 px-4 py-3.5 text-left transition-colors duration-[var(--dur-base)] hover:border-violet-700 active:bg-[rgba(71,21,255,0.05)]"
+                onClick={() => {
+                  if (idx + 1 === 1) {
+                    if (isConsolation) {
+                      setBureauSeen(true);
+                      endRun(true);
+                    } else {
+                      handleBureauAnswer(idx + 1);
                     }
-                  }}
-                >
-                  <span className="font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-sans text-body-sm text-white flex-1 min-w-0 line-clamp-3">{opt}</span>
-                </button>
-              ))}
-            </div>
+                  }
+                }}
+              >
+                <span className="shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
+                  {String(idx + 1).padStart(2, '0')}
+                </span>
+                <span className="min-w-0 flex-1 font-sans text-body-md leading-snug text-white">
+                  {opt}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </Layout>
