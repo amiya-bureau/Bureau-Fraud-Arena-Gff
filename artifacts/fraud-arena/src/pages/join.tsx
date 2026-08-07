@@ -122,10 +122,9 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
         saveSession(sessionData);
 
         if (sessionData.returning) {
-          toast({
-            title: `Welcome back, ${sessionData.player.firstName}`,
-            description: "We've attached this run to your existing profile.",
-          });
+          // Store the name so the rules screen can show it inline above
+          // "Your Best" instead of as a floating toast that covers the UI.
+          window.sessionStorage.setItem('arena_welcome_back', sessionData.player.firstName);
         }
       },
       onError: () => {

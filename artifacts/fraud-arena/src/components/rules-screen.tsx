@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlayerStanding } from '@workspace/api-client-react';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
@@ -32,6 +33,16 @@ export function RulesScreen({
 }: RulesScreenProps) {
   const scoreBadge = standing?.scores.find((s) => s.game === gameKey);
 
+  // Consume the one-shot welcome-back flag set by the registration form when
+  // the API identifies a returning player. useState initialiser runs once so
+  // the flag is read and cleared before the first render.
+  const [welcomeName] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const name = window.sessionStorage.getItem('arena_welcome_back');
+    if (name) window.sessionStorage.removeItem('arena_welcome_back');
+    return name;
+  });
+
   const rules = [
     { label: 'Scoring', body: scoring },
     { label: 'Game Over', body: endsWhen },
@@ -62,6 +73,17 @@ export function RulesScreen({
           </div>
         ))}
       </div>
+
+      {welcomeName && (
+        <div className="mt-3 shrink-0 border-l-2 border-violet-700 bg-ink-900 px-4 py-3">
+          <p className="font-sans text-body-md font-medium text-white">
+            Welcome back, {welcomeName}.
+          </p>
+          <p className="mt-0.5 text-body-sm text-[var(--text-on-dark-muted)]">
+            We've attached this run to your existing profile.
+          </p>
+        </div>
+      )}
 
       {scoreBadge && scoreBadge.played && (
         <div className="mt-3 flex shrink-0 items-baseline gap-3 border border-violet-700 px-4 py-3">
