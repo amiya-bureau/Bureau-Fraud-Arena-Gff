@@ -529,25 +529,32 @@ export default function SpoofTheSystem() {
 
       {gameState === 'reveal' && verdict && (
         <ScreenBody>
-          <div className="shrink-0 py-4 flex items-end justify-between">
-            <div>
-              <EyebrowTag tone={revealTone}>Analysis Complete</EyebrowTag>
-              <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
-            </div>
-            <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] text-right pb-1">
-              CONF: {(verdict.confidence * 100).toFixed(1)}%
-            </div>
+          <div className="shrink-0 py-4">
+            <EyebrowTag tone={revealTone}>Analysis Complete</EyebrowTag>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
           </div>
-          
+
           <div className="flex-1 min-h-0 flex flex-col relative mt-2">
             <ScanFrame id={`VERDICT-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone={revealTone}>
               <div className="flex-1 min-h-0 flex flex-col bg-ink-900">
-                <div className="relative shrink-0 h-[35%] min-h-[140px] border-b border-ink-800 overflow-hidden">
+
+                {/* ── Hero image + verdict overlay ── */}
+                <div className="relative shrink-0 h-[48%] min-h-[160px] border-b border-ink-800 overflow-hidden">
                   {imagePreview && (
-                    <img src={imagePreview} alt="Upload" className="h-full w-full object-cover opacity-60" />
+                    <img
+                      src={imagePreview}
+                      alt="Upload"
+                      className={cn(
+                        'h-full w-full object-cover transition-[opacity,filter] duration-500',
+                        isRevealFinished
+                          ? verdict.fooled ? 'opacity-80' : 'opacity-50 grayscale'
+                          : 'opacity-30 grayscale'
+                      )}
+                    />
                   )}
 
-                  {isRevealFinished &&
+                  {/* Heatmap boxes (caught only) */}
+                  {isRevealFinished && !verdict.fooled &&
                     verdict.heatmapRegions.map((box, i) => (
                       <div
                         key={i}
@@ -557,34 +564,66 @@ export default function SpoofTheSystem() {
                           top: `${box.y * 100}%`,
                           width: `${box.w * 100}%`,
                           height: `${box.h * 100}%`,
-                          backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.4})`,
+                          backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.35})`,
                         }}
                       />
                     ))}
 
+                  {/* Verdict stamp */}
                   {isRevealFinished && (
-                    <div
-                      className={cn(
-                        'absolute inset-0 flex items-center justify-center animate-fade-in',
-                        verdict.fooled ? 'bg-[rgba(193,240,170,0.15)]' : 'bg-[rgba(253,118,58,0.15)]'
-                      )}
-                    >
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 animate-fade-in bg-gradient-to-t from-ink-900/80 to-transparent">
                       <div
                         className={cn(
-                          'border bg-russian px-6 py-3 font-mono text-display-md font-medium uppercase tracking-[0.03em]',
-                          verdict.fooled ? 'border-lime-300 text-lime-300' : 'border-coral-600 text-coral-600'
+                          'border px-5 py-2 font-mono text-display-sm font-medium uppercase tracking-[0.05em]',
+                          verdict.fooled
+                            ? 'border-lime-300 bg-russian/80 text-lime-300'
+                            : 'border-coral-600 bg-russian/80 text-coral-600'
                         )}
                       >
                         {verdict.fooled ? 'FOOLED' : 'DETECTED'}
                       </div>
+
+                      {/* Points outcome — the key new element */}
+                      <div
+                        className={cn(
+                          'flex items-baseline gap-2 font-mono',
+                          verdict.fooled ? 'text-lime-300' : 'text-coral-600'
+                        )}
+                      >
+                        {verdict.fooled ? (
+                          <>
+                            <span className="text-display-lg font-semibold tabular-nums">+{winPoints}</span>
+                            <span className="text-body-sm uppercase tracking-widest">pts</span>
+                          </>
+                        ) : (
+                          <span className="text-body-md uppercase tracking-wider">No points awarded</span>
+                        )}
+                      </div>
+
+                      {/* Confidence badge */}
+                      <div className="font-mono text-eyebrow-micro uppercase tracking-widest text-[var(--text-on-dark-muted)]">
+                        Synthetic confidence&nbsp;
+                        <span className={verdict.fooled ? 'text-lime-400' : 'text-coral-500'}>
+                          {(verdict.confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scanning pulse before reveal is done */}
+                  {!isRevealFinished && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500 animate-pulse">
+                        Reviewing Traces…
+                      </span>
                     </div>
                   )}
                 </div>
-                
+
+                {/* ── Detector signal list ── */}
                 <div className="flex-1 min-h-0 app-scroll bg-russian">
                   <div className="flex flex-col">
                     {(() => {
-                      // Sort by score desc, show top 3, collapse the rest
                       const SHOW = 3;
                       const sorted = [...verdict.signals].sort((a, b) => b.score - a.score);
                       const shown = sorted.slice(0, SHOW);
@@ -646,11 +685,29 @@ export default function SpoofTheSystem() {
               </div>
             </ScanFrame>
           </div>
-          
-          <div className="shrink-0 py-4 mt-auto">
-            <div className="h-[60px] flex items-center justify-center border border-ink-800 bg-ink-900/50">
-              <span className={cn('font-mono text-eyebrow-micro uppercase tracking-[0.03em]', isRevealFinished ? (verdict.fooled ? 'text-lime-300' : 'text-coral-600') : 'text-[var(--text-on-dark-muted)] animate-pulse')}>
-                {isRevealFinished ? (verdict.fooled ? 'System Bypassed' : 'Threat Blocked') : 'Reviewing Traces...'}
+
+          <div className="shrink-0 py-3 mt-auto">
+            <div
+              className={cn(
+                'h-[52px] flex items-center justify-center border bg-ink-900/50',
+                isRevealFinished
+                  ? verdict.fooled ? 'border-lime-300/30' : 'border-coral-600/30'
+                  : 'border-ink-800'
+              )}
+            >
+              <span
+                className={cn(
+                  'font-mono text-eyebrow-micro uppercase tracking-[0.03em]',
+                  isRevealFinished
+                    ? verdict.fooled ? 'text-lime-300' : 'text-coral-600'
+                    : 'text-[var(--text-on-dark-muted)] animate-pulse'
+                )}
+              >
+                {isRevealFinished
+                  ? verdict.fooled
+                    ? `Level ${level} bypassed — points banked`
+                    : 'Image identified as synthetic — run ends'
+                  : 'Reviewing traces…'}
               </span>
             </div>
           </div>
