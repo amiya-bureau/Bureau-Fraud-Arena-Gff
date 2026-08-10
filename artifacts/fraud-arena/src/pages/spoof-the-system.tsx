@@ -186,7 +186,8 @@ export default function SpoofTheSystem() {
     return undefined;
   }, [gameState, revealStep, verdict]);
 
-  const failPoints = level === 1 ? 15 : level === 2 ? 40 : 60;
+  // No consolation points for a failed attempt — only previously banked wins carry forward.
+  const failPoints = level === 1 ? 0 : level === 2 ? 40 : 60;
   const winPoints = level === 1 ? 40 : level === 2 ? 60 : 75;
 
   const handleContinue = () => {
@@ -304,7 +305,7 @@ export default function SpoofTheSystem() {
         <RulesScreen
           gameName="Spoof the System"
           premise="Generate a synthetic or AI face on your phone, upload it, and try to fool Bureau's detectors. Three attempts, getting stricter every time."
-          scoring="Up to 75 points. Fail attempt 1: 15 pts. Beat level 1: 40 pts. Beat level 2: 60 pts. Beat level 3: 75 pts."
+          scoring="Up to 75 points. Beat level 1: 40 pts. Beat level 2: 60 pts. Beat level 3: 75 pts. Caught with nothing banked: 0 pts."
           endsWhen="If the detector catches you, your run ends. Banked points are kept."
           lifelines="You can walk away with your banked points after beating level 1 or 2. AirPods finale entry for level 2, iPad entry for level 3."
           standing={standing}
@@ -785,9 +786,10 @@ export default function SpoofTheSystem() {
                 { pts: 75, label: 'Level 3 Clear' },
                 { pts: 60, label: 'Level 2 Clear' },
                 { pts: 40, label: 'Level 1 Clear' },
-                { pts: 15, label: 'Caught (No Bank)' },
+                { pts: 0,  label: 'Caught (No Bank)' },
               ].map((rung) => {
-                const isAchieved = winPoints >= rung.pts;
+                // pts > 0 guard prevents the 0-pt "Caught" rung from lighting up
+                const isAchieved = rung.pts > 0 && winPoints >= rung.pts;
                 const isTarget = (level === 1 ? 60 : 75) === rung.pts;
 
                 return (
