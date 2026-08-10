@@ -143,7 +143,7 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
       <div className="relative -mx-4 mb-0 shrink-0 overflow-hidden bg-white px-4 pb-5 pt-5">
         <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
         {gameLabel ? <EyebrowTag tone="dark">Entering {gameLabel}</EyebrowTag> : null}
-        <h1 className="mt-3 font-sans text-display-lg font-normal text-russian">Join the Arena.</h1>
+        <h1 className="mt-3 font-sans text-display-lg font-normal text-russian">Join the Arena</h1>
       </div>
 
       <Form {...form}>

@@ -21,6 +21,8 @@ import {
   StatReadout,
   ScanFrame,
 } from '@/components/bureau';
+import { LifelineGate } from '@/components/lifeline-gate';
+import { fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 
 const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   'Frequency-domain artefacts': 'High-frequency noise patterns inconsistent with natural capture.',
@@ -39,6 +41,7 @@ type GameState =
   | 'reveal'
   | 'decision'
   | 'gameover'
+  | 'lifeline'
   | 'error';
 
 
@@ -203,6 +206,9 @@ export default function SpoofTheSystem() {
 
   const [finalResult, setFinalResult] = useState<any>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
+  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
+  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
+  const reentryChecked = useRef(false);
 
   const endRun = (pts: number, quitVoluntarily: boolean, finalAttempts: any[]) => {
     let tier = 'Participation';
@@ -238,7 +244,8 @@ export default function SpoofTheSystem() {
         {
           onSuccess: (res) => {
             setFinalResult(res);
-            setGameState('gameover');
+            setLifelineContext('gameover');
+            setGameState('lifeline');
           },
           onError: () => {
             setGameState('error');
@@ -251,7 +258,8 @@ export default function SpoofTheSystem() {
         isPersonalBest: false,
         standing: { rank: 0, behind: 0 },
       });
-      setGameState('gameover');
+      setLifelineContext('gameover');
+      setGameState('lifeline');
     }
   };
 
@@ -262,7 +270,8 @@ export default function SpoofTheSystem() {
         {
           onSuccess: (res) => {
             setFinalResult(res);
-            setGameState('gameover');
+            setLifelineContext('gameover');
+            setGameState('lifeline');
           },
           onError: () => {
             setGameState('error');
@@ -271,6 +280,25 @@ export default function SpoofTheSystem() {
       );
     }
   };
+
+  // Eager-fetch a lifeline question so it is ready when the gate opens.
+  useEffect(() => {
+    fetchLifelineQuestion().then(setLifelineQuestion);
+  }, []);
+
+  // Reentry gate: if this player has already completed this game today, gate
+  // them with the lifeline before they can start a new run. The ref prevents
+  // the check from firing twice when the standing query re-resolves.
+  useEffect(() => {
+    if (!reentryChecked.current && standing && gameState === 'rules') {
+      reentryChecked.current = true;
+      const hasPlayed = (standing as any).scores?.find((s: any) => s.game === 'spoof_the_system')?.played;
+      if (hasPlayed) {
+        setLifelineContext('reentry');
+        setGameState('lifeline');
+      }
+    }
+  }, [standing, gameState]);
 
   useEffect(() => {
     if (gameState === 'reveal' && verdict && revealStep > verdict.signals.length) {
@@ -338,117 +366,49 @@ export default function SpoofTheSystem() {
     );
   }
 
-  if (gameState === 'gameover') {
+  if (gameState === 'lifeline') {
+    if (!lifelineQuestion) return null;
     let finalTier = 'Participation';
     let finalDraw = 'None';
-    if (!finalResult) return null;
-
-    if (finalResult.pointsRecorded >= 40) finalTier = 'Achiever';
-    if (finalResult.pointsRecorded === 60) finalDraw = 'AirPods Draw';
-    if (finalResult.pointsRecorded === 75) finalDraw = 'iPad MEGA Draw';
-
-    const lastFooled = verdict?.fooled ?? false;
-    const lastConf   = verdict ? (verdict.confidence * 100).toFixed(1) : null;
-
+    if (finalResult) {
+      if (finalResult.pointsRecorded >= 40) finalTier = 'Achiever';
+      if (finalResult.pointsRecorded === 60) finalDraw = 'AirPods Draw';
+      if (finalResult.pointsRecorded === 75) finalDraw = 'iPad MEGA Draw';
+    }
     return (
-      <Layout title="Spoof the System" back="/">
-        <ScreenBody>
-          {/* ── Last-attempt image with verdict overlay ── */}
-          {imagePreview && verdict && (
-            <div className="shrink-0 relative h-[42%] min-h-[180px] mt-2 overflow-hidden border border-ink-800">
-              <img
-                src={imagePreview}
-                alt="Last attempt"
-                className={cn(
-                  'h-full w-full object-cover',
-                  lastFooled ? 'opacity-75' : 'opacity-40 grayscale'
-                )}
-              />
-
-              {/* Heatmap on caught attempts */}
-              {!lastFooled && verdict.heatmapRegions.map((box, i) => (
-                <div
-                  key={i}
-                  className="absolute border border-coral-600"
-                  style={{
-                    left: `${box.x * 100}%`,
-                    top: `${box.y * 100}%`,
-                    width: `${box.w * 100}%`,
-                    height: `${box.h * 100}%`,
-                    backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.35})`,
-                  }}
-                />
-              ))}
-
-              {/* Verdict + confidence overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-t from-ink-900/90 via-ink-900/30 to-transparent">
-                <div
-                  className={cn(
-                    'border px-4 py-1.5 font-mono text-body-lg font-semibold uppercase tracking-[0.05em]',
-                    lastFooled
-                      ? 'border-lime-300 bg-russian/80 text-lime-300'
-                      : 'border-coral-600 bg-russian/80 text-coral-600'
-                  )}
-                >
-                  {lastFooled ? 'FOOLED' : 'DETECTED'}
-                </div>
-                {lastConf && (
-                  <span className="font-mono text-eyebrow-micro uppercase tracking-widest text-[var(--text-on-dark-muted)]">
-                    Synthetic confidence&nbsp;
-                    <span className={lastFooled ? 'text-lime-400' : 'text-coral-500'}>
-                      {lastConf}%
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Score + meta ── */}
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center py-4">
-            <EyebrowTag tone="violet">Run Complete</EyebrowTag>
-
-            <div className="mt-5 mb-5">
-              <StatReadout
-                value={finalResult.pointsRecorded}
-                caption="Points Secured"
-                size="lg"
-                tone="on-dark"
-              />
-            </div>
-
-            <div className="flex flex-col items-center gap-2 stagger-in">
-              <p className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                Tier <span className="ml-2 text-white">{finalTier}</span>
+      <LifelineGate
+        question={lifelineQuestion}
+        context={lifelineContext}
+        gameTitle="Spoof the System"
+        scoreDisplay={finalResult ? (
+          <div className="flex flex-col items-center gap-2 text-center py-2">
+            <StatReadout value={finalResult.pointsRecorded} caption="Points Secured" size="sm" tone="on-dark" />
+            <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Tier <span className="ml-2 text-white">{finalTier}</span>
+            </p>
+            {finalDraw !== 'None' && (
+              <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
+                Qualified for {finalDraw}
               </p>
-
-              {finalDraw !== 'None' && (
-                <p className="mt-1 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-violet-400">
-                  Qualified for {finalDraw}
-                </p>
-              )}
-
-              {finalResult.standing && (
-                <p className="mt-3 font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
-                  Global Rank #{finalResult.standing.rank}
-                  {finalResult.isPersonalBest && (
-                    <span className="ml-2 text-violet-400">(PB)</span>
-                  )}
-                </p>
-              )}
-            </div>
+            )}
           </div>
-
-          <div className="shrink-0 py-4 flex flex-col gap-3 mt-auto">
-            <Button size="lg" variant="light" chevron onClick={() => window.location.reload()} className="w-full">
-              New Run
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full">
-              Exit
-            </Button>
-          </div>
-        </ScreenBody>
-      </Layout>
+        ) : undefined}
+        onRetry={() => {
+          setLevel(1);
+          setAttemptsData([]);
+          setImagePreview(null);
+          setVerdict(null);
+          setErrorMsg(null);
+          setDetectMsgIdx(0);
+          setDetectProgress(0);
+          setRevealStep(0);
+          setFinalResult(null);
+          lastPayloadRef.current = null;
+          fetchLifelineQuestion().then(setLifelineQuestion);
+          setGameState('rules');
+        }}
+        onExit={() => setLocation('/')}
+      />
     );
   }
 

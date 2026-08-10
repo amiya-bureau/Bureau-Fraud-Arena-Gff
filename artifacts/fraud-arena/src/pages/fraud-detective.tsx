@@ -6,8 +6,8 @@ import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
-import { GameEndScreen } from '@/components/game-end-screen';
-import { fetchDetectiveCasePack } from '@/lib/gamePack';
+import { LifelineGate } from '@/components/lifeline-gate';
+import { fetchDetectiveCasePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { v4 as uuidv4 } from 'uuid';
 import { Maximize, AlertCircle, MapPin, Fingerprint, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ import {
   StatReadout,
 } from '@/components/bureau';
 
-type GameState = 'rules' | 'primer' | 'case' | 'bonus' | 'gameover' | 'error';
+type GameState = 'rules' | 'primer' | 'case' | 'bonus' | 'lifeline' | 'error';
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -244,6 +244,9 @@ export default function FraudDetective() {
 
   const [finalResult, setFinalResult] = useState<any>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
+  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
+  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
+  const reentryChecked = useRef(false);
 
   const endRun = () => {
     if (session) {
@@ -275,7 +278,8 @@ export default function FraudDetective() {
       submitRun.mutate({ data: payload }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setGameState('gameover');
+          setLifelineContext('gameover');
+          setGameState('lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -283,7 +287,8 @@ export default function FraudDetective() {
       });
     } else {
       setFinalResult({ pointsRecorded: caseScore + bonusScore, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
-      setGameState('gameover');
+      setLifelineContext('gameover');
+      setGameState('lifeline');
     }
   };
 
@@ -292,7 +297,8 @@ export default function FraudDetective() {
       submitRun.mutate({ data: lastPayloadRef.current }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setGameState('gameover');
+          setLifelineContext('gameover');
+          setGameState('lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -300,6 +306,25 @@ export default function FraudDetective() {
       });
     }
   };
+
+  // Eager-fetch a lifeline question so it is ready when the gate opens.
+  useEffect(() => {
+    fetchLifelineQuestion().then(setLifelineQuestion);
+  }, []);
+
+  // Reentry gate: if this player has already completed this game today, gate
+  // them with the lifeline before they can start a new run. The ref prevents
+  // the check from firing twice when the standing query re-resolves.
+  useEffect(() => {
+    if (!reentryChecked.current && standing && gameState === 'rules') {
+      reentryChecked.current = true;
+      const hasPlayed = (standing as any).scores?.find((s: any) => s.game === 'fraud_detective')?.played;
+      if (hasPlayed) {
+        setLifelineContext('reentry');
+        setGameState('lifeline');
+      }
+    }
+  }, [standing, gameState]);
 
   if (gameState === 'rules') {
     return (
@@ -705,16 +730,36 @@ export default function FraudDetective() {
     );
   }
 
-  // gameover
-  if (gameState === 'gameover') {
-    if (!finalResult) return null;
+  if (gameState === 'lifeline') {
+    if (!lifelineQuestion) return null;
+    const total = finalResult?.pointsRecorded ?? (caseScore + bonusScore);
     return (
-      <GameEndScreen
-        currentGame="fraud_detective"
-        points={finalResult.pointsRecorded}
-        standing={finalResult.standing}
-        isPersonalBest={finalResult.isPersonalBest}
-        onPlayAgain={() => window.location.reload()}
+      <LifelineGate
+        question={lifelineQuestion}
+        context={lifelineContext}
+        gameTitle="Fraud Detective"
+        scoreDisplay={total > 0 ? (
+          <StatReadout value={total} caption="Points Secured" size="sm" tone="on-dark" />
+        ) : undefined}
+        onRetry={() => {
+          setCaseIndex(0);
+          setCaseScore(0);
+          setBonusScore(0);
+          setCaseResults([]);
+          setSelectedNode(null);
+          setWrongGuesses(0);
+          setRevealed(false);
+          setSolved(false);
+          setBonusIndex(0);
+          setBonusAnswers({});
+          setGraphNodes([]);
+          setGraphEdges([]);
+          setFinalResult(null);
+          lastPayloadRef.current = null;
+          fetchLifelineQuestion().then(setLifelineQuestion);
+          setGameState('rules');
+        }}
+        onExit={() => setLocation('/')}
       />
     );
   }

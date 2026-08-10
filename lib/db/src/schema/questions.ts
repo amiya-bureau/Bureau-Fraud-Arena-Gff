@@ -85,3 +85,30 @@ export const insertDetectiveCaseSchema = createInsertSchema(detectiveCasesTable)
 });
 export type InsertDetectiveCase = z.infer<typeof insertDetectiveCaseSchema>;
 export type DetectiveCase = typeof detectiveCasesTable.$inferSelect;
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Lifeline questions — shown at game-over and on re-entry for returning
+ * players. All questions are Bureau-focused, very low difficulty, and the
+ * correct answer is always the "Bureau" option.
+ *
+ * The arena falls back to the local `LIFELINE_QUESTIONS` constant in
+ * data/lifeline.ts when this table is empty or unreachable, so the game
+ * works immediately without seeding.
+ */
+export const lifelineQuestionsTable = pgTable("lifeline_questions", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull().default("mcq"), // 'mcq' | 'logo'
+  stem: text("stem").notNull(),
+  options: jsonb("options").$type<string[]>().notNull(),
+  correctIndex: integer("correct_index").notNull(), // 0-based
+  active: integer("active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertLifelineQuestionSchema = createInsertSchema(lifelineQuestionsTable).omit({
+  createdAt: true,
+});
+export type InsertLifelineQuestion = z.infer<typeof insertLifelineQuestionSchema>;
+export type DbLifelineQuestion = typeof lifelineQuestionsTable.$inferSelect;

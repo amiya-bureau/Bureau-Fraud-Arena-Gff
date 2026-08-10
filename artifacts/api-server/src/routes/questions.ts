@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
-import { db, quizQuestionsTable, detectiveCasesTable } from "@workspace/db";
+import { db, quizQuestionsTable, detectiveCasesTable, lifelineQuestionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -73,6 +73,34 @@ router.get("/detective/case-pack", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error(err, "detective/case-pack failed");
     res.status(500).json({ error: "Could not load cases." });
+  }
+});
+
+/**
+ * Lifeline question — one random active question from the lifeline bank.
+ *
+ * The frontend always has a local fallback (data/lifeline.ts) so a 503
+ * response (empty table) is fine; the game will use the local bank instead.
+ */
+router.get("/lifeline/question", async (req, res): Promise<void> => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, type, stem, options, correct_index AS "correctIndex"
+      FROM lifeline_questions
+      WHERE active = 1
+      ORDER BY RANDOM()
+      LIMIT 1
+    `);
+
+    if (!rows.rows.length) {
+      res.status(503).json({ error: "Lifeline bank is empty." });
+      return;
+    }
+
+    res.json(rows.rows[0]);
+  } catch (err) {
+    req.log.error(err, "lifeline/question failed");
+    res.status(500).json({ error: "Could not load lifeline question." });
   }
 });
 

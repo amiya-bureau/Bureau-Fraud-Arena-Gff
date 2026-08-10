@@ -35,7 +35,7 @@ export function ArenaHeader() {
       </div>
 
       {/* Hero title */}
-      <h1 className="mt-4 font-sans text-hero font-normal text-white">Bureau Fraud Arena.</h1>
+      <h1 className="mt-4 font-sans text-hero font-normal text-white">Bureau Fraud Arena</h1>
 
       {/* Rotating signal */}
       <div className="mt-4 flex h-[58px] items-start border-l border-violet-700 pl-3">

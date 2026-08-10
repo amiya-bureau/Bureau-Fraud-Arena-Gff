@@ -31,6 +31,20 @@ export async function fetchQuizGamePack(): Promise<Question[]> {
   }
 }
 
+import { LIFELINE_QUESTIONS, type LifelineQuestion } from '@/data/lifeline';
+export type { LifelineQuestion };
+
+/** Returns a single random lifeline question. Falls back to the local bank. */
+export async function fetchLifelineQuestion(): Promise<LifelineQuestion> {
+  try {
+    const res = await fetch(`${base}/api/lifeline/question`);
+    if (!res.ok) throw new Error(`${res.status}`);
+    return (await res.json()) as LifelineQuestion;
+  } catch {
+    return LIFELINE_QUESTIONS[Math.floor(Math.random() * LIFELINE_QUESTIONS.length)];
+  }
+}
+
 /** Returns 5 detective cases, server-selected randomly. */
 export async function fetchDetectiveCasePack(): Promise<DetectiveCase[]> {
   try {

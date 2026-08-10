@@ -5,9 +5,9 @@ import { Layout } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { QrPanel } from '@/components/qr-panel';
 import { Button } from '@/components/ui/button';
-import { LEVELS, QUESTIONS, BUREAU_QUESTIONS, Level, Question, BureauQuestion } from '@/data/quiz';
-import { GameEndScreen } from '@/components/game-end-screen';
-import { fetchQuizGamePack } from '@/lib/gamePack';
+import { LEVELS, QUESTIONS, Level, Question } from '@/data/quiz';
+import { LifelineGate } from '@/components/lifeline-gate';
+import { fetchQuizGamePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ShieldAlert, ScanEye } from 'lucide-react';
@@ -24,7 +24,7 @@ interface ShuffledOption {
   removed: boolean;
 }
 
-type GameState = 'rules' | 'playing' | 'bureau' | 'explain' | 'gameover' | 'error';
+type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'error';
 
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
@@ -51,8 +51,6 @@ export default function SpotTheFraud() {
   }, []);
 
   const [score, setScore] = useState(0);
-  const [bureauSeen, setBureauSeen] = useState(false);
-  const [fiftyFifty, setFiftyFifty] = useState<'locked' | 'available' | 'used'>('locked');
   
   // Current question data
   const currentLevel = LEVELS[levelIndex];
@@ -68,8 +66,6 @@ export default function SpotTheFraud() {
   const [timeLeft, setTimeLeft] = useState(0);
   const prevTimeLeftRef = useRef(0);
   
-  const [bureauQuestion, setBureauQuestion] = useState<BureauQuestion | null>(null);
-
   // Explain screen state
   const [explainResult, setExplainResult] = useState<'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null>(null);
   const [pointsEarned, setPointsEarned] = useState(0);
@@ -125,13 +121,32 @@ export default function SpotTheFraud() {
           idempotencyKey: runIdRef.current,
           playerId: session.player.id,
           game: 'spot_the_fraud',
-          state: { levelIndex, score, fiftyFifty, bureauSeen, cleared, skipped, perLevelData }
+          state: { levelIndex, score, cleared, skipped, perLevelData }
         }
       });
     }
     // `saveProgress` is deliberately omitted: it is a fresh object on every render,
     // so including it makes this effect re-run and re-POST in an unbounded loop.
-  }, [levelIndex, score, fiftyFifty, bureauSeen, cleared, skipped, gameState]);
+  }, [levelIndex, score, cleared, skipped, gameState]);
+
+  // Eager-fetch a lifeline question so it is ready when the gate opens.
+  useEffect(() => {
+    fetchLifelineQuestion().then(setLifelineQuestion);
+  }, []);
+
+  // Reentry gate: if this player has already completed this game today, gate
+  // them with the lifeline before they can start a new run. The ref prevents
+  // the check from firing twice when the standing query re-resolves.
+  useEffect(() => {
+    if (!reentryChecked.current && standing && gameState === 'rules') {
+      reentryChecked.current = true;
+      const hasPlayed = (standing as any).scores?.find((s: any) => s.game === 'spot_the_fraud')?.played;
+      if (hasPlayed) {
+        setLifelineContext('reentry');
+        setGameState('lifeline');
+      }
+    }
+  }, [standing, gameState]);
 
   const startGame = () => setGameState('playing');
 
@@ -162,18 +177,6 @@ export default function SpotTheFraud() {
     setGameState('explain');
   };
 
-  const handleFiftyFifty = () => {
-    if (fiftyFifty !== 'available' || !currentQuestion) return;
-    setFiftyFifty('used');
-    
-    // Remove `fiftyRemoves` wrong options
-    const wrongOptions = shuffledOptions.filter(o => !currentQuestion.correct.includes(o.originalIndex) && !o.removed);
-    const toRemove = wrongOptions.slice(0, currentLevel.fiftyRemoves);
-    
-    setShuffledOptions(prev => prev.map(o => 
-      toRemove.find(r => r.originalIndex === o.originalIndex) ? { ...o, removed: true } : o
-    ));
-  };
 
   const toggleOption = (originalIndex: number) => {
     setSelectedIndices(prev => {
@@ -194,10 +197,7 @@ export default function SpotTheFraud() {
 
     if (correctCount === currentQuestion.selectN) {
       // Exact match
-      let pts = currentLevel.points;
-      if (fiftyFifty === 'used' && levelIndex >= 4) {
-        pts = Math.max(1, pts - 3);
-      }
+      const pts = currentLevel.points;
       setScore(s => s + pts);
       setCleared(prev => [...prev, currentLevel.level]);
       setExplainResult('correct');
@@ -226,10 +226,6 @@ export default function SpotTheFraud() {
       const nextIdx = levelIndex + 1;
       if (nextIdx >= LEVELS.length) {
         endRun();
-      } else if (nextIdx === 4 && !bureauSeen) {
-        // After level 4, before level 5 show Bureau question
-        setBureauQuestion(BUREAU_QUESTIONS[Math.floor(Math.random() * BUREAU_QUESTIONS.length)]);
-        setGameState('bureau');
       } else {
         setLevelIndex(nextIdx);
         setGameState('playing');
@@ -237,31 +233,14 @@ export default function SpotTheFraud() {
     }
   };
 
-  const handleBureauAnswer = (originalIndex: number) => {
-    // Answer is ALWAYS 'Bureau' (option index 1)
-    if (originalIndex === 1) {
-      setFiftyFifty('available');
-      setBureauSeen(true);
-      setLevelIndex(4); // Level 5
-      setGameState('playing');
-    }
-    // If wrong, we just let them try again
-  };
 
   const [finalResult, setFinalResult] = useState<any>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
+  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
+  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
+  const reentryChecked = useRef(false);
 
-  // `bureauResolved` is passed by the end-of-run sponsor question once the player
-  // has answered it, so we fall through to submission instead of prompting again.
-  // It cannot rely on the `bureauSeen` state, which has not applied yet at that point.
-  const endRun = (bureauResolved = false) => {
-    if (!bureauResolved && !bureauSeen && levelIndex < 4) {
-      setBureauQuestion(BUREAU_QUESTIONS[Math.floor(Math.random() * BUREAU_QUESTIONS.length)]);
-      setGameState('bureau');
-      return;
-    }
-
-    // Submit run
+  const endRun = () => {
     if (session) {
       let tier = "Participation";
       if (cleared.includes(10)) tier = "Master";
@@ -278,8 +257,6 @@ export default function SpotTheFraud() {
           cleared,
           nearMiss: nearMissLevel,
           skipped,
-          fiftyUsed: fiftyFifty === 'used',
-          bureauSeen: bureauSeen || bureauResolved,
           tier,
           perLevel: perLevelData
         }
@@ -290,7 +267,8 @@ export default function SpotTheFraud() {
       submitRun.mutate({ data: payload }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setGameState('gameover');
+          setLifelineContext('gameover');
+          setGameState('lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -298,7 +276,8 @@ export default function SpotTheFraud() {
       });
     } else {
       setFinalResult({ pointsRecorded: score, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
-      setGameState('gameover');
+      setLifelineContext('gameover');
+      setGameState('lifeline');
     }
   };
 
@@ -307,7 +286,8 @@ export default function SpotTheFraud() {
       submitRun.mutate({ data: lastPayloadRef.current }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setGameState('gameover');
+          setLifelineContext('gameover');
+          setGameState('lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -324,7 +304,7 @@ export default function SpotTheFraud() {
           premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. The higher you climb, the harder they get."
           scoring="Up to 100 points. Points banked are kept even if you fail later."
           endsWhen="One wrong answer or timeout ends your run. On multi-select questions, one swap is a near-miss (half points) and ends the run."
-          lifelines="Skip is available on most levels. The 50:50 lifeline is locked until you find the sponsor."
+          lifelines="Skip is available on most levels."
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}
@@ -336,61 +316,6 @@ export default function SpotTheFraud() {
     );
   }
 
-  if (gameState === 'bureau' && bureauQuestion) {
-    const isConsolation = explainResult !== null && (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
-
-    return (
-      <Layout title="Spot the Fraud" back="/">
-        <div className="flex min-h-0 flex-1 flex-col pt-4 pb-4">
-          <div className="shrink-0">
-            <EyebrowTag tone="violet">Sponsor Override</EyebrowTag>
-            
-            <h1 className="mt-3 font-sans text-display-lg font-normal text-white">
-              The System Question.
-            </h1>
-            
-            <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
-              Get this right to unlock the 50:50 lifeline {isConsolation ? 'for your next run.' : 'for the rest of this run.'}
-            </p>
-          </div>
-          
-          {/* Question stem */}
-          <div className="mt-4 shrink-0 border border-ink-800 bg-ink-900 p-4">
-            <p className="font-sans text-body-md leading-snug text-white">
-              {bureauQuestion.stem}
-            </p>
-          </div>
-
-          {/* Options — same compact-card pattern as the main quiz */}
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto stagger-in">
-            {bureauQuestion.options.map((opt, idx) => (
-              <button
-                key={idx}
-                className="tap flex w-full shrink-0 items-center gap-3 border border-ink-800 bg-ink-900 px-4 py-3.5 text-left transition-colors duration-[var(--dur-base)] hover:border-violet-700 active:bg-[rgba(71,21,255,0.05)]"
-                onClick={() => {
-                  if (idx + 1 === 1) {
-                    if (isConsolation) {
-                      setBureauSeen(true);
-                      endRun(true);
-                    } else {
-                      handleBureauAnswer(idx + 1);
-                    }
-                  }
-                }}
-              >
-                <span className="shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span className="min-w-0 flex-1 font-sans text-body-md leading-snug text-white">
-                  {opt}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   if (gameState === 'explain' && currentQuestion) {
     const isCorrect = explainResult === 'correct';
@@ -475,15 +400,32 @@ export default function SpotTheFraud() {
     );
   }
 
-  if (gameState === 'gameover') {
-    if (!finalResult) return null;
+  if (gameState === 'lifeline') {
+    if (!lifelineQuestion) return null;
     return (
-      <GameEndScreen
-        currentGame="spot_the_fraud"
-        points={finalResult.pointsRecorded}
-        standing={finalResult.standing}
-        isPersonalBest={finalResult.isPersonalBest}
-        onPlayAgain={() => window.location.reload()}
+      <LifelineGate
+        question={lifelineQuestion}
+        context={lifelineContext}
+        gameTitle="Spot the Fraud"
+        scoreDisplay={score > 0 ? (
+          <StatReadout value={score} caption="Points Banked" size="sm" tone="on-dark" />
+        ) : undefined}
+        onRetry={() => {
+          setScore(0);
+          setLevelIndex(0);
+          setCurrentQuestion(null);
+          setShuffledOptions([]);
+          setSelectedIndices([]);
+          setExplainResult(null);
+          setCleared([]);
+          setSkipped([]);
+          setPerLevelData([]);
+          setNearMissLevel(null);
+          setFinalResult(null);
+          fetchLifelineQuestion().then(setLifelineQuestion);
+          setGameState('rules');
+        }}
+        onExit={() => setLocation('/')}
       />
     );
   }
@@ -519,28 +461,16 @@ export default function SpotTheFraud() {
                 />
               ))}
             </div>
-            <div className="flex shrink-0 border border-ink-800">
-              {currentLevel.skip && (
+            {currentLevel.skip && (
+              <div className="flex shrink-0 border border-ink-800">
                 <button
                   className="tap px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] hover:bg-ink-900 hover:text-white"
                   onClick={handleSkip}
                 >
                   Skip
                 </button>
-              )}
-              <button
-                className={cn(
-                  "tap border-l border-ink-800 px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em]",
-                  fiftyFifty === 'locked' && "text-[var(--text-on-dark-faint)]",
-                  fiftyFifty === 'used'   && "text-[var(--text-on-dark-faint)]",
-                  fiftyFifty === 'available' && "text-violet-500 hover:bg-ink-900 hover:text-white"
-                )}
-                disabled={fiftyFifty !== 'available' || !currentLevel.fiftyFifty}
-                onClick={handleFiftyFifty}
-              >
-                50:50
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
