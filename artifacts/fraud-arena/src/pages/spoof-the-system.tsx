@@ -77,6 +77,43 @@ export default function SpoofTheSystem() {
   const [verdict, setVerdict] = useState<DetectorVerdict | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Detecting screen — cycling status messages + progress bar
+  const DETECTING_MESSAGES = [
+    'Extracting frequency vectors…',
+    'Running noise-residual analysis…',
+    'Checking compression history…',
+    'Mapping facial-landmark geometry…',
+    'Evaluating adversarial robustness…',
+    'Scoring synthetic artefacts…',
+    'Cross-referencing detector ensemble…',
+    'Reviewing traces…',
+  ];
+  const DETECTING_DURATION_MS = 20_000; // bar fills over this window
+  const [detectMsgIdx, setDetectMsgIdx] = useState(0);
+  const [detectProgress, setDetectProgress] = useState(0); // 0–100
+
+  useEffect(() => {
+    if (gameState !== 'detecting') {
+      setDetectMsgIdx(0);
+      setDetectProgress(0);
+      return;
+    }
+    const start = Date.now();
+    // Progress bar: tick every 200 ms, cap at 95 so it never completes before API returns
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      setDetectProgress(Math.min(95, (elapsed / DETECTING_DURATION_MS) * 100));
+    }, 200);
+    // Message cycle: advance every 3 s
+    const msgTimer = setInterval(() => {
+      setDetectMsgIdx((i) => (i + 1) % DETECTING_MESSAGES.length);
+    }, 3_000);
+    return () => {
+      clearInterval(progressTimer);
+      clearInterval(msgTimer);
+    };
+  }, [gameState]);
+
   // Reveal animation states
   const [revealStep, setRevealStep] = useState(0);
 
@@ -445,7 +482,7 @@ export default function SpoofTheSystem() {
             <EyebrowTag tone="cyan">Analysis Active</EyebrowTag>
             <h1 className="mt-2 font-sans text-display-lg text-white">Scanning Payload</h1>
           </div>
-          
+
           <div className="flex-1 min-h-0 flex flex-col relative mt-2">
             <ScanFrame id={`ANALYSIS-${runIdRef.current.substring(0, 8).toUpperCase()}`} tone="cyan">
               <div className="flex-1 min-h-0 relative flex flex-col items-center justify-center overflow-hidden bg-ink-900">
@@ -456,20 +493,34 @@ export default function SpoofTheSystem() {
                     className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-luminosity grayscale"
                   />
                 )}
-                <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="relative z-10 flex flex-col items-center gap-4 px-6 w-full">
                   <LiveDot label="Analysis Active" />
-                  <h2 className="font-mono text-body-sm font-medium uppercase tracking-[0.03em] text-cyan-500">
-                    Extracting Vectors
+                  {/* Cycling status message */}
+                  <h2
+                    key={detectMsgIdx}
+                    className="font-mono text-body-sm font-medium text-center text-cyan-400 animate-fade-in"
+                  >
+                    {DETECTING_MESSAGES[detectMsgIdx]}
                   </h2>
                 </div>
               </div>
             </ScanFrame>
           </div>
-          
-          <div className="shrink-0 py-4 mt-auto">
-            <div className="h-[60px] flex items-center justify-center border border-ink-800 bg-ink-900/50">
-              <span className="font-mono text-eyebrow-micro uppercase text-[var(--text-on-dark-muted)] animate-pulse">
-                Processing...
+
+          {/* Progress bar */}
+          <div className="shrink-0 pt-4 pb-2 mt-auto space-y-2">
+            <div className="w-full h-1.5 bg-ink-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-500 rounded-full transition-[width] duration-200 ease-linear"
+                style={{ width: `${detectProgress}%` }}
+              />
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono text-eyebrow-micro uppercase text-[var(--text-on-dark-muted)]">
+                Bureau Detector Running
+              </span>
+              <span className="font-mono text-eyebrow-micro text-cyan-600">
+                {Math.round(detectProgress)}%
               </span>
             </div>
           </div>
@@ -532,46 +583,64 @@ export default function SpoofTheSystem() {
                 
                 <div className="flex-1 min-h-0 app-scroll bg-russian">
                   <div className="flex flex-col">
-                    {verdict.signals.map((sig, i) => {
-                      const visible = revealStep > i;
-                      const isHit = sig.verdict === 'synthetic';
-                      const isPass = sig.verdict === 'authentic';
+                    {(() => {
+                      // Sort by score desc, show top 3, collapse the rest
+                      const SHOW = 3;
+                      const sorted = [...verdict.signals].sort((a, b) => b.score - a.score);
+                      const shown = sorted.slice(0, SHOW);
+                      const hidden = sorted.length - SHOW;
 
                       return (
-                        <div
-                          key={i}
-                          className={cn(
-                            'flex flex-col border-b border-ink-800 px-4 py-3 transition-[opacity,background-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]',
-                            !visible ? 'opacity-0' : 'opacity-100',
-                            visible && isHit ? 'bg-[rgba(253,118,58,0.05)]' : ''
+                        <>
+                          {shown.map((sig, i) => {
+                            const visible = revealStep > i;
+                            const isHit = sig.verdict === 'synthetic';
+                            const isPass = sig.verdict === 'authentic';
+                            return (
+                              <div
+                                key={sig.name}
+                                className={cn(
+                                  'flex flex-col border-b border-ink-800 px-4 py-3 transition-[opacity,background-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                                  !visible ? 'opacity-0' : 'opacity-100',
+                                  visible && isHit ? 'bg-[rgba(253,118,58,0.05)]' : ''
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <span
+                                    className={cn(
+                                      'font-mono text-eyebrow-micro uppercase tracking-[0.03em]',
+                                      isHit ? 'text-coral-600' : isPass ? 'text-lime-300' : 'text-[var(--text-on-dark-muted)]'
+                                    )}
+                                  >
+                                    {sig.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      'font-mono text-eyebrow-micro uppercase tracking-[0.03em] shrink-0',
+                                      isHit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'
+                                    )}
+                                  >
+                                    {(sig.score * 100).toFixed(0)}%
+                                  </span>
+                                </div>
+                                {isRevealFinished && isHit && SIGNAL_DESCRIPTIONS[sig.name] && (
+                                  <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">
+                                    {SIGNAL_DESCRIPTIONS[sig.name]}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {hidden > 0 && revealStep >= SHOW && (
+                            <div className="px-4 py-3 border-b border-ink-800">
+                              <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
+                                + {hidden} more detector{hidden !== 1 ? 's' : ''} ran
+                              </span>
+                            </div>
                           )}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <span
-                              className={cn(
-                                'font-mono text-eyebrow-micro uppercase tracking-[0.03em]',
-                                isHit ? 'text-coral-600' : isPass ? 'text-lime-300' : 'text-[var(--text-on-dark-muted)]'
-                              )}
-                            >
-                              {sig.name}
-                            </span>
-                            <span
-                              className={cn(
-                                'font-mono text-eyebrow-micro uppercase tracking-[0.03em] shrink-0',
-                                isHit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'
-                              )}
-                            >
-                              {(sig.score * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                          {isRevealFinished && isHit && SIGNAL_DESCRIPTIONS[sig.name] && (
-                            <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">
-                              {SIGNAL_DESCRIPTIONS[sig.name]}
-                            </p>
-                          )}
-                        </div>
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
               </div>

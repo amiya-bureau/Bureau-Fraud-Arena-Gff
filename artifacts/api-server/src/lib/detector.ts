@@ -56,8 +56,12 @@ const STATUS_URL = "https://api.apollo.bureau.id/auth/status";
 const POLL_INTERVAL_MS = 1_500;
 const POLL_TIMEOUT_MS  = 30_000;
 
-/** Noise-augmented variants — drop these, keep only the base model rows. */
-const NOISE_VARIANT_RE = /: Noise s\d/;
+/**
+ * Sub-region / noise-augmented variants all contain a colon in their name
+ * (e.g. "Full-Resolution Pixel Analyzer: Center Noise S1").
+ * Keep only true base detector rows — names with no colon at all.
+ */
+const SUB_REGION_RE = /:/;
 
 interface BureauRow {
   name: string;
@@ -133,7 +137,7 @@ function bureauResultToVerdict(
   latencyMs: number,
 ): DetectorVerdict {
   // Base detector rows only — noise variants are internal calibration runs.
-  const baseRows = result.detector_rows.filter((r) => !NOISE_VARIANT_RE.test(r.name));
+  const baseRows = result.detector_rows.filter((r) => !SUB_REGION_RE.test(r.name));
 
   // fooled = detector classified a synthetic face as authentic
   const fooled = result.overall_result === "Authentic";
