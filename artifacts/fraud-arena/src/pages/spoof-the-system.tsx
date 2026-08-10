@@ -772,15 +772,38 @@ export default function SpoofTheSystem() {
 
       {gameState === 'decision' && (
         <ScreenBody>
-          <div className="shrink-0 pt-4">
+          {/* ── Last-attempt image with FOOLED overlay ── */}
+          {imagePreview && verdict && (
+            <div className="shrink-0 relative h-[38%] min-h-[160px] mt-2 overflow-hidden border border-lime-300/20">
+              <img
+                src={imagePreview}
+                alt="Last attempt"
+                className="h-full w-full object-cover opacity-75"
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-t from-ink-900/90 via-ink-900/20 to-transparent">
+                <div className="border border-lime-300 bg-russian/80 px-5 py-1.5 font-mono text-body-lg font-semibold uppercase tracking-[0.05em] text-lime-300">
+                  FOOLED
+                </div>
+                <span className="font-mono text-eyebrow-micro uppercase tracking-widest text-[var(--text-on-dark-muted)]">
+                  Synthetic confidence&nbsp;
+                  <span className="text-lime-400">
+                    {(verdict.confidence * 100).toFixed(1)}%
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Header ── */}
+          <div className="shrink-0 pt-3">
             <EyebrowTag tone="violet">Level {level} Bypassed</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Next Step</h1>
             <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
-              Take your {winPoints} points, or risk them against a stricter detector. If caught, you drop to the lowest baseline.
+              Bank your {winPoints} pts, or risk them against a stricter detector.
             </p>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col justify-center py-6">
+          {/* ── Scoring ladder ── */}
+          <div className="flex-1 min-h-0 flex flex-col justify-center py-4">
             <div className="stagger-in flex flex-col gap-px border border-ink-800 bg-ink-800 p-px">
               {[
                 { pts: 75, label: 'Level 3 Clear' },
@@ -788,7 +811,6 @@ export default function SpoofTheSystem() {
                 { pts: 40, label: 'Level 1 Clear' },
                 { pts: 0,  label: 'Caught (No Bank)' },
               ].map((rung) => {
-                // pts > 0 guard prevents the 0-pt "Caught" rung from lighting up
                 const isAchieved = rung.pts > 0 && winPoints >= rung.pts;
                 const isTarget = (level === 1 ? 60 : 75) === rung.pts;
 
@@ -816,6 +838,7 @@ export default function SpoofTheSystem() {
             </div>
           </div>
 
+          {/* ── Actions ── */}
           <div className="shrink-0 py-4 flex flex-col gap-3 mt-auto">
             <Button size="lg" chevron onClick={handleContinue} className="w-full" variant="light">
               Risk Level {level + 1}
