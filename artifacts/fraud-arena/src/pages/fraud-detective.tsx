@@ -142,9 +142,9 @@ export default function FraudDetective() {
    */
   const graphViewBox = useMemo(() => {
     if (!graphNodes.length) return '-200 -200 400 400';
-    const PAD_X = 40;
-    const PAD_TOP = 32;
-    const PAD_BOTTOM = 52; // the account caption hangs below the node box
+    const PAD_X = 90;   // foreignObject extends 60px from centre + label text overhang
+    const PAD_TOP = 50;
+    const PAD_BOTTOM = 75; // account caption + label text hang below the node box
     const MIN_SPAN = 280; // stops a two-node case zooming to absurd size
     const xs = graphNodes.map((n: any) => n.x);
     const ys = graphNodes.map((n: any) => n.y);
@@ -410,17 +410,20 @@ export default function FraudDetective() {
                                 with the account captions on a phone, and in most
                                 cases every edge carries the same word, so the set
                                 is noise until you are asking about one account. */}
-                            {currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] &&
-                              (isFinished || selectedNode === e.source.id || selectedNode === e.target.id) && (
+                            {/* Edge labels only after the case resolves — showing them
+                                during play causes collision storms when a hub node with
+                                many connections is selected. The Field Briefing text
+                                communicates the pattern during active play. */}
+                            {isFinished && currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] && (
                               <text
                                 x={(e.source.x + e.target.x) / 2}
-                                y={(e.source.y + e.target.y) / 2 - 4}
+                                y={(e.source.y + e.target.y) / 2 - 6}
                                 textAnchor="middle"
                                 stroke="var(--russian)"
-                                strokeWidth={4}
+                                strokeWidth={5}
                                 style={{ paintOrder: 'stroke' }}
                                 className="fill-[var(--text-on-dark-muted)] font-mono text-eyebrow-micro uppercase tracking-[0.03em]"
-                                opacity={isFinished && !isAnswerEdge ? 0.2 : 1}
+                                opacity={isAnswerEdge ? 0.9 : 0.25}
                               >
                                 {currentCase.edgeLabels[`${e.source.id}|${e.target.id}`]}
                               </text>
