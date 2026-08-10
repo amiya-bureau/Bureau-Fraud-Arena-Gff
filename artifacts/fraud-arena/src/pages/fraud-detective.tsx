@@ -365,7 +365,7 @@ export default function FraudDetective() {
 
   if (gameState === 'primer') {
     return (
-      <Layout title="Training" back={() => setGameState('rules')}>
+      <Layout title="Briefing" back={() => setGameState('rules')}>
         <ScreenBody className="pt-3 pb-safe">
           <div className="shrink-0 mb-4">
             <h1 className="font-sans text-display-lg font-normal text-white leading-tight">{PRIMER.title}</h1>

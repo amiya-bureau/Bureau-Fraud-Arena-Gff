@@ -9,7 +9,14 @@ export interface DetectiveCase {
   answer: string[]; explanation: string; hook: string;
 }
 
-export const PRIMER = {"title": "What is Community Detection?", "body": ["In any network of accounts, transactions, or connections, some groups of nodes are far more tightly linked to each other than they are to the rest of the graph. Those tight-knit groups are communities.", "Fraud rings behave the same way. The accounts running a scheme transact with each other far more than they do with random legitimate accounts. Community detection algorithms find these dense clusters automatically - nobody has to tell the system what a ring looks like in advance.", "Once the communities are visible, the patterns jump out: a single account bridging two clusters that should never touch, a hub with unusually high in-degree, a cluster that formed suspiciously fast. That is exactly what the cases below are testing you on."]};
+export const PRIMER = {
+  title: "What you're looking for",
+  body: [
+    "Fraud rings cluster. Members transact with each other far more than with outsiders, forming dense communities inside the graph.",
+    "Community detection finds these clusters automatically — no manual labelling needed. Tight-knit groups get flagged.",
+    "Watch for: a bridge node linking two clusters that shouldn't touch, a hub with unusually high connections, or a group that formed suspiciously fast.",
+  ],
+};
 
 export const CASES: DetectiveCase[] = [
   {
