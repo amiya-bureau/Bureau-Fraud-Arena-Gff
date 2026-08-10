@@ -10,7 +10,7 @@ import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchQuizGamePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { v4 as uuidv4 } from 'uuid';
-import { ShieldAlert, ScanEye } from 'lucide-react';
+import { ShieldAlert, ScanEye, Fingerprint, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { StatReadout } from '@/components/bureau/stat-readout';
@@ -423,13 +423,16 @@ export default function SpotTheFraud() {
                   <Button variant="light" size="lg" chevron onClick={() => endRun()} className="w-full">
                     Retry
                   </Button>
-                  <Button variant="outline" size="lg" onClick={() => setLocation('/spoof-the-system')} className="w-full">
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/spoof-the-system')} className="w-full justify-start gap-3">
+                    <ScanEye className="size-4 shrink-0 text-violet-400" />
                     Try Spoof the System
                   </Button>
-                  <Button variant="outline" size="lg" onClick={() => setLocation('/fraud-detective')} className="w-full">
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/fraud-detective')} className="w-full justify-start gap-3">
+                    <Fingerprint className="size-4 shrink-0 text-violet-400" />
                     Try Fraud Detective
                   </Button>
-                  <Button variant="outline" size="lg" onClick={() => setLocation('/')} className="w-full">
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/')} className="w-full justify-start gap-3">
+                    <LogOut className="size-4 shrink-0 text-violet-400" />
                     End Run
                   </Button>
                 </div>

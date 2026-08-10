@@ -9,7 +9,7 @@ import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
 import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchDetectiveCasePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { v4 as uuidv4 } from 'uuid';
-import { Maximize, AlertCircle, MapPin, Fingerprint, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Maximize, AlertCircle, Fingerprint, CheckCircle2, ShieldAlert, Target, ScanEye, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as d3 from 'd3-force';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -180,7 +180,7 @@ export default function FraudDetective() {
     }
   }, [caseIndex, caseScore, bonusScore, gameState]);
 
-  const startGame = () => setGameState('primer');
+  const startGame = () => setGameState('case');
 
   const handleAccuse = () => {
     if (!selectedNode || solved || revealed) return;
@@ -358,38 +358,10 @@ export default function FraudDetective() {
           standing={standing}
           gameKey="fraud_detective"
           onStart={startGame}
+          startLabel="Begin investigation"
+          insightTitle={PRIMER.title}
+          insightBullets={PRIMER.body}
         />
-      </Layout>
-    );
-  }
-
-  if (gameState === 'primer') {
-    return (
-      <Layout title="Briefing" back={() => setGameState('rules')}>
-        <ScreenBody className="pt-3 pb-safe">
-          <div className="shrink-0 mb-4">
-            <h1 className="font-sans text-display-lg font-normal text-white leading-tight">{PRIMER.title}</h1>
-          </div>
-          
-          <div className="stagger-in min-h-0 flex-1 app-scroll border-t border-ink-800">
-            {PRIMER.body.map((p, i) => (
-              <div key={i} className="flex items-start gap-3 border-b border-ink-800 py-3">
-                <span className="mt-0.5 w-5 shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <p className="text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
-                  {p}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="shrink-0 pt-4 mt-auto">
-            <Button variant="light" size="lg" chevron onClick={() => setGameState('case')} className="w-full">
-              Start investigation
-            </Button>
-          </div>
-        </ScreenBody>
       </Layout>
     );
   }
@@ -650,13 +622,16 @@ export default function FraudDetective() {
             <Button size="lg" variant="light" chevron onClick={() => endRun()} className="w-full">
               Retry
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="w-full">
+            <Button size="lg" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="w-full justify-start gap-3">
+              <Target className="size-4 shrink-0 text-violet-400" />
               Try Spot the Fraud
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="w-full">
+            <Button size="lg" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="w-full justify-start gap-3">
+              <ScanEye className="size-4 shrink-0 text-violet-400" />
               Try Spoof the System
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full">
+            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full justify-start gap-3">
+              <LogOut className="size-4 shrink-0 text-violet-400" />
               End Run
             </Button>
           </div>

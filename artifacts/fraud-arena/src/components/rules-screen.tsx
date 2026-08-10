@@ -12,6 +12,11 @@ interface RulesScreenProps {
   standing?: PlayerStanding;
   gameKey: string;
   onStart: () => void;
+  /** Optional extra bullets merged below the rules rows (e.g. "What you're looking for"). */
+  insightTitle?: string;
+  insightBullets?: string[];
+  /** Override the CTA label. Defaults to "Start game". */
+  startLabel?: string;
 }
 
 /**
@@ -30,6 +35,9 @@ export function RulesScreen({
   standing,
   gameKey,
   onStart,
+  insightTitle,
+  insightBullets,
+  startLabel,
 }: RulesScreenProps) {
   const scoreBadge = standing?.scores.find((s) => s.game === gameKey);
 
@@ -57,8 +65,8 @@ export function RulesScreen({
         <p className="mt-2 text-body-md text-[var(--text-on-dark-muted)]">{premise}</p>
       </div>
 
-      {/* Hairline-separated rows — no cards inside a card, no shadows. */}
-      <div className="stagger-in mt-4 min-h-0 flex-1 border-t border-ink-800">
+      {/* Hairline-separated rows. Scrollable so extra insight bullets fit without overflow. */}
+      <div className="stagger-in mt-4 min-h-0 flex-1 overflow-y-auto border-t border-ink-800">
         {rules.map((rule, i) => (
           <div key={rule.label} className="flex items-start gap-3 border-b border-ink-800 py-3">
             <span className="mt-0.5 w-5 shrink-0 font-mono text-body-sm font-medium tabular-nums text-violet-500">
@@ -72,6 +80,24 @@ export function RulesScreen({
             </div>
           </div>
         ))}
+
+        {insightBullets && insightBullets.length > 0 && (
+          <>
+            <div className="pb-1 pt-3">
+              <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-violet-400">
+                {insightTitle ?? 'What you\'re looking for'}
+              </span>
+            </div>
+            {insightBullets.map((bullet, i) => (
+              <div key={i} className="flex items-start gap-3 border-b border-ink-800 py-2.5">
+                <span className="mt-0.5 w-5 shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums text-violet-500/60">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{bullet}</p>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {welcomeName && (
@@ -103,7 +129,7 @@ export function RulesScreen({
 
       <div className="shrink-0 py-4">
         <Button variant="light" size="lg" chevron onClick={onStart} className="w-full">
-          Start game
+          {startLabel ?? 'Start game'}
         </Button>
       </div>
     </div>
