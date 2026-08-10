@@ -35,11 +35,16 @@ export function QrPanel({
   return (
     <div
       className={cn(
-        'flex items-center gap-4 p-4',
+        'relative flex items-center gap-4 overflow-hidden p-4',
         light ? 'bg-white text-russian' : 'bg-violet-700 text-white',
         className,
       )}
     >
+      {/* Corner-cluster dots on the light variant; white dots on violet. */}
+      {light
+        ? <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
+        : <div aria-hidden className="bureau-dots-white pointer-events-none absolute inset-0" />
+      }
       <div className="shrink-0 bg-white p-2">
         <QRCodeSVG value={targetUrl} size={size} level="M" />
       </div>

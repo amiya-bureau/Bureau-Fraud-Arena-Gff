@@ -164,16 +164,18 @@ function GameBand({
     <button
       onClick={onClick}
       className={cn(
-        'tap flex max-h-[132px] min-h-[64px] flex-1 items-center gap-4 px-4 text-left',
+        'tap relative flex max-h-[132px] min-h-[64px] flex-1 items-center gap-4 overflow-hidden px-4 text-left',
         t.field,
       )}
     >
-      <Icon className={cn('size-6 shrink-0', t.mark)} strokeWidth={1.5} aria-hidden="true" />
-      <div className="min-w-0 flex-1">
+      {/* White dot overlay — texture on each coloured band. */}
+      <div aria-hidden className="bureau-dots-white pointer-events-none absolute inset-0" />
+      <Icon className={cn('relative size-6 shrink-0', t.mark)} strokeWidth={1.5} aria-hidden="true" />
+      <div className="relative min-w-0 flex-1">
         <h2 className={cn('truncate font-sans text-card-title font-medium', t.title)}>{title}</h2>
         <p className={cn('mt-1 font-mono text-body-sm', t.body)}>{desc}</p>
       </div>
-      <PixelChevron className={cn('shrink-0', t.mark)} />
+      <PixelChevron className={cn('relative shrink-0', t.mark)} />
     </button>
   );
 }

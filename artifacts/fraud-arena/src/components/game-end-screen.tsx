@@ -91,25 +91,26 @@ export function GameEndScreen({ currentGame, points, standing, isPersonalBest, o
 
   return (
     <Layout title={GAMES.find((g) => g.key === currentGame)?.label ?? 'Game'}>
-      {/* Result summary */}
-      <div className="flex shrink-0 flex-col items-center pt-6 text-center">
-        <EyebrowTag tone="cyan">Run Complete</EyebrowTag>
+      {/* Result summary — white panel with corner-cluster dots for contrast relief. */}
+      <div className="relative -mx-4 shrink-0 overflow-hidden bg-white px-4 pb-6 pt-6 text-center">
+        <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
+        <EyebrowTag tone="dark">Run Complete</EyebrowTag>
 
-        <div className="mt-6 flex gap-8">
-          <StatReadout value={points.toString()} caption="Points" tone="on-dark" size="md" />
+        <div className="mt-6 flex justify-center gap-8">
+          <StatReadout value={points.toString()} caption="Points" tone="on-light" size="md" />
           {standing?.rank != null && (
             <StatReadout
               value={`#${standing.rank}`}
               caption={isPersonalBest ? 'Rank · PB' : 'Rank'}
-              tone="on-dark"
+              tone="on-light"
               size="md"
             />
           )}
         </div>
 
         {allPlayed && (
-          <div className="mt-4 border border-cyan-500/30 bg-cyan-500/10 px-4 py-2">
-            <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">
+          <div className="mt-4 border border-violet-700/30 bg-violet-700/8 px-4 py-2">
+            <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-700">
               All three games complete
             </span>
           </div>

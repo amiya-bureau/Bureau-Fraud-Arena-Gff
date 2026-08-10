@@ -53,6 +53,11 @@ export function Layout({
           aria-hidden="true"
           className="bureau-matrix field-fade pointer-events-none absolute inset-x-0 top-0 h-[45%]"
         />
+        {/* Dots rise from the bottom — the dark field stays textured all the way down. */}
+        <div
+          aria-hidden="true"
+          className="bureau-dots field-fade-up pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
+        />
 
         {showHeader && (
           <header className="pt-safe relative z-10 w-full shrink-0">
