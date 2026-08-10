@@ -1,20 +1,29 @@
-// TODO: REPLACE WITH BUREAU'S REAL DETECTOR API BEFORE THE EVENT.
-//
-// This is the ONLY place detector logic lives. Everything else — the ladder,
-// the UI, the scoring, the draw pools — must work unchanged when this is
-// swapped for Bureau's real Faceguard endpoint. Keep `runDetector`'s signature
-// and `DetectorVerdict`'s shape intact and nothing downstream needs to move.
+/**
+ * Bureau Apollo Deepfake Detector — production integration.
+ *
+ * `runDetector` is the only public entry point.  When BUREAU_API_USER and
+ * BUREAU_API_KEY are set it calls the real Apollo API; otherwise it falls back
+ * to the deterministic fake that was used during development.  Everything
+ * downstream — the spoof route, the scoring, the reveal UI — is unchanged.
+ *
+ * Apollo flow
+ * -----------
+ * 1. POST /auth/upload   multipart — returns { request_id, status:"pending" }
+ * 2. GET  /auth/status?request_id=…   poll until status === "done"
+ * 3. Map result.detector_rows (base detectors only) → DetectorVerdict
+ */
 
 import { createHash } from "node:crypto";
 
-export type DetectorLevel = 1 | 2 | 3;
+// ── Shared types (consumed by the spoof route and the API schema) ──────────
 
+export type DetectorLevel = 1 | 2 | 3;
 export type SignalVerdict = "synthetic" | "authentic" | "inconclusive";
 
 export interface DetectorSignal {
   name: string;
   verdict: SignalVerdict;
-  /** 0-1, higher means more evidence the image is synthetic. */
+  /** 0–1, higher = more evidence the image is synthetic. */
   score: number;
 }
 
@@ -27,17 +36,149 @@ export interface HeatmapRegion {
 }
 
 export interface DetectorVerdict {
-  /** True means the visitor beat this level. */
+  /** true  → visitor beat the detector (it didn't flag the synthetic image) */
   fooled: boolean;
-  /** 0-1 confidence that the image is synthetic. */
+  /** 0–1, higher = more evidence the image is synthetic. */
   confidence: number;
   signals: DetectorSignal[];
   heatmapRegions: HeatmapRegion[];
   latencyMs: number;
 }
 
-/** Five named signals so the reveal panel reads like a real product. */
-const SIGNAL_NAMES = [
+export function hashImage(image: Buffer): string {
+  return createHash("sha256").update(image).digest("hex");
+}
+
+// ── Bureau Apollo API ──────────────────────────────────────────────────────
+
+const UPLOAD_URL = "https://api.apollo.bureau.id/auth/upload";
+const STATUS_URL = "https://api.apollo.bureau.id/auth/status";
+const POLL_INTERVAL_MS = 1_500;
+const POLL_TIMEOUT_MS  = 30_000;
+
+/** Noise-augmented variants — drop these, keep only the base model rows. */
+const NOISE_VARIANT_RE = /: Noise s\d/;
+
+interface BureauRow {
+  name: string;
+  /** 0–100 probability the image is synthetic according to this detector. */
+  score: number;
+  verdict: string;
+  confidence: number;
+  is_synthetic?: boolean;
+}
+
+interface BureauResult {
+  detector_rows: BureauRow[];
+  overall_result: "Authentic" | "Synthetic" | string;
+  synthetic_confidence: number;
+}
+
+interface BureauStatusBody {
+  status: "pending" | "done" | "failed";
+  result?: BureauResult;
+}
+
+function authHeader(user: string, key: string): string {
+  return `Basic ${Buffer.from(`${user}:${key}`).toString("base64")}`;
+}
+
+async function uploadImage(image: Buffer, user: string, key: string): Promise<string> {
+  const form = new FormData();
+  // Use Uint8Array — a valid BlobPart in all runtimes, avoids the
+  // SharedArrayBuffer vs ArrayBuffer ambiguity on Node's Buffer.buffer.
+  form.append("file", new Blob([new Uint8Array(image)], { type: "image/jpeg" }), "image.jpg");
+
+  const res = await fetch(UPLOAD_URL, {
+    method: "POST",
+    headers: { Authorization: authHeader(user, key) },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Bureau upload failed: HTTP ${res.status}`);
+
+  const body = await res.json() as { request_id: string };
+  return body.request_id;
+}
+
+async function pollStatus(requestId: string, user: string, key: string): Promise<BureauResult> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${STATUS_URL}?request_id=${encodeURIComponent(requestId)}`,
+      { headers: { Authorization: authHeader(user, key) } },
+    );
+    if (!res.ok) throw new Error(`Bureau status failed: HTTP ${res.status}`);
+
+    const body = await res.json() as BureauStatusBody;
+    if (body.status === "done" && body.result) return body.result;
+    if (body.status === "failed") throw new Error("Bureau detector returned status: failed");
+
+    await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+
+  throw new Error("Bureau detector timed out (30 s)");
+}
+
+function mapSignalVerdict(v: string): SignalVerdict {
+  if (v === "SYNTHETIC") return "synthetic";
+  if (v === "AUTHENTIC") return "authentic";
+  return "inconclusive";
+}
+
+function bureauResultToVerdict(
+  result: BureauResult,
+  image: Buffer,
+  level: DetectorLevel,
+  latencyMs: number,
+): DetectorVerdict {
+  // Base detector rows only — noise variants are internal calibration runs.
+  const baseRows = result.detector_rows.filter((r) => !NOISE_VARIANT_RE.test(r.name));
+
+  // fooled = detector classified a synthetic face as authentic
+  const fooled = result.overall_result === "Authentic";
+
+  // confidence: average synthetic-probability across base detectors (0–1).
+  // row.score is already "probability of being synthetic" in 0–100.
+  const confidence =
+    baseRows.length > 0
+      ? round2(baseRows.reduce((sum, r) => sum + r.score, 0) / baseRows.length / 100)
+      : fooled ? 0.15 : 0.82;
+
+  const signals: DetectorSignal[] = baseRows.map((r) => ({
+    name: r.name,
+    verdict: mapSignalVerdict(r.verdict),
+    score: round2(r.score / 100),
+  }));
+
+  // Apollo doesn't return heatmap coordinates — generate deterministically
+  // from the image hash so the reveal animation still works.
+  const heatmapRegions = heatmapFromHash(hashImage(image), level);
+
+  return { fooled, confidence, signals, heatmapRegions, latencyMs };
+}
+
+async function runBureauDetector(
+  image: Buffer,
+  level: DetectorLevel,
+): Promise<DetectorVerdict> {
+  const user = process.env.BUREAU_API_USER!;
+  const key  = process.env.BUREAU_API_KEY!;
+  const t0   = Date.now();
+
+  const requestId = await uploadImage(image, user, key);
+  const result    = await pollStatus(requestId, user, key);
+
+  return bureauResultToVerdict(result, image, level, Date.now() - t0);
+}
+
+// ── Fake fallback (dev / no credentials) ──────────────────────────────────
+
+const BEAT_RATE: Record<DetectorLevel, number> = { 1: 0.35, 2: 0.15, 3: 0.04 };
+const SYNTHETIC_THRESHOLD = 0.66;
+const AUTHENTIC_THRESHOLD = 0.4;
+
+const FAKE_SIGNAL_NAMES = [
   "Frequency-domain artefacts",
   "Noise-residual consistency",
   "Facial-landmark geometry",
@@ -45,16 +186,6 @@ const SIGNAL_NAMES = [
   "Colour-channel correlation",
 ] as const;
 
-/**
- * How often each detector is beatable. Level 3 is deliberately brutal so that
- * full-ladder iPad qualifiers stay in single digits across the whole event.
- */
-const BEAT_RATE: Record<DetectorLevel, number> = { 1: 0.35, 2: 0.15, 3: 0.04 };
-
-const SYNTHETIC_THRESHOLD = 0.66;
-const AUTHENTIC_THRESHOLD = 0.4;
-
-/** Deterministic PRNG so the same image always gets the same verdict. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -66,15 +197,6 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-export function hashImage(image: Buffer): string {
-  return createHash("sha256").update(image).digest("hex");
-}
-
-/**
- * Mixing the level into the seed makes the three detectors disagree about the
- * same image, while keeping each one stable across retries — visitors do retry,
- * and they notice inconsistency.
- */
 function seedFrom(hash: string, level: number): number {
   let h = Math.imul(level, 0x9e3779b9) >>> 0;
   for (let i = 0; i + 8 <= hash.length; i += 8) {
@@ -84,86 +206,89 @@ function seedFrom(hash: string, level: number): number {
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
-
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 
-function verdictFor(score: number): SignalVerdict {
+function fakeSignalVerdict(score: number): SignalVerdict {
   if (score >= SYNTHETIC_THRESHOLD) return "synthetic";
   if (score <= AUTHENTIC_THRESHOLD) return "authentic";
   return "inconclusive";
 }
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+function heatmapFromHash(hash: string, level: number): HeatmapRegion[] {
+  const rand = mulberry32(seedFrom(hash, level + 100));
+  const count = 2 + Math.floor(rand() * 3);
+  return Array.from({ length: count }, () => {
+    const w  = 0.12 + rand() * 0.22;
+    const h  = 0.12 + rand() * 0.22;
+    const cx = 0.5  + (rand() - 0.5) * 0.42;
+    const cy = 0.36 + (rand() - 0.5) * 0.44;
+    return {
+      x: round2(clamp01(Math.min(cx - w / 2, 1 - w))),
+      y: round2(clamp01(Math.min(cy - h / 2, 1 - h))),
+      w: round2(w),
+      h: round2(h),
+      intensity: round2(0.3 + rand() * 0.7),
+    };
+  });
+}
 
+async function runFakeDetector(
+  image: Buffer,
+  level: DetectorLevel,
+): Promise<DetectorVerdict> {
+  const hash  = hashImage(image);
+  const rand  = mulberry32(seedFrom(hash, level));
+  const latMs = Math.round(900 + rand() * 900);
+  const fooled = rand() < BEAT_RATE[level];
+  const conf   = fooled ? 0.04 + rand() * 0.4 : 0.6 + rand() * 0.39;
+
+  const scores = FAKE_SIGNAL_NAMES.map(() =>
+    fooled ? rand() * 0.55 : clamp01(0.35 + rand() * 0.65),
+  );
+  if (!fooled) {
+    const decisive = Math.floor(rand() * FAKE_SIGNAL_NAMES.length);
+    scores[decisive] = clamp01(Math.max(scores[decisive] ?? 0, 0.78 + rand() * 0.2));
+  }
+
+  const signals: DetectorSignal[] = FAKE_SIGNAL_NAMES.map((name, i) => ({
+    name,
+    verdict: fakeSignalVerdict(round2(scores[i] ?? 0)),
+    score: round2(scores[i] ?? 0),
+  }));
+
+  await new Promise<void>((r) => setTimeout(r, latMs));
+
+  return {
+    fooled,
+    confidence: round2(conf),
+    signals,
+    heatmapRegions: heatmapFromHash(hash, level),
+    latencyMs: latMs,
+  };
+}
+
+// ── Public entry point ─────────────────────────────────────────────────────
+
+/**
+ * Run the deepfake detector against an uploaded image.
+ *
+ * Uses the real Bureau Apollo API when credentials are present; otherwise
+ * falls back to the deterministic fake (development / CI).
+ */
 export async function runDetector(
   image: Buffer,
   level: DetectorLevel,
 ): Promise<DetectorVerdict> {
-  const rand = mulberry32(seedFrom(hashImage(image), level));
-
-  const latencyMs = Math.round(900 + rand() * 900);
-  const fooled = rand() < BEAT_RATE[level];
-
-  const confidence = fooled ? 0.04 + rand() * 0.4 : 0.6 + rand() * 0.39;
-
-  const scores = SIGNAL_NAMES.map(() =>
-    fooled ? rand() * 0.55 : clamp01(0.35 + rand() * 0.65),
-  );
-
-  if (!fooled) {
-    // A detection always has one decisive signal behind it, so the reveal can
-    // name the single strongest reason in plain language.
-    const decisive = Math.floor(rand() * SIGNAL_NAMES.length);
-    scores[decisive] = clamp01(
-      Math.max(scores[decisive] ?? 0, 0.78 + rand() * 0.2),
-    );
+  if (process.env.BUREAU_API_USER && process.env.BUREAU_API_KEY) {
+    return runBureauDetector(image, level);
   }
-
-  const signals: DetectorSignal[] = SIGNAL_NAMES.map((name, i) => {
-    const score = round2(scores[i] ?? 0);
-    return { name, verdict: verdictFor(score), score };
-  });
-
-  // 2-4 boxes, biased toward the centre and upper third where faces sit.
-  const regionCount = 2 + Math.floor(rand() * 3);
-  const heatmapRegions: HeatmapRegion[] = Array.from(
-    { length: regionCount },
-    () => {
-      const w = 0.12 + rand() * 0.22;
-      const h = 0.12 + rand() * 0.22;
-      const cx = 0.5 + (rand() - 0.5) * 0.42;
-      const cy = 0.36 + (rand() - 0.5) * 0.44;
-      return {
-        x: round2(clamp01(Math.min(cx - w / 2, 1 - w))),
-        y: round2(clamp01(Math.min(cy - h / 2, 1 - h))),
-        w: round2(w),
-        h: round2(h),
-        intensity: round2(fooled ? 0.2 + rand() * 0.35 : 0.5 + rand() * 0.5),
-      };
-    },
-  );
-
-  // Real detectors take time. Keeping the wait server-side means the "detectors
-  // running" animation covers genuine latency, and swapping in Faceguard
-  // changes nothing about how the client behaves.
-  await sleep(latencyMs);
-
-  return {
-    fooled,
-    confidence: round2(confidence),
-    signals,
-    heatmapRegions,
-    latencyMs,
-  };
+  return runFakeDetector(image, level);
 }
 
 /** The signal a reveal screen should name when the detector catches an image. */
 export function strongestSignal(verdict: DetectorVerdict): DetectorSignal | null {
-  return (
-    verdict.signals.reduce<DetectorSignal | null>(
-      (best, s) => (best === null || s.score > best.score ? s : best),
-      null,
-    ) ?? null
+  return verdict.signals.reduce<DetectorSignal | null>(
+    (best, s) => (best === null || s.score > best.score ? s : best),
+    null,
   );
 }
