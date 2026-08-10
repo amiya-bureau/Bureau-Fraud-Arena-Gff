@@ -346,13 +346,68 @@ export default function SpoofTheSystem() {
     if (finalResult.pointsRecorded === 60) finalDraw = 'AirPods Draw';
     if (finalResult.pointsRecorded === 75) finalDraw = 'iPad MEGA Draw';
 
+    const lastFooled = verdict?.fooled ?? false;
+    const lastConf   = verdict ? (verdict.confidence * 100).toFixed(1) : null;
+
     return (
       <Layout title="Spoof the System" back="/">
         <ScreenBody>
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center">
+          {/* ── Last-attempt image with verdict overlay ── */}
+          {imagePreview && verdict && (
+            <div className="shrink-0 relative h-[42%] min-h-[180px] mt-2 overflow-hidden border border-ink-800">
+              <img
+                src={imagePreview}
+                alt="Last attempt"
+                className={cn(
+                  'h-full w-full object-cover',
+                  lastFooled ? 'opacity-75' : 'opacity-40 grayscale'
+                )}
+              />
+
+              {/* Heatmap on caught attempts */}
+              {!lastFooled && verdict.heatmapRegions.map((box, i) => (
+                <div
+                  key={i}
+                  className="absolute border border-coral-600"
+                  style={{
+                    left: `${box.x * 100}%`,
+                    top: `${box.y * 100}%`,
+                    width: `${box.w * 100}%`,
+                    height: `${box.h * 100}%`,
+                    backgroundColor: `rgba(253, 118, 58, ${box.intensity * 0.35})`,
+                  }}
+                />
+              ))}
+
+              {/* Verdict + confidence overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-t from-ink-900/90 via-ink-900/30 to-transparent">
+                <div
+                  className={cn(
+                    'border px-4 py-1.5 font-mono text-body-lg font-semibold uppercase tracking-[0.05em]',
+                    lastFooled
+                      ? 'border-lime-300 bg-russian/80 text-lime-300'
+                      : 'border-coral-600 bg-russian/80 text-coral-600'
+                  )}
+                >
+                  {lastFooled ? 'FOOLED' : 'DETECTED'}
+                </div>
+                {lastConf && (
+                  <span className="font-mono text-eyebrow-micro uppercase tracking-widest text-[var(--text-on-dark-muted)]">
+                    Synthetic confidence&nbsp;
+                    <span className={lastFooled ? 'text-lime-400' : 'text-coral-500'}>
+                      {lastConf}%
+                    </span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Score + meta ── */}
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center py-4">
             <EyebrowTag tone="violet">Run Complete</EyebrowTag>
-            
-            <div className="mt-8 mb-8">
+
+            <div className="mt-5 mb-5">
               <StatReadout
                 value={finalResult.pointsRecorded}
                 caption="Points Secured"
@@ -382,7 +437,7 @@ export default function SpoofTheSystem() {
               )}
             </div>
           </div>
-          
+
           <div className="shrink-0 py-4 flex flex-col gap-3 mt-auto">
             <Button size="lg" variant="light" chevron onClick={() => window.location.reload()} className="w-full">
               New Run
