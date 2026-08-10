@@ -400,10 +400,10 @@ export default function FraudDetective() {
                             <line
                               x1={e.source.x} y1={e.source.y}
                               x2={e.target.x} y2={e.target.y}
-                              stroke={isAnswerEdge ? 'var(--coral-600)' : 'var(--ink-700)'}
-                              strokeWidth={isAnswerEdge ? 2 : 1}
-                              opacity={isFinished && !isAnswerEdge ? 0.2 : 1}
-                              strokeDasharray={isAnswerEdge ? "none" : "3 3"}
+                              stroke={isAnswerEdge ? 'var(--coral-600)' : 'rgba(139,92,246,0.45)'}
+                              strokeWidth={isAnswerEdge ? 2 : 1.5}
+                              opacity={isFinished && !isAnswerEdge ? 0.15 : 1}
+                              strokeDasharray={isAnswerEdge ? "none" : "4 4"}
                             />
                             {/* Edge labels are shown for the tapped account only.
                                 Drawn all at once they collide with each other and
@@ -479,36 +479,56 @@ export default function FraudDetective() {
             </TransformWrapper>
           </div>
 
-          <div className="shrink-0 mt-3 app-scroll max-h-[140px] flex flex-col gap-3">
+          <div className="shrink-0 mt-3">
             {!isFinished && (
-              <div className="border border-ink-800 bg-ink-900 p-3">
-                <h3 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] flex items-center gap-2">
-                  <MapPin className="size-4" strokeWidth={1.5} />
-                  Case Notes
-                </h3>
-                <div className="mt-2 flex flex-col gap-2">
+              <div className="border border-amber-500/30 bg-[rgba(245,158,11,0.04)]">
+                {/* Header */}
+                <div className="flex items-center gap-2 border-b border-amber-500/20 px-3 py-2">
+                  <Fingerprint className="size-3.5 shrink-0 text-amber-400" strokeWidth={1.5} />
+                  <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-amber-400">
+                    Field Briefing
+                  </span>
+                  <span className="ml-auto font-mono text-eyebrow-micro text-[var(--text-on-dark-faint)] uppercase tracking-widest">
+                    {currentCase.id.replace(/_/g, '-').substring(0, 10).toUpperCase()}
+                  </span>
+                </div>
+                {/* Evidence items */}
+                <div className="divide-y divide-amber-500/10">
                   {currentCase.clues.map((clue, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="mt-[7px] size-1 shrink-0 bg-violet-500" aria-hidden="true" />
-                      <p className="font-sans text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{clue}</p>
+                    <div key={i} className="flex items-start gap-3 px-3 py-2.5">
+                      <span className="shrink-0 font-mono text-eyebrow-micro font-bold tabular-nums text-amber-400 leading-snug pt-px">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
+                        {clue}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            
+
             {isFinished && (
-              <div className="animate-resolve-in border border-violet-700 bg-violet-700/10 p-3">
-                <h4 className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-violet-500" strokeWidth={1.5} />
-                  Case Closed
-                </h4>
-                <p className="mt-2 font-sans text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
-                  {currentCase.explanation}
-                </p>
-                <div className="mt-2 border-t border-violet-700/30 pt-2 flex gap-2">
-                  <Fingerprint className="size-4 shrink-0 text-violet-500" strokeWidth={1.5} />
-                  <p className="font-sans text-body-sm text-white leading-snug">{currentCase.hook}</p>
+              <div className="animate-resolve-in border border-violet-500/60 bg-violet-700/10">
+                {/* Header */}
+                <div className="flex items-center gap-2 border-b border-violet-500/30 px-3 py-2">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-violet-400" strokeWidth={1.5} />
+                  <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-violet-300">
+                    Case Closed
+                  </span>
+                </div>
+                {/* Explanation */}
+                <div className="px-3 py-2.5">
+                  <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
+                    {currentCase.explanation}
+                  </p>
+                </div>
+                {/* Hook — the bureau insight */}
+                <div className="flex items-start gap-3 border-t border-violet-500/20 px-3 py-2.5 bg-violet-700/10">
+                  <MapPin className="size-3.5 shrink-0 text-violet-400 mt-px" strokeWidth={1.5} />
+                  <p className="font-mono text-body-sm text-white leading-snug">
+                    {currentCase.hook}
+                  </p>
                 </div>
               </div>
             )}
