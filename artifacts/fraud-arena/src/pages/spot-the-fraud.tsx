@@ -544,11 +544,16 @@ export default function SpotTheFraud() {
           </div>
         </div>
 
-        {/* Timer bar — full width, shrinks linearly to zero as time runs out */}
+        {/* Timer bar — starts at 100% and drains to zero.
+            Suppress the CSS transition on the first frame so the bar snaps
+            to full rather than animating up from 0% when the question mounts. */}
         <div className="shrink-0 h-1 w-full bg-ink-800 mt-3">
           <div
             className={cn(
-              "h-full transition-[width] duration-1000 ease-linear",
+              "h-full",
+              // Only drain-animate once the clock has started ticking; on the
+              // first render timeLeft === timerSec so we skip the transition.
+              currentLevel && timeLeft < currentLevel.timerSec && "transition-[width] duration-1000 ease-linear",
               timeLeft <= 5 ? "bg-coral-600" : "bg-cyan-500"
             )}
             style={{ width: `${currentLevel ? (timeLeft / currentLevel.timerSec) * 100 : 0}%` }}
