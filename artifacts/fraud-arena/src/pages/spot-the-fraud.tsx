@@ -65,6 +65,8 @@ export default function SpotTheFraud() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const prevTimeLeftRef = useRef(0);
+  // 10-second auto-exit timer shown on wrong/timeout/nearMiss explain screen
+  const [explainFailSec, setExplainFailSec] = useState(10);
   
   // Explain screen state
   const [explainResult, setExplainResult] = useState<'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null>(null);
@@ -147,6 +149,22 @@ export default function SpotTheFraud() {
       }
     }
   }, [standing, gameState]);
+
+  // Reset the explain-fail countdown each time we enter the explain screen.
+  useEffect(() => {
+    if (gameState === 'explain') setExplainFailSec(10);
+  }, [gameState]);
+
+  // Count down and auto-exit on wrong/timeout/nearMiss explain screen.
+  useEffect(() => {
+    const isFailExplain =
+      gameState === 'explain' &&
+      (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
+    if (!isFailExplain) return;
+    if (explainFailSec <= 0) { setLocation('/'); return; }
+    const t = setTimeout(() => setExplainFailSec(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [explainFailSec, gameState, explainResult]);
 
   const startGame = () => setGameState('playing');
 
@@ -372,9 +390,55 @@ export default function SpotTheFraud() {
           </div>
 
           <div className="shrink-0 pt-4">
-            <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
-              {isWrong || isNearMiss ? 'End run' : 'Continue'}
-            </Button>
+            {(isWrong || isNearMiss) ? (
+              <>
+                {/* Points banked so far */}
+                {score > 0 && (
+                  <div className="mb-4">
+                    <StatReadout value={score} caption="Points Banked" tone="on-dark" size="sm" />
+                  </div>
+                )}
+
+                {/* 10-second auto-exit countdown */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                    Auto-exit
+                  </span>
+                  <span className={cn(
+                    "font-mono text-eyebrow-micro tabular-nums",
+                    explainFailSec <= 3 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
+                  )}>
+                    {explainFailSec}s
+                  </span>
+                </div>
+                <div className="h-0.5 w-full bg-ink-800 mb-4">
+                  <div
+                    className="h-full bg-coral-600 transition-[width] duration-1000 ease-linear"
+                    style={{ width: `${(explainFailSec / 10) * 100}%` }}
+                  />
+                </div>
+
+                {/* 4 exit options */}
+                <div className="flex flex-col gap-2.5">
+                  <Button variant="light" size="lg" chevron onClick={() => endRun()} className="w-full">
+                    Retry
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/spoof-the-system')} className="w-full">
+                    Try Spoof the System
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/fraud-detective')} className="w-full">
+                    Try Fraud Detective
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={() => setLocation('/')} className="w-full">
+                    End Run
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
+                Continue
+              </Button>
+            )}
           </div>
         </div>
       </Layout>

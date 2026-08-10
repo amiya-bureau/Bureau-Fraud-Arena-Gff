@@ -20,7 +20,7 @@ import {
   StatReadout,
 } from '@/components/bureau';
 
-type GameState = 'rules' | 'primer' | 'case' | 'bonus' | 'lifeline' | 'error';
+type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'error';
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -59,6 +59,7 @@ export default function FraudDetective() {
   const [caseScore, setCaseScore] = useState(0);
   const [bonusScore, setBonusScore] = useState(0);
   const [caseResults, setCaseResults] = useState<any[]>([]);
+  const [caseFailSec, setCaseFailSec] = useState(10);
 
   // Current case state
   const currentCase = activeCases[caseIndex];
@@ -199,8 +200,15 @@ export default function FraudDetective() {
         revealed: false
       }]);
     } else {
-      setWrongGuesses(g => g + 1);
-      setSelectedNode(null); // deselect on wrong guess
+      // First wrong accusation — immediately reveal the answer and fail this case.
+      setRevealed(true);
+      setCaseResults(prev => [...prev, {
+        id: currentCase.id,
+        points: 0,
+        wrongGuesses: 1,
+        revealed: true,
+      }]);
+      setGameState('casefail');
     }
   };
 
@@ -326,6 +334,18 @@ export default function FraudDetective() {
     }
   }, [standing, gameState]);
 
+  // Case-fail auto-exit timer.
+  useEffect(() => {
+    if (gameState === 'casefail') setCaseFailSec(10);
+  }, [gameState]);
+
+  useEffect(() => {
+    if (gameState !== 'casefail') return;
+    if (caseFailSec <= 0) { setLocation('/'); return; }
+    const t = setTimeout(() => setCaseFailSec(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [caseFailSec, gameState]);
+
   if (gameState === 'rules') {
     return (
       <Layout title="Fraud Detective" back="/">
@@ -333,8 +353,8 @@ export default function FraudDetective() {
           gameName="Fraud Detective"
           premise="Five graph investigation cases plus a bonus trivia round. Find the hidden links that expose the rings."
           scoring="16 points per case (80 total) + 20 points in the bonus round. Maximum 100 points."
-          endsWhen="There is no game over. Every case is attemptable. Points drop if you make wrong guesses."
-          lifelines="You can reveal the answer at any time for 0 points."
+          endsWhen="Five cases. One wrong accusation ends that case — banked points carry forward."
+          lifelines="Choose carefully. One wrong tap reveals the answer and fails the case."
           standing={standing}
           gameKey="fraud_detective"
           onStart={startGame}
@@ -551,47 +571,94 @@ export default function FraudDetective() {
                     {currentCase.explanation}
                   </p>
                 </div>
-                {/* Hook — the bureau insight */}
-                <div className="flex items-start gap-3 border-t border-violet-500/20 px-3 py-2.5 bg-violet-700/10">
-                  <MapPin className="size-3.5 shrink-0 text-violet-400 mt-px" strokeWidth={1.5} />
-                  <p className="font-mono text-body-sm text-white leading-snug">
-                    {currentCase.hook}
-                  </p>
-                </div>
               </div>
             )}
           </div>
 
           <div className="shrink-0 mt-3 pt-3 border-t border-ink-800">
             {!isFinished ? (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em]">
-                    Wrong: {wrongGuesses}
-                  </span>
-                  <button 
-                    className="tap font-mono text-eyebrow-micro text-violet-500 uppercase tracking-[0.03em]"
-                    onClick={handleReveal}
-                  >
-                    Reveal answer
-                  </button>
-                </div>
-                <Button 
-                  variant={selectedNode ? 'default' : 'secondary'} 
-                  size="lg" 
-                  className="w-full"
-                  disabled={!selectedNode}
-                  onClick={handleAccuse}
-                  chevron
-                >
-                  Submit accusation
-                </Button>
-              </>
+              <Button 
+                variant={selectedNode ? 'default' : 'secondary'} 
+                size="lg" 
+                className="w-full"
+                disabled={!selectedNode}
+                onClick={handleAccuse}
+                chevron
+              >
+                Submit accusation
+              </Button>
             ) : (
               <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
                 Next case
               </Button>
             )}
+          </div>
+        </ScreenBody>
+      </Layout>
+    );
+  }
+
+  if (gameState === 'casefail' && currentCase) {
+    return (
+      <Layout title={currentCase.sector} back="/">
+        <ScreenBody className="pt-3 pb-safe">
+
+          {/* Header */}
+          <div className="shrink-0">
+            <EyebrowTag tone="coral">Case Failed</EyebrowTag>
+            <h1 className="mt-3 font-sans text-display-lg font-normal text-white leading-tight">
+              {currentCase.title}
+            </h1>
+            <div className="mt-4">
+              <StatReadout value={caseScore} caption="Points Banked" size="sm" tone="on-dark" />
+            </div>
+          </div>
+
+          {/* Auto-exit countdown */}
+          <div className="mt-5 shrink-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                Auto-exit
+              </span>
+              <span className={cn(
+                "font-mono text-eyebrow-micro tabular-nums",
+                caseFailSec <= 3 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
+              )}>
+                {caseFailSec}s
+              </span>
+            </div>
+            <div className="h-0.5 w-full bg-ink-800">
+              <div
+                className={cn(
+                  "h-full bg-coral-600",
+                  caseFailSec < 10 && "transition-[width] duration-1000 ease-linear"
+                )}
+                style={{ width: `${(caseFailSec / 10) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Case explanation */}
+          <div className="mt-4 shrink-0 border-l-2 border-coral-600/50 pl-3">
+            <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
+              {currentCase.explanation}
+            </p>
+          </div>
+
+          {/* Exit options */}
+          <div className="mt-auto flex shrink-0 flex-col gap-2.5 pt-5">
+            <Button size="lg" variant="light" chevron onClick={() => endRun()} className="w-full">
+              Retry
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="w-full">
+              Try Spot the Fraud
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="w-full">
+              Try Spoof the System
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full">
+              End Run
+            </Button>
           </div>
         </ScreenBody>
       </Layout>
