@@ -177,15 +177,6 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
                     <FormLabel className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">
                       Work Email
                     </FormLabel>
-                    {!noWorkEmail && (
-                      <button
-                        type="button"
-                        onClick={() => setNoWorkEmail(true)}
-                        className="tap font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] underline decoration-1 underline-offset-4"
-                      >
-                        I don't have one
-                      </button>
-                    )}
                   </div>
                   <FormControl>
                     <BureauInput type="email" placeholder="priya@company.com" {...field} />
