@@ -7,3 +7,10 @@ uri = "file://bureau-fraud-arena-question-bank.html"
 type = "text"
 title = "Bureau Fraud Arena — Complete Question Bank"
 description = "All 135 Spot the Fraud questions, 52 Detective cases, 15 Lifeline Gate questions, 5 Bureau brand questions, and Spoof the System host notes. Fully self-contained HTML — open in browser and save as PDF for print."
+
+[[outputs]]
+id = "_oN_YkOq6bXOXtEc-cSDF"
+uri = "file://bureau-fraud-arena-point-system.docx"
+type = "word_document"
+title = "Bureau Fraud Arena — Leaderboard & Point System"
+description = "Complete scoring reference for all three games: Spot the Fraud (level-by-level breakdown), Spoof the System (prize draw tiers), and Fraud Detective (cases + bonus). Includes leaderboard view guide and quick-reference point caps."
