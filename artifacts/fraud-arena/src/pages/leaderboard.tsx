@@ -8,8 +8,6 @@ import {
 import { Layout } from '@/components/layout';
 import { usePlayerSession } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { PrimaryNav } from '@/components/bureau/primary-nav';
-import { ArenaHeader } from '@/components/bureau/arena-header';
 
 type Tab = 'combined' | GameKey;
 
@@ -53,10 +51,7 @@ export default function LeaderboardPage() {
     leaderboard?.pinned && !rows.find((r) => r.playerId === leaderboard.pinned?.playerId);
 
   return (
-    <Layout showHeader={false} scrollable>
-      <ArenaHeader />
-      <PrimaryNav className="mt-4" />
-
+    <Layout showHeader title="Leaderboard">
       {/* Scope: a square segmented control, hairlines, no pills. */}
       <div className="mt-3 flex shrink-0 border border-ink-800">
         {(['today', 'cumulative'] as LeaderboardScope[]).map((s) => (
@@ -91,8 +86,8 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
-      {/* The board is a white field floating on near-black. */}
-      <div className="stagger-in mt-3 flex flex-col">
+      {/* Board fills all remaining height; rows share it equally via flex-1. */}
+      <div className="stagger-in mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
         {rows.map((row) => (
           <LeaderboardRow
             key={row.playerId}
@@ -102,7 +97,7 @@ export default function LeaderboardPage() {
         ))}
 
         {rows.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-6 bg-white py-12">
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-white">
             <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-faint)]">
               No scores recorded
             </p>
@@ -115,7 +110,7 @@ export default function LeaderboardPage() {
         )}
       </div>
 
-      <div className="shrink-0 py-2.5">
+      <div className="shrink-0 py-2">
         <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
           {scope === 'today' ? 'Today at the booth' : 'All days'}
         </span>

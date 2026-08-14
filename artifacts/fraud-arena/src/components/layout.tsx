@@ -46,8 +46,8 @@ export function Layout({
   };
 
   return (
-    <div className="flex h-[100dvh] w-full justify-center overflow-hidden bg-[#00010f]">
-      <div className="app-shell relative flex w-full max-w-[430px] flex-col border-ink-800 bg-russian sm:border-x">
+    <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#00010f]">
+      <div className="app-shell relative flex w-full max-w-[430px] aspect-[3/5] max-h-[100dvh] flex-col border-ink-800 bg-russian sm:border-x">
         {/* The matrix sits behind every dark field, fading out under content. */}
         <div
           aria-hidden="true"

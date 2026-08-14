@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "U4q6OG28wsQalsKFHc63d"
+uri = "file://bureau-fraud-arena-question-bank.html"
+type = "text"
+title = "Bureau Fraud Arena — Complete Question Bank"
+description = "All 135 Spot the Fraud questions, 52 Detective cases, 15 Lifeline Gate questions, 5 Bureau brand questions, and Spoof the System host notes. Fully self-contained HTML — open in browser and save as PDF for print."
