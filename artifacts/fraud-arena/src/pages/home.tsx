@@ -113,7 +113,7 @@ export default function Home() {
         game="spoof-the-system"
         tone="light"
         size={92}
-        note="Scan to try Spoof the System on your phone."
+        note="Scan to Enter the Fraud Arena on your phone."
         className="mt-3 shrink-0"
       />
 

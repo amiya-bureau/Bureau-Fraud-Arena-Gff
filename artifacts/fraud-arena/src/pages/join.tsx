@@ -11,7 +11,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useRegisterPlayer, PlayerInput } from '@workspace/api-client-react';
 import { usePlayerSession } from '@/lib/store';
 import { useLocation, useSearch } from 'wouter';
@@ -27,9 +26,6 @@ const formSchema = z.object({
     z.string().length(10, "Must be exactly 10 digits").regex(/^[6-9]\d{9}$/, "Must start with 6-9")
   ),
   company: z.string().min(1, "Company is required"),
-  consent: z.literal(true, {
-    errorMap: () => ({ message: "You must agree to the terms" }),
-  }),
 });
 
 /**
@@ -96,7 +92,6 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
       email: '',
       phone: '',
       company: '',
-      consent: undefined as unknown as true,
     },
   });
 
@@ -218,29 +213,29 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="consent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-3 space-y-0 border border-ink-800 bg-ink-900 p-3">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-none border border-ink-700 bg-russian transition-colors focus-visible:outline-none focus-visible:ring-0 data-[state=checked]:border-violet-700 data-[state=checked]:bg-violet-700 data-[state=checked]:text-white"
-                    />
-                  </FormControl>
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <FormLabel className="font-sans text-body-sm leading-snug text-[var(--text-on-dark-muted)]">
-                      Bureau may contact me about its products and store these details. Withdraw any
-                      time at privacy@bureau.id.
-                    </FormLabel>
-                    <FormMessage className="font-mono text-body-sm text-coral-600" />
-                  </div>
-                </FormItem>
-              )}
-            />
           </div>
+
+          <p className="shrink-0 font-mono text-eyebrow-micro leading-relaxed tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+            By clicking 'Join the Arena', you agree to Bureau's{' '}
+            <a
+              href="https://bureau.id/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-1 underline-offset-4 hover:text-white"
+            >
+              Privacy Policy
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://bureau.id/terms-and-conditions"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-1 underline-offset-4 hover:text-white"
+            >
+              Terms &amp; Conditions
+            </a>
+            .
+          </p>
 
           <div className="shrink-0 py-3">
             <Button
