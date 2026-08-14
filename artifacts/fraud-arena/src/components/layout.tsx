@@ -46,17 +46,10 @@ export function Layout({
   };
 
   return (
-    <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#00010f]">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#00010f] sm:items-center sm:justify-center">
       <div
-          className="app-shell relative flex flex-col border-ink-800 bg-russian sm:border-x"
-          style={{
-            // Enforce 3:5 explicitly — aspect-ratio alone is overridden by
-            // flex children that use flex-grow, so we compute both dimensions
-            // with CSS min() so the ratio holds on every screen size.
-            width: 'min(100vw, 430px)',
-            height: 'min(100dvh, min(calc(100vw * 5 / 3), 716px))',
-          }}
-        >
+        className="app-shell relative flex h-[100dvh] w-full flex-col bg-russian sm:h-[min(100dvh,716px)] sm:max-w-[430px] sm:border-x sm:border-ink-800"
+      >
         {/* The matrix sits behind every dark field, fading out under content. */}
         <div
           aria-hidden="true"
