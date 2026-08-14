@@ -8,6 +8,8 @@ import {
 import { Layout } from '@/components/layout';
 import { usePlayerSession } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { PrimaryNav } from '@/components/bureau/primary-nav';
+import { ArenaHeader } from '@/components/bureau/arena-header';
 
 type Tab = 'combined' | GameKey;
 
@@ -51,7 +53,10 @@ export default function LeaderboardPage() {
     leaderboard?.pinned && !rows.find((r) => r.playerId === leaderboard.pinned?.playerId);
 
   return (
-    <Layout showHeader title="Leaderboard">
+    <Layout showHeader={false}>
+      <ArenaHeader />
+      <PrimaryNav className="mt-4" />
+
       {/* Scope: a square segmented control, hairlines, no pills. */}
       <div className="mt-3 flex shrink-0 border border-ink-800">
         {(['today', 'cumulative'] as LeaderboardScope[]).map((s) => (
