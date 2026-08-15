@@ -438,7 +438,7 @@ components:
 
     PlayerInput:
       type: object
-      required: [workName, email, phone, company, consent]
+      required: [workName, email, phone, company]
       properties:
         workName:
           type: string
@@ -451,9 +451,6 @@ components:
         company:
           type: string
           minLength: 1
-        consent:
-          type: boolean
-          description: Must be true. Reflects the DPDP consent checkbox, which is unticked by default.
         noWorkEmail:
           type: boolean
           description: >

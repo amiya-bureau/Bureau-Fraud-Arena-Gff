@@ -31,7 +31,6 @@ export const RegisterPlayerBody = zod.object({
   "email": zod.string(),
   "phone": zod.string().describe('Indian mobile number; spaces, dashes and a +91 prefix are stripped server-side.'),
   "company": zod.string().min(1),
-  "consent": zod.boolean().describe('Must be true. Reflects the DPDP consent checkbox, which is unticked by default.'),
   "noWorkEmail": zod.boolean().optional().describe('Set when the visitor used the \"I don\'t have a work email\" override. Flags the row rather than blocking the entry.\n')
 })
 

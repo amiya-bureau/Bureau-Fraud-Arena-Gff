@@ -14,8 +14,6 @@ export interface PlayerInput {
   phone: string;
   /** @minLength 1 */
   company: string;
-  /** Must be true. Reflects the DPDP consent checkbox, which is unticked by default. */
-  consent: boolean;
   /** Set when the visitor used the "I don't have a work email" override. Flags the row rather than blocking the entry. */
   noWorkEmail?: boolean;
 }
