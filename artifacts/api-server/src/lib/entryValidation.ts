@@ -70,7 +70,6 @@ export interface EntryInput {
   email: string;
   phone: string;
   company: string;
-  consent: boolean;
   noWorkEmail?: boolean;
 }
 
@@ -125,16 +124,6 @@ export function validateEntry(
     return {
       ok: false,
       error: { field: "company", message: "Please enter your company." },
-    };
-  }
-
-  if (input.consent !== true) {
-    return {
-      ok: false,
-      error: {
-        field: "consent",
-        message: "Please tick the consent box to continue.",
-      },
     };
   }
 

@@ -6,20 +6,20 @@ export type Kind = 'text' | 'image';
 export interface Level {
   level: number; label: string; kind: Kind; optionCount: number;
   correctCount: number; timerSec: number; points: number; nearMiss: number;
-  fiftyFifty: boolean; skip: boolean; theme: string; fiftyRemoves: number;
+  skip: boolean; theme: string;
 }
 
 export const LEVELS: Level[] = [
-  { level: 1, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 4, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Consumer scams - the on-ramp: phishing SMS, fake payment proof, KYC links", fiftyRemoves: 0 },
-  { level: 2, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 5, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Network basics - fraud rings, mule chains, device-linked clusters", fiftyRemoves: 0 },
-  { level: 3, label: "Spot the Fake (2 images)", kind: 'image', optionCount: 2, correctCount: 1, timerSec: 20, points: 6, nearMiss: 0, fiftyFifty: false, skip: true, theme: "First image level - replay attacks, doctored docs, synthetic faces", fiftyRemoves: 0 },
-  { level: 4, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 7, nearMiss: 0, fiftyFifty: false, skip: true, theme: "Ring mechanics - device farms, account ageing, co-ordinated bust-outs", fiftyRemoves: 0 },
-  { level: 5, label: "CHECKPOINT - MCQ single", kind: 'text', optionCount: 5, correctCount: 1, timerSec: 20, points: 8, nearMiss: 0, fiftyFifty: true, skip: false, theme: "Network at scale - mule fan-out, linking two applications to one ring (A2 Achiever gate)", fiftyRemoves: 2 },
-  { level: 6, label: "MCQ - multi (select 2)", kind: 'text', optionCount: 6, correctCount: 2, timerSec: 25, points: 10, nearMiss: 5, fiftyFifty: true, skip: true, theme: "Cross-application signals, how mule networks are actually built", fiftyRemoves: 2 },
-  { level: 7, label: "Spot the Fake grid (6 img)", kind: 'image', optionCount: 6, correctCount: 2, timerSec: 25, points: 12, nearMiss: 6, fiftyFifty: true, skip: true, theme: "High-quality synthetic faces + synthetic merchant storefronts", fiftyRemoves: 2 },
-  { level: 8, label: "MCQ - multi (select 3)", kind: 'text', optionCount: 6, correctCount: 3, timerSec: 30, points: 14, nearMiss: 7, fiftyFifty: true, skip: true, theme: "Synthetic identity clusters, mule farming networks", fiftyRemoves: 1 },
-  { level: 9, label: "Spot the Fake grid (8 img)", kind: 'image', optionCount: 8, correctCount: 3, timerSec: 40, points: 16, nearMiss: 8, fiftyFifty: true, skip: true, theme: "Near-photorealistic diffusion output, forged documents", fiftyRemoves: 2 },
-  { level: 10, label: "EXPERT - MCQ multi (sel 3)", kind: 'text', optionCount: 8, correctCount: 3, timerSec: 40, points: 18, nearMiss: 9, fiftyFifty: true, skip: false, theme: "Expert ring attribution - clean files, hidden links (A3 Master gate)", fiftyRemoves: 2 },
+  { level: 1, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 4, nearMiss: 0, skip: true, theme: "Consumer scams - the on-ramp: phishing SMS, fake payment proof, KYC links" },
+  { level: 2, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 5, nearMiss: 0, skip: true, theme: "Network basics - fraud rings, mule chains, device-linked clusters" },
+  { level: 3, label: "Spot the Fake (2 images)", kind: 'image', optionCount: 2, correctCount: 1, timerSec: 20, points: 6, nearMiss: 0, skip: true, theme: "First image level - replay attacks, doctored docs, synthetic faces" },
+  { level: 4, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 7, nearMiss: 0, skip: true, theme: "Ring mechanics - device farms, account ageing, co-ordinated bust-outs" },
+  { level: 5, label: "CHECKPOINT - MCQ single", kind: 'text', optionCount: 5, correctCount: 1, timerSec: 20, points: 8, nearMiss: 0, skip: false, theme: "Network at scale - mule fan-out, linking two applications to one ring (A2 Achiever gate)" },
+  { level: 6, label: "MCQ - multi (select 2)", kind: 'text', optionCount: 6, correctCount: 2, timerSec: 25, points: 10, nearMiss: 5, skip: true, theme: "Cross-application signals, how mule networks are actually built" },
+  { level: 7, label: "Spot the Fake grid (6 img)", kind: 'image', optionCount: 6, correctCount: 2, timerSec: 25, points: 12, nearMiss: 6, skip: true, theme: "High-quality synthetic faces + synthetic merchant storefronts" },
+  { level: 8, label: "MCQ - multi (select 3)", kind: 'text', optionCount: 6, correctCount: 3, timerSec: 30, points: 14, nearMiss: 7, skip: true, theme: "Synthetic identity clusters, mule farming networks" },
+  { level: 9, label: "Spot the Fake grid (8 img)", kind: 'image', optionCount: 8, correctCount: 3, timerSec: 40, points: 16, nearMiss: 8, skip: true, theme: "Near-photorealistic diffusion output, forged documents" },
+  { level: 10, label: "EXPERT - MCQ multi (sel 3)", kind: 'text', optionCount: 8, correctCount: 3, timerSec: 40, points: 18, nearMiss: 9, skip: false, theme: "Expert ring attribution - clean files, hidden links (A3 Master gate)" },
 ];
 
 export interface Question {
@@ -193,39 +193,6 @@ export const ALL_QUESTIONS: Question[] = [];
 
 // populated after BUREAU_QUESTIONS, see bottom of file
 
-// Answer is ALWAYS 'Bureau' (option index 1). Worth 0 points. Unlocks the 50:50.
-export const BUREAU_QUESTIONS: BureauQuestion[] = [
-  { id: "BQ-01",
-    stem: "Unlock your 50:50. Whose Faceguard, device intelligence and alternate-data products are on show at this booth?",
-    options: ["Bureau", "A government agency", "An open-source consortium", "The event organiser"],
-    correct: [1],
-    why: "Bureau. Everything you have played so far runs on the same stack we sell - identity, device, behaviour and network signals in one decision.",
-    host: "Point at the banner. This is the one question nobody gets wrong, and that is the point - it buys you ten seconds of eye contact." },
-  { id: "BQ-02",
-    stem: "Unlock your 50:50. You watched a liveness check finish in ten seconds at the Verify Me kiosk. Whose technology was that?",
-    options: ["Bureau", "Your own bank's app", "The kiosk manufacturer's", "A standard phone camera feature"],
-    correct: [1],
-    why: "Bureau. Same liveness engine our customers run in production - the ten seconds is not a demo shortcut.",
-    host: "Good opener if they have already done Verify Me. Ask them how long they thought it took." },
-  { id: "BQ-03",
-    stem: "Unlock your 50:50. Which company catches fraud rings by reading the links between identities, devices and beneficiary accounts rather than checking one applicant at a time?",
-    options: ["Bureau", "A credit bureau", "A KYC vendor", "The applicant's own bank"],
-    correct: [1],
-    why: "Bureau. A credit bureau tells you about one file's past. We tell you who that file is connected to right now.",
-    host: "The strongest of the five. Use it when the visitor has been doing well on the network questions." },
-  { id: "BQ-04",
-    stem: "Unlock your 50:50. The Spoof the System challenge at this booth dares you to fool a detector. Whose detector is it?",
-    options: ["Bureau", "An open-source model", "The phone's own camera check", "The venue WiFi provider"],
-    correct: [1],
-    why: "Bureau. Our own detectors, running live, with no safety net - which is why the iPad is still sitting in the box.",
-    host: "Use this to walk them across to the Spoof pod afterwards." },
-  { id: "BQ-05",
-    stem: "Unlock your 50:50. Which company's platform combines identity, device, behaviour and network signals into a single decision?",
-    options: ["Bureau", "A payment gateway", "A core banking system", "An SMS provider"],
-    correct: [1],
-    why: "Bureau. One decision, four signal families. Stitching those together yourself is the project this replaces.",
-    host: "The most 'sales' of the five - save it for visitors with a bank or lender badge." },
-];
 
 // Merge all question batches into the canonical QUESTIONS export.
 export const QUESTIONS: Question[] = [...QUESTIONS_A, ...BATCH_B_QUESTIONS];

@@ -21,7 +21,6 @@ import { IconTile } from '@/components/bureau/icon-tile';
 interface ShuffledOption {
   text: string;
   originalIndex: number;
-  removed: boolean;
 }
 
 type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'error';
@@ -84,7 +83,7 @@ export default function SpotTheFraud() {
       const q = questionPool[Math.floor(Math.random() * questionPool.length)];
       setCurrentQuestion(q);
       
-      const options = q.options.map((text, i) => ({ text, originalIndex: i + 1, removed: false }));
+      const options = q.options.map((text, i) => ({ text, originalIndex: i + 1 }));
       // Shuffle options safely
       for (let i = options.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -322,7 +321,7 @@ export default function SpotTheFraud() {
           premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. The higher you climb, the harder they get."
           scoring="Up to 100 points. Points banked are kept even if you fail later."
           endsWhen="One wrong answer or timeout ends your run. On multi-select questions, one swap is a near-miss (half points) and ends the run."
-          lifelines="Skip is available on most levels."
+          lifelines="Skip is available on most levels. Use it to pass a question and bank 0 points for that level."
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}
@@ -574,7 +573,6 @@ export default function SpotTheFraud() {
             {/* Options — naturally-sized cards, scrollable if they overflow */}
             <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5 stagger-in">
               {shuffledOptions.map((opt, i) => {
-                if (opt.removed) return null;
                 const isSelected = selectedIndices.includes(opt.originalIndex);
                 return (
                   <button
