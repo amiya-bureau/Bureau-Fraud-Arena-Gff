@@ -60,6 +60,7 @@ export default function FraudDetective() {
   const [bonusScore, setBonusScore] = useState(0);
   const [caseResults, setCaseResults] = useState<any[]>([]);
   const [caseFailSec, setCaseFailSec] = useState(10);
+  const [caseFailTab, setCaseFailTab] = useState<'graph' | 'why'>('graph');
 
   // Current case state
   const currentCase = activeCases[caseIndex];
@@ -141,8 +142,8 @@ export default function FraudDetective() {
    * Compressing positions alone (the obvious move) leaves the boxes at 48px and
    * packs them into each other.
    */
-  const graphViewBox = useMemo(() => {
-    if (!graphNodes.length) return '-200 -200 400 400';
+  const graphData = useMemo(() => {
+    if (!graphNodes.length) return { viewBox: '-200 -200 400 400', width: 400, height: 400 };
     const PAD_X = 90;   // foreignObject extends 60px from centre + label text overhang
     const PAD_TOP = 50;
     const PAD_BOTTOM = 75; // account caption + label text hang below the node box
@@ -163,7 +164,9 @@ export default function FraudDetective() {
       minY = mid - MIN_SPAN / 2;
       maxY = mid + MIN_SPAN / 2;
     }
-    return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
+    const width = maxX - minX;
+    const height = maxY - minY;
+    return { viewBox: `${minX} ${minY} ${width} ${height}`, width, height };
   }, [graphNodes]);
 
   // Persist progress periodically
@@ -410,8 +413,8 @@ export default function FraudDetective() {
                     </Button>
                   </div>
 
-                  <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
-                    <svg className="h-full w-full" viewBox={graphViewBox}>
+                  <TransformComponent wrapperClass="w-full h-full" contentClass="flex items-center justify-center">
+                    <svg width={graphData.width} height={graphData.height} viewBox={graphData.viewBox}>
                       {/* Arrow markers for directed edges */}
                       <defs>
                         <marker id="arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -651,131 +654,148 @@ export default function FraudDetective() {
             </div>
           </div>
 
-          {/* Answer graph — shows the correct answer highlighted */}
-          <div
-            className="-mx-4 mt-4 flex-1 min-h-[180px] border-y border-ink-800 bg-russian overflow-hidden relative"
-            style={{ touchAction: 'none' }}
-          >
-            <SignalField texture="dots" tone="russian" fade={false} />
-            {/* Label */}
-            <div aria-hidden className="pointer-events-none absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-coral-500">Correct answer</span>
-            </div>
-            <TransformWrapper
-              initialScale={1}
-              minScale={0.3}
-              maxScale={4}
-              centerOnInit
-              limitToBounds={false}
-              panning={{ velocityDisabled: false }}
-              doubleClick={{ disabled: true }}
-            >
-              {({ resetTransform }) => (
-                <>
-                  <div className="absolute right-2 top-2 z-10">
-                    <Button variant="secondary" size="icon" className="size-9 tap" onClick={() => resetTransform()}>
-                      <Maximize className="size-4" strokeWidth={1.5} />
-                    </Button>
-                  </div>
-                  <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
-                    <svg className="h-full w-full" viewBox={graphViewBox}>
-                      <defs>
-                        <marker id="cf-arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                          <path d="M0,0 L0,6 L6,3 z" fill="rgba(139,92,246,0.7)" />
-                        </marker>
-                        <marker id="cf-arrow-answer" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                          <path d="M0,0 L0,6 L6,3 z" fill="var(--coral-600)" />
-                        </marker>
-                      </defs>
-
-                      {/* Edges */}
-                      {graphEdges.map((e, i) => {
-                        const isAnswerEdge = currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id);
-                        const dx = e.target.x - e.source.x;
-                        const dy = e.target.y - e.source.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        const pad = 30;
-                        const safe = dist > pad * 2;
-                        const x1a = safe ? e.source.x + (dx / dist) * pad : e.source.x;
-                        const y1a = safe ? e.source.y + (dy / dist) * pad : e.source.y;
-                        const x2a = safe ? e.target.x - (dx / dist) * pad : e.target.x;
-                        const y2a = safe ? e.target.y - (dy / dist) * pad : e.target.y;
-                        return (
-                          <g key={i}>
-                            <line
-                              x1={x1a} y1={y1a} x2={x2a} y2={y2a}
-                              stroke={isAnswerEdge ? 'var(--coral-600)' : 'rgba(139,92,246,0.45)'}
-                              strokeWidth={isAnswerEdge ? 2 : 1.5}
-                              opacity={isAnswerEdge ? 1 : 0.15}
-                              strokeDasharray={isAnswerEdge ? "none" : "4 4"}
-                              markerEnd={isAnswerEdge ? 'url(#cf-arrow-answer)' : 'url(#cf-arrow-normal)'}
-                            />
-                            {currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] && (
-                              <text
-                                x={(e.source.x + e.target.x) / 2}
-                                y={(e.source.y + e.target.y) / 2 - 6}
-                                textAnchor="middle"
-                                stroke="var(--russian)"
-                                strokeWidth={5}
-                                style={{ paintOrder: 'stroke' }}
-                                className="fill-[var(--text-on-dark-muted)] font-mono text-eyebrow-micro uppercase tracking-[0.03em]"
-                                opacity={isAnswerEdge ? 0.9 : 0.25}
-                              >
-                                {currentCase.edgeLabels[`${e.source.id}|${e.target.id}`]}
-                              </text>
-                            )}
-                          </g>
-                        );
-                      })}
-
-                      {/* Nodes */}
-                      {graphNodes.map((n) => {
-                        const isAnswerNode = currentCase.answer.includes(n.id);
-                        return (
-                          <g
-                            key={n.id}
-                            transform={`translate(${n.x},${n.y})`}
-                            className={cn(
-                              "transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]",
-                              isAnswerNode ? "opacity-100" : "opacity-30"
-                            )}
-                          >
-                            <foreignObject x={-60} y={-60} width={120} height={120} className="overflow-visible">
-                              <div className="flex h-full w-full flex-col items-center justify-center">
-                                {isAnswerNode ? (
-                                  <ScanFrame id={n.id.substring(0, 4)} tone="coral">
-                                    <div className="flex size-12 items-center justify-center border border-coral-600 bg-coral-600 text-russian">
-                                      <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
-                                    </div>
-                                  </ScanFrame>
-                                ) : (
-                                  <div className="flex size-12 items-center justify-center border border-ink-700 bg-ink-800 text-white">
-                                    <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
-                                  </div>
-                                )}
-                                <span className={cn(
-                                  "mt-1.5 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] leading-none",
-                                  isAnswerNode ? "text-coral-600" : "text-[var(--text-on-dark-muted)]"
-                                )}>
-                                  {currentCase.nodeLabels?.[n.id] || n.id}
-                                </span>
-                              </div>
-                            </foreignObject>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </TransformComponent>
-                </>
-              )}
-            </TransformWrapper>
+          {/* Tab bar */}
+          <div className="-mx-4 mt-4 shrink-0 flex border-b border-ink-800">
+            {(['graph', 'why'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setCaseFailTab(tab)}
+                className={cn(
+                  "flex-1 py-2.5 font-mono text-eyebrow-micro uppercase tracking-[0.1em] transition-colors tap",
+                  caseFailTab === tab
+                    ? "text-coral-500 border-b-2 border-coral-500 -mb-px"
+                    : "text-[var(--text-on-dark-muted)] hover:text-[var(--text-on-dark)]"
+                )}
+              >
+                {tab === 'graph' ? 'Answer' : 'Why?'}
+              </button>
+            ))}
           </div>
 
-          {/* Case explanation */}
-          <div className="mt-4 shrink-0 border-l-2 border-coral-600/50 pl-3">
-            <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
-              {currentCase.explanation}
-            </p>
+          {/* Tab content — fixed height keeps layout stable */}
+          <div className="shrink-0 h-[220px]">
+            {caseFailTab === 'graph' ? (
+              <div
+                className="-mx-4 h-full border-b border-ink-800 bg-russian overflow-hidden relative"
+                style={{ touchAction: 'none' }}
+              >
+                <SignalField texture="dots" tone="russian" fade={false} />
+                <TransformWrapper
+                  initialScale={1}
+                  minScale={0.3}
+                  maxScale={4}
+                  centerOnInit
+                  limitToBounds={false}
+                  panning={{ velocityDisabled: false }}
+                  doubleClick={{ disabled: true }}
+                >
+                  {({ resetTransform }) => (
+                    <>
+                      <div className="absolute right-2 top-2 z-10">
+                        <Button variant="secondary" size="icon" className="size-9 tap" onClick={() => resetTransform()}>
+                          <Maximize className="size-4" strokeWidth={1.5} />
+                        </Button>
+                      </div>
+                      <TransformComponent wrapperClass="w-full h-full" contentClass="flex items-center justify-center">
+                        <svg width={graphData.width} height={graphData.height} viewBox={graphData.viewBox}>
+                          <defs>
+                            <marker id="cf-arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                              <path d="M0,0 L0,6 L6,3 z" fill="rgba(139,92,246,0.7)" />
+                            </marker>
+                            <marker id="cf-arrow-answer" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                              <path d="M0,0 L0,6 L6,3 z" fill="var(--coral-600)" />
+                            </marker>
+                          </defs>
+
+                          {graphEdges.map((e, i) => {
+                            const isAnswerEdge = currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id);
+                            const dx = e.target.x - e.source.x;
+                            const dy = e.target.y - e.source.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            const pad = 30;
+                            const safe = dist > pad * 2;
+                            const x1a = safe ? e.source.x + (dx / dist) * pad : e.source.x;
+                            const y1a = safe ? e.source.y + (dy / dist) * pad : e.source.y;
+                            const x2a = safe ? e.target.x - (dx / dist) * pad : e.target.x;
+                            const y2a = safe ? e.target.y - (dy / dist) * pad : e.target.y;
+                            return (
+                              <g key={i}>
+                                <line
+                                  x1={x1a} y1={y1a} x2={x2a} y2={y2a}
+                                  stroke={isAnswerEdge ? 'var(--coral-600)' : 'rgba(139,92,246,0.45)'}
+                                  strokeWidth={isAnswerEdge ? 2 : 1.5}
+                                  opacity={isAnswerEdge ? 1 : 0.15}
+                                  strokeDasharray={isAnswerEdge ? "none" : "4 4"}
+                                  markerEnd={isAnswerEdge ? 'url(#cf-arrow-answer)' : 'url(#cf-arrow-normal)'}
+                                />
+                                {currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] && (
+                                  <text
+                                    x={(e.source.x + e.target.x) / 2}
+                                    y={(e.source.y + e.target.y) / 2 - 6}
+                                    textAnchor="middle"
+                                    stroke="var(--russian)"
+                                    strokeWidth={5}
+                                    style={{ paintOrder: 'stroke' }}
+                                    className="fill-[var(--text-on-dark-muted)] font-mono text-eyebrow-micro uppercase tracking-[0.03em]"
+                                    opacity={isAnswerEdge ? 0.9 : 0.25}
+                                  >
+                                    {currentCase.edgeLabels[`${e.source.id}|${e.target.id}`]}
+                                  </text>
+                                )}
+                              </g>
+                            );
+                          })}
+
+                          {graphNodes.map((n) => {
+                            const isAnswerNode = currentCase.answer.includes(n.id);
+                            return (
+                              <g
+                                key={n.id}
+                                transform={`translate(${n.x},${n.y})`}
+                                className={cn(
+                                  "transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]",
+                                  isAnswerNode ? "opacity-100" : "opacity-30"
+                                )}
+                              >
+                                <foreignObject x={-60} y={-60} width={120} height={120} className="overflow-visible">
+                                  <div className="flex h-full w-full flex-col items-center justify-center">
+                                    {isAnswerNode ? (
+                                      <ScanFrame id={n.id.substring(0, 4)} tone="coral">
+                                        <div className="flex size-12 items-center justify-center border border-coral-600 bg-coral-600 text-russian">
+                                          <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
+                                        </div>
+                                      </ScanFrame>
+                                    ) : (
+                                      <div className="flex size-12 items-center justify-center border border-ink-700 bg-ink-800 text-white">
+                                        <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
+                                      </div>
+                                    )}
+                                    <span className={cn(
+                                      "mt-1.5 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] leading-none",
+                                      isAnswerNode ? "text-coral-600" : "text-[var(--text-on-dark-muted)]"
+                                    )}>
+                                      {currentCase.nodeLabels?.[n.id] || n.id}
+                                    </span>
+                                  </div>
+                                </foreignObject>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </TransformComponent>
+                    </>
+                  )}
+                </TransformWrapper>
+              </div>
+            ) : (
+              <div className="h-full overflow-y-auto py-4 border-b border-ink-800">
+                <div className="border-l-2 border-coral-600/50 pl-3">
+                  <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
+                    {currentCase.explanation}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Exit options */}
