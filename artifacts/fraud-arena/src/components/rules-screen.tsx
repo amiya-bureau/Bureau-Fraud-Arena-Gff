@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlayerStanding } from '@workspace/api-client-react';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
@@ -17,6 +18,11 @@ interface RulesScreenProps {
   insightBullets?: string[];
   /** Override the CTA label. Defaults to "Start game". */
   startLabel?: string;
+  /**
+   * Optional slot rendered between the rules list and the Start button.
+   * Use for desktop-only extras such as the QR scan panel.
+   */
+  footerSlot?: ReactNode;
 }
 
 /**
@@ -38,6 +44,7 @@ export function RulesScreen({
   insightTitle,
   insightBullets,
   startLabel,
+  footerSlot,
 }: RulesScreenProps) {
   const scoreBadge = standing?.scores.find((s) => s.game === gameKey);
 
@@ -124,6 +131,12 @@ export function RulesScreen({
               rank {standing.rank}
             </span>
           ) : null}
+        </div>
+      )}
+
+      {footerSlot && (
+        <div className="mt-3 shrink-0">
+          {footerSlot}
         </div>
       )}
 

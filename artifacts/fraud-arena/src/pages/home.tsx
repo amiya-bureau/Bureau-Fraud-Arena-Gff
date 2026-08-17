@@ -173,7 +173,7 @@ function GameBand({
       <Icon className={cn('relative size-6 shrink-0', t.mark)} strokeWidth={1.5} aria-hidden="true" />
       <div className="relative min-w-0 flex-1">
         <h2 className={cn('truncate font-sans text-card-title font-medium', t.title)}>{title}</h2>
-        <p className={cn('mt-1 font-mono text-body-sm', t.body)}>{desc}</p>
+        <p className={cn('mt-1 text-body-sm', t.body)}>{desc}</p>
       </div>
       <PixelChevron className={cn('relative shrink-0', t.mark)} />
     </button>

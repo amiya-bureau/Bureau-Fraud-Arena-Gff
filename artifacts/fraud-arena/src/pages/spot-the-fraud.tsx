@@ -325,10 +325,12 @@ export default function SpotTheFraud() {
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}
+          footerSlot={
+            <div className="hidden md:block">
+              <QrPanel game="spot-the-fraud" />
+            </div>
+          }
         />
-        <div className="absolute bottom-6 right-6 hidden md:block">
-          <QrPanel game="spot-the-fraud" />
-        </div>
       </Layout>
     );
   }
