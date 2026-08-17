@@ -384,9 +384,6 @@ export default function FraudDetective() {
             <h2 className="font-sans text-display-lg font-normal text-white leading-tight">
               {currentCase.title}
             </h2>
-            <p className="mt-2 font-mono text-body-sm text-[var(--text-on-dark-muted)] border-l-2 border-violet-700 pl-3 leading-snug">
-              {currentCase.instruction}
-            </p>
           </div>
 
           {/* Canvas View */}
@@ -408,19 +405,39 @@ export default function FraudDetective() {
 
                   <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
                     <svg className="h-full w-full" viewBox={graphViewBox}>
-                      
+                      {/* Arrow markers for directed edges */}
+                      <defs>
+                        <marker id="arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                          <path d="M0,0 L0,6 L6,3 z" fill="rgba(139,92,246,0.7)" />
+                        </marker>
+                        <marker id="arrow-answer" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                          <path d="M0,0 L0,6 L6,3 z" fill="var(--coral-600)" />
+                        </marker>
+                      </defs>
+
                       {/* Edges */}
                       {graphEdges.map((e, i) => {
                         const isAnswerEdge = isFinished && (currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id));
+                        // Shorten endpoints so arrowheads don't disappear behind node boxes (48 px centred on x,y)
+                        const dx = e.target.x - e.source.x;
+                        const dy = e.target.y - e.source.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const pad = 30;
+                        const safe = dist > pad * 2;
+                        const x1a = safe ? e.source.x + (dx / dist) * pad : e.source.x;
+                        const y1a = safe ? e.source.y + (dy / dist) * pad : e.source.y;
+                        const x2a = safe ? e.target.x - (dx / dist) * pad : e.target.x;
+                        const y2a = safe ? e.target.y - (dy / dist) * pad : e.target.y;
                         return (
                           <g key={i}>
                             <line
-                              x1={e.source.x} y1={e.source.y}
-                              x2={e.target.x} y2={e.target.y}
+                              x1={x1a} y1={y1a}
+                              x2={x2a} y2={y2a}
                               stroke={isAnswerEdge ? 'var(--coral-600)' : 'rgba(139,92,246,0.45)'}
                               strokeWidth={isAnswerEdge ? 2 : 1.5}
                               opacity={isFinished && !isAnswerEdge ? 0.15 : 1}
                               strokeDasharray={isAnswerEdge ? "none" : "4 4"}
+                              markerEnd={isAnswerEdge ? 'url(#arrow-answer)' : 'url(#arrow-normal)'}
                             />
                             {/* Edge labels are shown for the tapped account only.
                                 Drawn all at once they collide with each other and
@@ -499,33 +516,50 @@ export default function FraudDetective() {
             </TransformWrapper>
           </div>
 
-          <div className="shrink-0 mt-3">
+          <div className="shrink-0 mt-3 space-y-2">
             {!isFinished && (
-              <div className="border border-amber-500/30 bg-[rgba(245,158,11,0.04)]">
-                {/* Header */}
-                <div className="flex items-center gap-2 border-b border-amber-500/20 px-3 py-2">
-                  <Fingerprint className="size-3.5 shrink-0 text-amber-400" strokeWidth={1.5} />
-                  <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-amber-400">
-                    Field Briefing
-                  </span>
-                  <span className="ml-auto font-mono text-eyebrow-micro text-[var(--text-on-dark-faint)] uppercase tracking-widest">
-                    {currentCase.id.replace(/_/g, '-').substring(0, 10).toUpperCase()}
-                  </span>
+              <>
+                {/* Objective */}
+                <div className="border border-violet-700/40 bg-violet-700/5">
+                  <div className="flex items-center gap-2 border-b border-violet-700/30 px-3 py-2">
+                    <Target className="size-3.5 shrink-0 text-violet-400" strokeWidth={1.5} />
+                    <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-violet-400">
+                      Objective
+                    </span>
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
+                      {currentCase.instruction}
+                    </p>
+                  </div>
                 </div>
-                {/* Evidence items */}
-                <div className="divide-y divide-amber-500/10">
-                  {currentCase.clues.map((clue, i) => (
-                    <div key={i} className="flex items-start gap-3 px-3 py-2.5">
-                      <span className="shrink-0 font-mono text-eyebrow-micro font-bold tabular-nums text-amber-400 leading-snug pt-px">
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
-                        {clue}
-                      </p>
-                    </div>
-                  ))}
+                {/* Clues */}
+                <div className="border border-amber-500/30 bg-[rgba(245,158,11,0.04)]">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 border-b border-amber-500/20 px-3 py-2">
+                    <Fingerprint className="size-3.5 shrink-0 text-amber-400" strokeWidth={1.5} />
+                    <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-amber-400">
+                      Clues
+                    </span>
+                    <span className="ml-auto font-mono text-eyebrow-micro text-[var(--text-on-dark-faint)] uppercase tracking-widest">
+                      {currentCase.id.replace(/_/g, '-').substring(0, 10).toUpperCase()}
+                    </span>
+                  </div>
+                  {/* Evidence items */}
+                  <div className="divide-y divide-amber-500/10">
+                    {currentCase.clues.map((clue, i) => (
+                      <div key={i} className="flex items-start gap-3 px-3 py-2.5">
+                        <span className="shrink-0 font-mono text-eyebrow-micro font-bold tabular-nums text-amber-400 leading-snug pt-px">
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
+                          {clue}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {isFinished && (
