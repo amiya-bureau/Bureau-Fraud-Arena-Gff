@@ -4,7 +4,40 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Component, type ReactNode, type ErrorInfo } from 'react';
+
+// ─── Error boundary ──────────────────────────────────────────────────────────
+// Without this, any render error silently unmounts the whole tree (blank screen
+// in production). This catches the crash and shows the message instead.
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[Arena] render error:', error, info.componentStack);
+  }
+  render() {
+    const { error } = this.state;
+    if (error) {
+      return (
+        <div style={{ padding: 24, fontFamily: 'monospace', color: '#fff', background: '#0a0f1e', minHeight: '100dvh' }}>
+          <p style={{ fontWeight: 700, fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, color: '#f97316' }}>
+            Something went wrong
+          </p>
+          <pre style={{ marginTop: 12, fontSize: 12, whiteSpace: 'pre-wrap', color: '#94a3b8' }}>
+            {(error as Error).message}
+          </pre>
+          <button
+            onClick={() => { this.setState({ error: null }); window.location.href = '/'; }}
+            style={{ marginTop: 16, padding: '8px 16px', background: '#6d28d9', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: 12 }}
+          >
+            Back to Arena
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { PlayerGate } from '@/components/player-gate';
 
 import Home from '@/pages/home';
@@ -122,14 +155,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
