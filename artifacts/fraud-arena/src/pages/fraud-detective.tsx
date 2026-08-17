@@ -387,13 +387,20 @@ export default function FraudDetective() {
           </div>
 
           {/* Canvas View */}
-          <div className="relative flex-1 min-h-[200px] border border-ink-800 bg-russian overflow-hidden z-0">
+          <div className="relative flex-1 min-h-[200px] border border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
             <SignalField texture="dots" tone="russian" fade={false} />
+            {/* Gesture hint */}
+            <div aria-hidden className="pointer-events-none absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-on-dark-faint)]">drag · pinch · scroll</span>
+            </div>
             <TransformWrapper 
               initialScale={1}
-              minScale={0.4}
-              maxScale={2.5}
+              minScale={0.3}
+              maxScale={4}
               centerOnInit
+              limitToBounds={false}
+              panning={{ velocityDisabled: false }}
+              doubleClick={{ disabled: true }}
             >
               {({ resetTransform }) => (
                 <>
