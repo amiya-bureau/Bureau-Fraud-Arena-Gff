@@ -386,8 +386,8 @@ export default function FraudDetective() {
             </h2>
           </div>
 
-          {/* Canvas View */}
-          <div className="relative flex-1 min-h-[200px] border border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
+          {/* Canvas View — bleeds edge-to-edge to avoid the px-4 main padding creating a jarring clip boundary */}
+          <div className="-mx-4 relative flex-1 min-h-[200px] border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
             <SignalField texture="dots" tone="russian" fade={false} />
             {/* Gesture hint */}
             <div aria-hidden className="pointer-events-none absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
@@ -619,16 +619,16 @@ export default function FraudDetective() {
           {/* Header */}
           <div className="shrink-0">
             <EyebrowTag tone="coral">Case Failed</EyebrowTag>
-            <h1 className="mt-3 font-sans text-display-lg font-normal text-white leading-tight">
+            <h1 className="mt-2 font-sans text-display-lg font-normal text-white leading-tight">
               {currentCase.title}
             </h1>
-            <div className="mt-4">
+            <div className="mt-3 flex items-center gap-4">
               <StatReadout value={caseScore} caption="Points Banked" size="sm" tone="on-dark" />
             </div>
           </div>
 
           {/* Auto-exit countdown */}
-          <div className="mt-5 shrink-0">
+          <div className="mt-4 shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                 Auto-exit
@@ -651,6 +651,126 @@ export default function FraudDetective() {
             </div>
           </div>
 
+          {/* Answer graph — shows the correct answer highlighted */}
+          <div
+            className="-mx-4 mt-4 flex-1 min-h-[180px] border-y border-ink-800 bg-russian overflow-hidden relative"
+            style={{ touchAction: 'none' }}
+          >
+            <SignalField texture="dots" tone="russian" fade={false} />
+            {/* Label */}
+            <div aria-hidden className="pointer-events-none absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-coral-500">Correct answer</span>
+            </div>
+            <TransformWrapper
+              initialScale={1}
+              minScale={0.3}
+              maxScale={4}
+              centerOnInit
+              limitToBounds={false}
+              panning={{ velocityDisabled: false }}
+              doubleClick={{ disabled: true }}
+            >
+              {({ resetTransform }) => (
+                <>
+                  <div className="absolute right-2 top-2 z-10">
+                    <Button variant="secondary" size="icon" className="size-9 tap" onClick={() => resetTransform()}>
+                      <Maximize className="size-4" strokeWidth={1.5} />
+                    </Button>
+                  </div>
+                  <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
+                    <svg className="h-full w-full" viewBox={graphViewBox}>
+                      <defs>
+                        <marker id="cf-arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                          <path d="M0,0 L0,6 L6,3 z" fill="rgba(139,92,246,0.7)" />
+                        </marker>
+                        <marker id="cf-arrow-answer" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                          <path d="M0,0 L0,6 L6,3 z" fill="var(--coral-600)" />
+                        </marker>
+                      </defs>
+
+                      {/* Edges */}
+                      {graphEdges.map((e, i) => {
+                        const isAnswerEdge = currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id);
+                        const dx = e.target.x - e.source.x;
+                        const dy = e.target.y - e.source.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const pad = 30;
+                        const safe = dist > pad * 2;
+                        const x1a = safe ? e.source.x + (dx / dist) * pad : e.source.x;
+                        const y1a = safe ? e.source.y + (dy / dist) * pad : e.source.y;
+                        const x2a = safe ? e.target.x - (dx / dist) * pad : e.target.x;
+                        const y2a = safe ? e.target.y - (dy / dist) * pad : e.target.y;
+                        return (
+                          <g key={i}>
+                            <line
+                              x1={x1a} y1={y1a} x2={x2a} y2={y2a}
+                              stroke={isAnswerEdge ? 'var(--coral-600)' : 'rgba(139,92,246,0.45)'}
+                              strokeWidth={isAnswerEdge ? 2 : 1.5}
+                              opacity={isAnswerEdge ? 1 : 0.15}
+                              strokeDasharray={isAnswerEdge ? "none" : "4 4"}
+                              markerEnd={isAnswerEdge ? 'url(#cf-arrow-answer)' : 'url(#cf-arrow-normal)'}
+                            />
+                            {currentCase.edgeLabels?.[`${e.source.id}|${e.target.id}`] && (
+                              <text
+                                x={(e.source.x + e.target.x) / 2}
+                                y={(e.source.y + e.target.y) / 2 - 6}
+                                textAnchor="middle"
+                                stroke="var(--russian)"
+                                strokeWidth={5}
+                                style={{ paintOrder: 'stroke' }}
+                                className="fill-[var(--text-on-dark-muted)] font-mono text-eyebrow-micro uppercase tracking-[0.03em]"
+                                opacity={isAnswerEdge ? 0.9 : 0.25}
+                              >
+                                {currentCase.edgeLabels[`${e.source.id}|${e.target.id}`]}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+
+                      {/* Nodes */}
+                      {graphNodes.map((n) => {
+                        const isAnswerNode = currentCase.answer.includes(n.id);
+                        return (
+                          <g
+                            key={n.id}
+                            transform={`translate(${n.x},${n.y})`}
+                            className={cn(
+                              "transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]",
+                              isAnswerNode ? "opacity-100" : "opacity-30"
+                            )}
+                          >
+                            <foreignObject x={-60} y={-60} width={120} height={120} className="overflow-visible">
+                              <div className="flex h-full w-full flex-col items-center justify-center">
+                                {isAnswerNode ? (
+                                  <ScanFrame id={n.id.substring(0, 4)} tone="coral">
+                                    <div className="flex size-12 items-center justify-center border border-coral-600 bg-coral-600 text-russian">
+                                      <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
+                                    </div>
+                                  </ScanFrame>
+                                ) : (
+                                  <div className="flex size-12 items-center justify-center border border-ink-700 bg-ink-800 text-white">
+                                    <span className="font-mono text-body-md uppercase">{n.id.substring(0, 2)}</span>
+                                  </div>
+                                )}
+                                <span className={cn(
+                                  "mt-1.5 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] leading-none",
+                                  isAnswerNode ? "text-coral-600" : "text-[var(--text-on-dark-muted)]"
+                                )}>
+                                  {currentCase.nodeLabels?.[n.id] || n.id}
+                                </span>
+                              </div>
+                            </foreignObject>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </TransformComponent>
+                </>
+              )}
+            </TransformWrapper>
+          </div>
+
           {/* Case explanation */}
           <div className="mt-4 shrink-0 border-l-2 border-coral-600/50 pl-3">
             <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
@@ -659,7 +779,7 @@ export default function FraudDetective() {
           </div>
 
           {/* Exit options */}
-          <div className="mt-auto flex shrink-0 flex-col gap-2.5 pt-5">
+          <div className="mt-4 flex shrink-0 flex-col gap-2 pt-1">
             <Button size="lg" variant="light" chevron onClick={() => endRun()} className="w-full">
               Retry
             </Button>
