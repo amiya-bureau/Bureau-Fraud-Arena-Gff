@@ -43,7 +43,7 @@ export function ScanFrame({
       {id ? (
         <span
           className={cn(
-            'absolute -bottom-px left-0 px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em]',
+            'absolute -top-px left-0 px-2 py-1 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em]',
             chips[tone],
           )}
         >

@@ -313,6 +313,9 @@ export default function SpoofTheSystem() {
         return newData;
       });
 
+      // Game-over transitions get 10 s so the player can read the verdict.
+      // Moving to the decision screen (continue) stays at 3 s.
+      const isGameOver = !verdict.fooled || level === 3;
       const timer = setTimeout(() => {
         if (!verdict.fooled) {
           endRun(failPoints, false, finalAttempts);
@@ -321,7 +324,7 @@ export default function SpoofTheSystem() {
         } else {
           setGameState('decision');
         }
-      }, 3000);
+      }, isGameOver ? 10000 : 3000);
       return () => clearTimeout(timer);
     }
     return undefined;
