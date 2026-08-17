@@ -622,9 +622,6 @@ export default function FraudDetective() {
           {/* Header */}
           <div className="shrink-0">
             <EyebrowTag tone="coral">Case Failed</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg font-normal text-white leading-tight">
-              {currentCase.title}
-            </h1>
             <div className="mt-3 flex items-center gap-4">
               <StatReadout value={caseScore} caption="Points Banked" size="sm" tone="on-dark" />
             </div>
