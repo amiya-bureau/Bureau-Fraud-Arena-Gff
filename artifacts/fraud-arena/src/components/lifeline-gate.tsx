@@ -178,7 +178,7 @@ export function LifelineGate({
           )}>
             <p className={cn(
               "font-sans leading-snug text-white",
-              compact ? "text-[15px]" : "text-body-md"
+              compact ? "text-card-title font-medium" : "text-body-md"
             )}>
               {question.stem}
             </p>
@@ -216,8 +216,7 @@ export function LifelineGate({
                     {String(idx + 1).padStart(2, '0')}
                   </span>
                   <span className={cn(
-                    "min-w-0 flex-1 font-sans leading-snug",
-                    compact ? "text-[15px]" : "text-body-md",
+                    "min-w-0 flex-1 font-sans leading-snug text-body-md",
                     showResult && isThisCorrect ? "text-lime-300" : "text-white",
                   )}>
                     {opt.text}

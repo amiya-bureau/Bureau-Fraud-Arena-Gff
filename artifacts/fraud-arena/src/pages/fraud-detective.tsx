@@ -4,12 +4,13 @@ import { usePlayerSession } from '@/lib/store';
 import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
+import { RetryOptions } from '@/components/retry-options';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
 import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchDetectiveCasePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { v4 as uuidv4 } from 'uuid';
-import { Maximize, AlertCircle, Fingerprint, CheckCircle2, ShieldAlert, Target, ScanEye, LogOut } from 'lucide-react';
+import { Maximize, AlertCircle, Fingerprint, CheckCircle2, ShieldAlert, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as d3 from 'd3-force';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -800,23 +801,9 @@ export default function FraudDetective() {
             )}
           </div>
 
-          {/* Exit options */}
-          <div className="mt-3 flex shrink-0 flex-col gap-1.5 pt-1">
-            <Button size="sm" variant="light" chevron onClick={() => endRun()} className="min-h-[44px] w-full py-3">
-              Retry
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="min-h-[44px] w-full justify-start gap-3 py-3">
-              <Target className="size-4 shrink-0 text-violet-400" />
-              Try Spot the Fraud
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="min-h-[44px] w-full justify-start gap-3 py-3">
-              <ScanEye className="size-4 shrink-0 text-violet-400" />
-              Try Spoof the System
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setLocation('/')} className="min-h-[44px] w-full justify-start gap-3 py-3">
-              <LogOut className="size-4 shrink-0 text-violet-400" />
-              End Run
-            </Button>
+          {/* The shared action stack keeps every retry screen in the same place. */}
+          <div className="mt-3">
+            <RetryOptions currentGame="fraud_detective" onRetry={endRun} />
           </div>
         </ScreenBody>
       </Layout>
