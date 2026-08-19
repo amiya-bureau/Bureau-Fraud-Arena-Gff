@@ -675,7 +675,7 @@ export default function FraudDetective() {
           </div>
 
           {/* Tab content — fixed height keeps layout stable */}
-          <div className="shrink-0 h-[170px]">
+          <div className="shrink-0 h-[200px]">
             {caseFailTab === 'graph' ? (
               <div
                 className="-mx-4 h-full border-b border-ink-800 bg-russian overflow-hidden relative"

@@ -514,8 +514,15 @@ export default function SpotTheFraud() {
         context={lifelineContext}
         gameTitle="Spot the Fraud"
         scoreDisplay={score > 0 ? (
-          <StatReadout value={score} caption="Points Banked" size="sm" tone="on-dark" />
+          <div className="relative flex items-baseline gap-1.5 pr-3">
+            <span className="font-sans text-display-md font-normal tabular-nums text-white">{score}</span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Points Banked
+            </span>
+            <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
+          </div>
         ) : undefined}
+        compact
         onRetry={() => {
           setScore(0);
           setLevelIndex(0);

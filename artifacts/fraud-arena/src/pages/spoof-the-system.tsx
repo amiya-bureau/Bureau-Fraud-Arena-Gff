@@ -382,18 +382,25 @@ export default function SpoofTheSystem() {
         context={lifelineContext}
         gameTitle="Spoof the System"
         scoreDisplay={finalResult ? (
-          <div className="flex flex-col items-center gap-2 text-center py-2">
-            <StatReadout value={finalResult.pointsRecorded} caption="Points Secured" size="sm" tone="on-dark" />
-            <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-              Tier <span className="ml-2 text-white">{finalTier}</span>
-            </p>
+          <div className="relative flex max-w-[58%] flex-wrap items-baseline justify-end gap-x-2 gap-y-0.5 pr-3 text-right">
+            <span className="font-sans text-display-md font-normal tabular-nums text-white">
+              {finalResult.pointsRecorded}
+            </span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Points Secured
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Tier <span className="text-white">{finalTier}</span>
+            </span>
             {finalDraw !== 'None' && (
-              <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
-                Qualified for {finalDraw}
-              </p>
+              <span className="font-mono text-[10px] uppercase tracking-[0.03em] text-violet-400">
+                {finalDraw}
+              </span>
             )}
+            <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
           </div>
         ) : undefined}
+        compact
         onRetry={() => {
           setLevel(1);
           setAttemptsData([]);
