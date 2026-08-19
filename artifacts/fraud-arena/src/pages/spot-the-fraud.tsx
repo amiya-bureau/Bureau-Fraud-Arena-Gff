@@ -476,8 +476,8 @@ export default function SpotTheFraud() {
                     </div>
                     <div className="h-0.5 w-full bg-ink-800">
                       <div
-                        className="h-full bg-violet-500 transition-[width] duration-1000 ease-linear"
-                        style={{ width: `${(correctExplainSec / 5) * 100}%` }}
+                        key={`correct-countdown-${levelIndex}`}
+                        className="correct-countdown-drain h-full w-full bg-violet-500"
                       />
                     </div>
                   </div>

@@ -444,6 +444,20 @@
   }
 }
 
+@keyframes correct-countdown-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@utility correct-countdown-drain {
+  transform-origin: left center;
+  animation: correct-countdown-drain 5s linear forwards;
+}
+
 /* ---- The matrix, texture and hairline utilities ---------------------- */
 @utility bureau-matrix {
   /* The 22.041px hairline grid that sits behind every dark field. */
