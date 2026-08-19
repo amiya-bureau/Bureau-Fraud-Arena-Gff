@@ -174,7 +174,7 @@ export function LifelineGate({
 
           {/* Question stem */}
           <div className={cn(
-            compact ? "px-3 pb-2 pt-3" : "px-4 pb-3 pt-4"
+            compact ? "px-4 pb-3 pt-4" : "px-4 pb-3 pt-4"
           )}>
             <p className={cn(
               "font-sans leading-snug text-white",
@@ -187,7 +187,7 @@ export function LifelineGate({
           {/* Options */}
           <div className={cn(
             "flex flex-col stagger-in",
-            compact ? "gap-1.5 px-3 pb-3" : "gap-2 px-4 pb-4"
+            compact ? "gap-2 px-4 pb-4" : "gap-2 px-4 pb-4"
           )}>
             {shuffled.map((opt, idx) => {
               const isThisCorrect = idx === correctShuffledIdx;
@@ -201,7 +201,7 @@ export function LifelineGate({
                   onClick={() => handleSelect(idx)}
                   className={cn(
                     "tap flex w-full items-center border text-left transition-colors duration-[var(--dur-base)]",
-                    compact ? "gap-2 px-3 py-2" : "gap-3 px-4 py-3",
+                    compact ? "gap-3 px-4 py-3.5" : "gap-3 px-4 py-3",
                     !showResult && "border-ink-700 bg-ink-900 hover:border-amber-500/60",
                     showResult && isThisCorrect && "border-lime-400/60 bg-lime-400/8",
                     showResult && isSelected && !isThisCorrect && "border-coral-600/60 bg-coral-600/8",
@@ -210,7 +210,7 @@ export function LifelineGate({
                 >
                   <span className={cn(
                     "shrink-0 font-mono font-medium tabular-nums",
-                    compact ? "text-[12px]" : "text-eyebrow-micro",
+                    "text-eyebrow-micro",
                     showResult && isThisCorrect ? "text-lime-400" : "text-amber-500",
                   )}>
                     {String(idx + 1).padStart(2, '0')}

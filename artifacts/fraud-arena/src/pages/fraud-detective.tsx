@@ -22,6 +22,7 @@ import {
 } from '@/components/bureau';
 
 type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'error';
+const CASE_TIMER_SECONDS = 45;
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -60,6 +61,8 @@ export default function FraudDetective() {
   const [caseScore, setCaseScore] = useState(0);
   const [bonusScore, setBonusScore] = useState(0);
   const [caseResults, setCaseResults] = useState<any[]>([]);
+  const [caseTimeLeft, setCaseTimeLeft] = useState(CASE_TIMER_SECONDS);
+  const [caseTimerStartedAt, setCaseTimerStartedAt] = useState<number | null>(null);
   const [caseFailSec, setCaseFailSec] = useState(10);
   const [caseFailTab, setCaseFailTab] = useState<'graph' | 'why'>('graph');
 
@@ -134,6 +137,45 @@ export default function FraudDetective() {
     }
   }, [gameState, caseIndex, currentCase]);
 
+  const resetCaseTimer = () => {
+    setCaseTimeLeft(CASE_TIMER_SECONDS);
+    setCaseTimerStartedAt(Date.now());
+  };
+
+  // Every investigation case gets its own 45-second clock.
+  useEffect(() => {
+    if (gameState !== 'case') return;
+    resetCaseTimer();
+  }, [gameState, caseIndex]);
+
+  useEffect(() => {
+    if (gameState !== 'case' || solved || revealed || caseTimerStartedAt === null) return;
+
+    const deadline = caseTimerStartedAt + CASE_TIMER_SECONDS * 1000;
+    const syncTimeLeft = () => {
+      const millisecondsLeft = Math.max(0, deadline - Date.now());
+      setCaseTimeLeft(Math.ceil(millisecondsLeft / 1000));
+    };
+
+    syncTimeLeft();
+    const timer = window.setInterval(syncTimeLeft, 250);
+    return () => window.clearInterval(timer);
+  }, [gameState, solved, revealed, caseTimerStartedAt]);
+
+  useEffect(() => {
+    if (gameState !== 'case' || solved || revealed || caseTimeLeft > 0) return;
+
+    setRevealed(true);
+    setCaseResults(prev => [...prev, {
+      id: currentCase?.id,
+      points: 0,
+      wrongGuesses,
+      revealed: true,
+      timedOut: true,
+    }]);
+    setGameState('casefail');
+  }, [caseTimeLeft, gameState, solved, revealed, currentCase, wrongGuesses]);
+
   /**
    * Fit the SVG coordinate system to the settled layout.
    *
@@ -189,6 +231,7 @@ export default function FraudDetective() {
     // pack is still decoding.
     const pack = casePack ?? orderCasePack(await fetchDetectiveCasePack());
     setCasePack(pack);
+    resetCaseTimer();
     setGameState('case');
   };
 
@@ -235,6 +278,7 @@ export default function FraudDetective() {
 
   const handleNextCase = () => {
     if (caseIndex + 1 < activeCases.length) {
+      resetCaseTimer();
       setCaseIndex(i => i + 1);
     } else {
       endRun();
@@ -388,6 +432,37 @@ export default function FraudDetective() {
               {currentCase.title}
             </h2>
           </div>
+
+           {/* Case timer — resets for each investigation and fails the case at zero. */}
+           <div className="shrink-0 mb-2">
+             <div className="mb-1 flex items-center justify-between">
+               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                 Case timer
+               </span>
+               <span className={cn(
+                 "font-mono text-eyebrow-micro tabular-nums",
+                 caseTimeLeft <= 10 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
+               )}>
+                 {caseTimeLeft}s
+               </span>
+             </div>
+             <div
+               className="h-1 w-full bg-ink-800"
+               role="progressbar"
+               aria-label="Case time remaining"
+               aria-valuemin={0}
+               aria-valuemax={CASE_TIMER_SECONDS}
+               aria-valuenow={caseTimeLeft}
+             >
+               <div
+                 className={cn(
+                   "h-full transition-[width] duration-1000 ease-linear",
+                   caseTimeLeft <= 10 ? "bg-coral-600" : "bg-cyan-500"
+                 )}
+                 style={{ width: `${(caseTimeLeft / CASE_TIMER_SECONDS) * 100}%` }}
+               />
+             </div>
+           </div>
 
           {/* Canvas View — bleeds edge-to-edge to avoid the px-4 main padding creating a jarring clip boundary */}
            <div className="-mx-4 relative min-h-0 flex-1 border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
@@ -802,7 +877,7 @@ export default function FraudDetective() {
           </div>
 
           {/* The shared action stack keeps every retry screen in the same place. */}
-          <div className="mt-3">
+          <div className="mt-auto pt-3">
             <RetryOptions currentGame="fraud_detective" onRetry={endRun} />
           </div>
         </ScreenBody>
