@@ -471,6 +471,12 @@
   background-size: var(--dot-matrix-size);
 }
 
+@utility bureau-dots-white-muted {
+  /* Softer white dot field for violet cards where the texture should recede. */
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 0.8px, transparent 0.9px);
+  background-size: var(--dot-matrix-size);
+}
+
 @utility bureau-dots-edge {
   /* Bureau hero cluster — dots concentrated at the outer ring, fading away
      from center. Overlay on a white field for the scattered corner effect. */

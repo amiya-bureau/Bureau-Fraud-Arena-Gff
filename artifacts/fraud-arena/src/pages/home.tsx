@@ -24,18 +24,21 @@ import { cn } from '@/lib/utils';
 const TONES = {
   violet: {
     field: 'bg-violet-700',
+    dots: 'bureau-dots-white-muted',
     title: 'text-white',
     body: 'text-white/85',
     mark: 'text-white/90',
   },
   coral: {
-    field: 'bg-coral-600',
+    field: 'bg-[#FE978C]',
+    dots: 'bureau-dots-white',
     title: 'text-russian',
     body: 'text-russian/75',
     mark: 'text-russian/70',
   },
   lime: {
     field: 'bg-lime-300',
+    dots: 'bureau-dots-white',
     title: 'text-russian',
     body: 'text-russian/75',
     mark: 'text-russian/70',
@@ -168,8 +171,8 @@ function GameBand({
         t.field,
       )}
     >
-      {/* White dot overlay — texture on each coloured band. */}
-      <div aria-hidden className="bureau-dots-white pointer-events-none absolute inset-0" />
+      {/* Tone-specific dot overlay; Spot's violet field uses a quieter texture. */}
+      <div aria-hidden className={cn(t.dots, 'pointer-events-none absolute inset-0')} />
       <Icon className={cn('relative size-6 shrink-0', t.mark)} strokeWidth={1.5} aria-hidden="true" />
       <div className="relative min-w-0 flex-1">
         <h2 className={cn('truncate font-sans text-card-title font-medium', t.title)}>{title}</h2>
