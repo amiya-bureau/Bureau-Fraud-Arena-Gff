@@ -165,6 +165,14 @@ export default function SpotTheFraud() {
     return () => clearTimeout(t);
   }, [explainFailSec, gameState, explainResult]);
 
+  // Correct answers advance automatically after the explanation has been
+  // visible for five seconds. Continue remains available for faster play.
+  useEffect(() => {
+    if (gameState !== 'explain' || explainResult !== 'correct') return;
+    const timer = setTimeout(() => nextLevel(), 5000);
+    return () => clearTimeout(timer);
+  }, [gameState, explainResult, levelIndex]);
+
   const startGame = async () => {
     // A visitor can press Start before the eager content preload completes.
     // Resolve the reviewed v5 pack before showing a level in that case.
