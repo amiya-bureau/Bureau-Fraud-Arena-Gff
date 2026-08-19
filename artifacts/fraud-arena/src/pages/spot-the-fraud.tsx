@@ -67,6 +67,8 @@ export default function SpotTheFraud() {
   const prevTimeLeftRef = useRef(0);
   // 10-second auto-exit timer shown on wrong/timeout/nearMiss explain screen
   const [explainFailSec, setExplainFailSec] = useState(10);
+  // Visible countdown for the five-second Correct-screen auto-advance.
+  const [correctExplainSec, setCorrectExplainSec] = useState(5);
   
   // Explain screen state
   const [explainResult, setExplainResult] = useState<'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null>(null);
@@ -167,11 +169,18 @@ export default function SpotTheFraud() {
   }, [explainFailSec, gameState, explainResult]);
 
   // Correct answers advance automatically after the explanation has been
-  // visible for five seconds. Continue remains available for faster play.
+  // visible for five seconds. The same countdown is shown above Continue.
   useEffect(() => {
     if (gameState !== 'explain' || explainResult !== 'correct') return;
+    setCorrectExplainSec(5);
     const timer = setTimeout(() => nextLevel(), 5000);
-    return () => clearTimeout(timer);
+    const countdown = setInterval(() => {
+      setCorrectExplainSec(seconds => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(countdown);
+    };
   }, [gameState, explainResult, levelIndex]);
 
   const startGame = async () => {
@@ -454,9 +463,29 @@ export default function SpotTheFraud() {
                 </div>
               </>
             ) : (
-              <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
-                Continue
-              </Button>
+              <>
+                {isCorrect && (
+                  <div className="mb-2.5">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                        Auto-continue
+                      </span>
+                      <span className="font-mono text-eyebrow-micro tabular-nums text-[var(--text-on-dark-muted)]">
+                        {correctExplainSec}s
+                      </span>
+                    </div>
+                    <div className="h-0.5 w-full bg-ink-800">
+                      <div
+                        className="h-full bg-violet-500 transition-[width] duration-1000 ease-linear"
+                        style={{ width: `${(correctExplainSec / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
+                  Continue
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -590,8 +619,10 @@ export default function SpotTheFraud() {
             {/* Image questions use a four-card visual grid. Text questions keep
                 the larger, naturally-sized answer rows. */}
             <div className={cn(
-              "mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5 stagger-in",
-              currentQuestion.kind === 'image' ? "grid grid-cols-2 gap-2 content-start" : "flex flex-col gap-2"
+              "mt-3 min-h-0 flex-1 pr-0.5 stagger-in",
+              currentQuestion.kind === 'image'
+                ? "grid min-h-0 grid-cols-2 grid-rows-2 gap-2 overflow-hidden"
+                : "flex flex-col gap-2 overflow-y-auto"
             )}>
               {shuffledOptions.map((opt, i) => {
                 const isSelected = selectedIndices.includes(opt.originalIndex);
@@ -603,7 +634,7 @@ export default function SpotTheFraud() {
                     className={cn(
                       "tap group relative shrink-0 overflow-hidden border text-left transition-colors duration-[var(--dur-base)]",
                       currentQuestion.kind === 'image'
-                        ? "aspect-[4/5] w-full"
+                        ? "h-full min-h-0 w-full"
                         : "flex w-full items-center gap-3 px-4 py-3.5",
                       isSelected
                         ? "border-violet-700 bg-[rgba(71,21,255,0.08)]"
