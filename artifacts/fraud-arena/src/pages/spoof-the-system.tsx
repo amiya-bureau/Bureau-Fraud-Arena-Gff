@@ -466,9 +466,6 @@ export default function SpoofTheSystem() {
                   <p className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                     Scan to upload from your phone
                   </p>
-                  <p className="mt-1 text-body-sm text-[var(--text-on-dark-faint)]">
-                    Use your camera to pick a synthetic face.
-                  </p>
                   {errorMsg && (
                     <p className="mt-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">
                       {errorMsg}

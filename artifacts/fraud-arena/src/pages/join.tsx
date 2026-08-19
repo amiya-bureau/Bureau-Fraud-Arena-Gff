@@ -88,7 +88,7 @@ const BureauSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttribu
     <select
       ref={ref}
       className={cn(
-        "flex h-10 w-full appearance-none border border-ink-800 bg-ink-900 px-3 pr-10 font-sans text-[16px] text-white transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
+        "flex h-12 w-full appearance-none border border-ink-800 bg-ink-900 px-3 pr-10 font-sans text-body-md text-white transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}
       {...props}
@@ -270,7 +270,11 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
                   </FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <BureauSelect {...field} value={field.value ?? ''}>
+                      <BureauSelect
+                        {...field}
+                        value={field.value ?? ''}
+                        className={field.value ? undefined : 'text-[var(--text-on-dark-faint)]'}
+                      >
                         <option value="" disabled>
                           Select your job function
                         </option>
