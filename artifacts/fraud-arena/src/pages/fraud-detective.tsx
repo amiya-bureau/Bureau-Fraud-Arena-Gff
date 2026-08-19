@@ -415,6 +415,7 @@ export default function FraudDetective() {
 
   if (gameState === 'case' && currentCase) {
     const isFinished = solved || revealed;
+    const visibleCaseTitle = isFinished ? currentCase.title : `Case ${currentCase.order}`;
 
     return (
       <Layout 
@@ -429,7 +430,7 @@ export default function FraudDetective() {
         <ScreenBody className="pt-3 pb-safe">
           <div className="shrink-0 mb-3">
              <h2 className="font-sans text-display-md font-normal text-white leading-tight">
-              {currentCase.title}
+               {visibleCaseTitle}
             </h2>
           </div>
 
@@ -586,7 +587,7 @@ export default function FraudDetective() {
                                   "mt-1.5 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] leading-none",
                                   isAnswerNode ? "text-coral-600" : "text-[var(--text-on-dark-muted)]"
                                 )}>
-                                  {currentCase.nodeLabels?.[n.id] || n.id}
+                                   {isFinished ? (currentCase.nodeLabels?.[n.id] || n.id) : n.id}
                                 </span>
                               </div>
                             </foreignObject>
