@@ -1,0 +1,254 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+pages=3
+.agents/outputs/point-system-pages/page-1.png
+Bureau Fraud Arena 
+Leaderboard & Point System 
+ 
+Overview 
+The Fraud Arena runs three independent games. Each game has its own leaderboard (Today and All Days) plus a 
+Combined view that sums a player's best score across all three. Points are recorded at the end of each run - the 
+highest single-run score per game per player is counted. 
+ 
+Game 
+Maximum Points 
+Comment 
+Leaderboard Key 
+Spot the Fraud 
+100 pts 
+ 
+spot_the_fraud 
+Spoof the System 
+100 pts 
+100 pts per evey level 
+spoof_the_system 
+Fraud Detective 
+100 pts 
+ 
+fraud_detective 
+Combined (All) 
+300 pts 
+ 
+combined 
+ 
+ 
+ 
+1. Spot the Fraud 
+Players climb 10 levels of increasing difficulty. Every correct answer banks points. A wrong answer or timeout 
+ends the run - but all points banked up to that moment are kept and recorded. 
+ 
+Level-by-Level Scoring 
+Level 
+Format 
+Options 
+Select 
+Timer 
+Points 
+Near-Miss 
+1 
+MCQ – single answer 
+4 
+1 
+20s 
+4 pts 
+- 
+2 
+MCQ – single answer 
+4 
+1 
+20s 
+5 pts 
+- 
+3 
+Spot the Fake (2 images) 
+2 
+1 
+25s 
+6 pts 
+- 
+4 
+MCQ – single answer 
+4 
+1 
+25s 
+7 pts 
+- 
+5 
+★ Level Up – MCQ single 
+5 
+1 
+35s 
+8 pts 
+- 
+6 
+MCQ – multi (select 2) 
+6 
+2 
+35s 
+10 pts 
+5 pts 
+7 
+Spot the Fake grid (6 images) 
+6 
+2 
+35s 
+12 pts 
+6 pts 
+8 
+★ Level Up – MCQ – multi (select 3) 
+6 
+3 
+40s 
+14 pts 
+7 pts 
+9 
+Spot the Fake grid (8 images) 
+8 
+3 
+40s 
+16 pts 
+8 pts 
+10 
+MCQ multi (sel 3) 
+8 
+3 
+40s 
+18 pts 
+9 pts 
+ 
+Scoring Rules 
+●​
+Correct answer → full points for that level. 
+●​
+Wrong answer → run ends immediately (0 pts for that level). All previously banked points are recorded. 
+●​
+Timeout → run ends immediately. All previously banked points are recorded. 
+●​
+Near-Miss (multi-select only) → exactly one wrong selection in the group. Earns half the level's points 
+and ends the run. 
+
+.agents/outputs/point-system-pages/page-2.png
+●​
+Skip → available at levels. Skipping banks 0 pts for that level and advances to the next. 
+ 
+ 
+2. Spoof the System 
+Players attempt to fool Bureau's synthetic-image detector across three levels of increasing detector sensitivity. 
+Points are earned by beating each level. Players can bank their points and walk away after Level 1 or 2, or risk 
+continuing for a higher score. 
+ 
+Points & Prize Draw Eligibility 
+Level 
+Outcome 
+Points Awarded 
+Prize Draw 
+Eligibility 
+Tier 
+1 
+Beat Level 1 
+17 pts 
+- 
+Achiever 
+2 
+Beat Level 2 
+33 pts 
+TBD 
+Achiever 
+3 
+Beat Level 3 
+50 pts 
+TBD 
+Achiever 
+- 
+Caught (nothing banked) 
+0 pts 
+- 
+- 
+ 
+Scoring Rules 
+●​
+Beating Level 1 banks 17 points. 
+●​
+Beating Level 2 banks 33 points (added to Level 1 score). 
+●​
+Beating Level 3 banks 50 points (added to Level 2 score). 
+●​
+Being caught with nothing banked = 0 points recorded. 
+●​
+If the detector catches the player, the run ends. Previously banked points (from a completed earlier level) 
+are kept. 
+ 
+Prize Draws 
+●​
+TBD 
+ 
+3. Fraud Detective 
+Players investigate five financial crime graph cases and identify the fraudulent entities (mule chains, rings, 
+self-dealing networks). After the five cases, a bonus trivia round awards additional points. 
+ 
+Point Breakdown 
+Component 
+Detail 
+Points 
+Timer 
+Main Cases 
+5 graph investigation cases 
+15 pts each 
+1 minute 
+Case Total 
+All 5 cases correct 
+75 pts 
+ 
+Bonus Point 
+3rd Level cleared 
+10 pts 
+ 
+Bonus Point 
+5th Level cleared 
+15 pts 
+ 
+Maximum 
+Cases + Bonus 
+100 pts 
+ 
+ 
+Scoring Rules 
+
+.agents/outputs/point-system-pages/page-3.png
+●​
+Each case is worth 15 points for a correct accusation. 
+●​
+10 and 15 points are awarded for 3rd and 5th round clear respectively 
+●​
+One wrong accusation ends that specific case - banked points from previous cases carry forward. 
+●​
+Total = Case Points + Bonus Points, max 100. 
+ 
+ 
+ 
+4. Leaderboard Views 
+The leaderboard is accessible from the main Arena screen. It refreshes every 10 seconds automatically. 
+ 
+Scope Filters 
+●​
+Today - scores recorded during the current calendar day at the booth. 
+●​
+All Days - cumulative scores across the entire event. 
+ 
+Game Filters 
+●​
+All - Combined score (sum of best runs across all three games per player). 
+●​
+Spot - Spot the Fraud only. 
+●​
+Spoof - Spoof the System only. 
+●​
+Detect - Fraud Detective only. 
+ 
+Display 
+●​
+Top 10 players shown per view. 
+●​
+A player's own row is pinned at the bottom if they fall outside the top 10. 
+●​
+Rank 1 is highlighted in violet. Top 3 scores are shown in violet numerals. 
+

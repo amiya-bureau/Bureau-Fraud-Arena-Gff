@@ -10,16 +10,16 @@ export interface Level {
 }
 
 export const LEVELS: Level[] = [
-  { level: 1, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 4, nearMiss: 0, skip: true, theme: "Consumer scams - the on-ramp: phishing SMS, fake payment proof, KYC links" },
-  { level: 2, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 15, points: 5, nearMiss: 0, skip: true, theme: "Network basics - fraud rings, mule chains, device-linked clusters" },
-  { level: 3, label: "Spot the Fake (2 images)", kind: 'image', optionCount: 2, correctCount: 1, timerSec: 20, points: 6, nearMiss: 0, skip: true, theme: "First image level - replay attacks, doctored docs, synthetic faces" },
-  { level: 4, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 7, nearMiss: 0, skip: true, theme: "Ring mechanics - device farms, account ageing, co-ordinated bust-outs" },
-  { level: 5, label: "CHECKPOINT - MCQ single", kind: 'text', optionCount: 5, correctCount: 1, timerSec: 20, points: 8, nearMiss: 0, skip: false, theme: "Network at scale - mule fan-out, linking two applications to one ring (A2 Achiever gate)" },
-  { level: 6, label: "MCQ - multi (select 2)", kind: 'text', optionCount: 6, correctCount: 2, timerSec: 25, points: 10, nearMiss: 5, skip: true, theme: "Cross-application signals, how mule networks are actually built" },
-  { level: 7, label: "Spot the Fake grid (6 img)", kind: 'image', optionCount: 6, correctCount: 2, timerSec: 25, points: 12, nearMiss: 6, skip: true, theme: "High-quality synthetic faces + synthetic merchant storefronts" },
-  { level: 8, label: "MCQ - multi (select 3)", kind: 'text', optionCount: 6, correctCount: 3, timerSec: 30, points: 14, nearMiss: 7, skip: true, theme: "Synthetic identity clusters, mule farming networks" },
-  { level: 9, label: "Spot the Fake grid (8 img)", kind: 'image', optionCount: 8, correctCount: 3, timerSec: 40, points: 16, nearMiss: 8, skip: true, theme: "Near-photorealistic diffusion output, forged documents" },
-  { level: 10, label: "EXPERT - MCQ multi (sel 3)", kind: 'text', optionCount: 8, correctCount: 3, timerSec: 40, points: 18, nearMiss: 9, skip: false, theme: "Expert ring attribution - clean files, hidden links (A3 Master gate)" },
+  { level: 1, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 4, nearMiss: 0, skip: true, theme: "Consumer scams" },
+  { level: 2, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 20, points: 5, nearMiss: 0, skip: true, theme: "Network basics" },
+  { level: 3, label: "Spot the Fake (4 images)", kind: 'image', optionCount: 4, correctCount: 1, timerSec: 25, points: 6, nearMiss: 0, skip: true, theme: "Synthetic media" },
+  { level: 4, label: "MCQ - single answer", kind: 'text', optionCount: 4, correctCount: 1, timerSec: 25, points: 7, nearMiss: 0, skip: true, theme: "Ring mechanics" },
+  { level: 5, label: "LEVEL UP - select 2", kind: 'text', optionCount: 4, correctCount: 2, timerSec: 35, points: 8, nearMiss: 4, skip: true, theme: "Network at scale" },
+  { level: 6, label: "MCQ - select 2", kind: 'text', optionCount: 4, correctCount: 2, timerSec: 35, points: 10, nearMiss: 5, skip: true, theme: "Cross-application signals" },
+  { level: 7, label: "Spot the Fake - select 2", kind: 'image', optionCount: 4, correctCount: 2, timerSec: 35, points: 12, nearMiss: 6, skip: true, theme: "Synthetic media" },
+  { level: 8, label: "LEVEL UP - select 2", kind: 'text', optionCount: 4, correctCount: 2, timerSec: 40, points: 14, nearMiss: 7, skip: true, theme: "Fraud patterns" },
+  { level: 9, label: "Spot the Fake - select 2", kind: 'image', optionCount: 4, correctCount: 2, timerSec: 40, points: 16, nearMiss: 8, skip: true, theme: "Synthetic media" },
+  { level: 10, label: "MCQ - select 2", kind: 'text', optionCount: 4, correctCount: 2, timerSec: 40, points: 18, nearMiss: 9, skip: true, theme: "Expert ring attribution" },
 ];
 
 export interface Question {

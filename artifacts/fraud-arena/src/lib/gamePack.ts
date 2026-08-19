@@ -1,34 +1,27 @@
 /**
- * Fetches a randomised game pack from the server at the start of a play.
+ * Builds a randomised game pack from the reviewed workbook content.
  *
  * Spot the Fraud: one question per level (10 total), selected randomly.
  * Fraud Detective: 5 cases selected randomly from the bank.
  *
- * Both fall back to the local static data if the server is unavailable,
- * so a network hiccup does not break the game.
+ * The reviewed workbook content is intentionally local so old or unseeded
+ * server rows cannot change the on-booth game.
  */
 import { QUESTIONS, type Question } from '@/data/quiz';
 import { CASES, type DetectiveCase } from '@/data/detective';
+import { applyV5DetectiveContent, loadV5SpotQuestions } from '../../../../.agents/outputs/question-bank-v5';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-/** Returns one question per level (levels 1–10), server-selected randomly. */
+/** Returns one reviewed question per level (levels 1–10). */
 export async function fetchQuizGamePack(): Promise<Question[]> {
-  try {
-    const res = await fetch(`${base}/api/quiz/game-pack`);
-    if (!res.ok) throw new Error(`${res.status}`);
-    const data = await res.json() as { questions: Question[] };
-    if (Array.isArray(data.questions) && data.questions.length === 10) {
-      return data.questions;
-    }
-    throw new Error('incomplete pack');
-  } catch {
-    // Fallback: pick one question per level locally
-    return Array.from({ length: 10 }, (_, i) => {
-      const pool = QUESTIONS.filter((q) => q.level === i + 1);
-      return pool[Math.floor(Math.random() * Math.max(pool.length, 1))];
-    }).filter(Boolean) as Question[];
-  }
+  const localQuestions = await loadV5SpotQuestions().catch(() => QUESTIONS);
+  // The v5 workbook is the current content source. The API remains available
+  // for a future database seed, but must not serve an older question bank.
+  return Array.from({ length: 10 }, (_, i) => {
+    const pool = localQuestions.filter((q) => q.level === i + 1);
+    return pool[Math.floor(Math.random() * Math.max(pool.length, 1))];
+  }).filter(Boolean) as Question[];
 }
 
 import { LIFELINE_QUESTIONS, type LifelineQuestion } from '@/data/lifeline';
@@ -45,19 +38,11 @@ export async function fetchLifelineQuestion(): Promise<LifelineQuestion> {
   }
 }
 
-/** Returns 5 detective cases, server-selected randomly. */
+/** Returns 5 reviewed Detective cases. */
 export async function fetchDetectiveCasePack(): Promise<DetectiveCase[]> {
-  try {
-    const res = await fetch(`${base}/api/detective/case-pack`);
-    if (!res.ok) throw new Error(`${res.status}`);
-    const data = await res.json() as { cases: DetectiveCase[] };
-    if (Array.isArray(data.cases) && data.cases.length > 0) {
-      return data.cases;
-    }
-    throw new Error('empty pack');
-  } catch {
-    // Fallback: shuffle local cases and take 5
-    const shuffled = [...CASES].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 5);
-  }
+  const reviewedCases = await applyV5DetectiveContent(CASES).catch(() => CASES);
+  // Preserve each case's designed graph topology, but use the workbook's
+  // visitor-facing clues, brief, answer and explanation.
+  const shuffled = [...reviewedCases].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 5);
 }

@@ -190,8 +190,8 @@ export default function SpoofTheSystem() {
   }, [gameState, revealStep, verdict]);
 
   // No consolation points for a failed attempt — only previously banked wins carry forward.
-  const failPoints = level === 1 ? 0 : level === 2 ? 40 : 60;
-  const winPoints = level === 1 ? 40 : level === 2 ? 60 : 75;
+  const failPoints = level === 1 ? 0 : level === 2 ? 17 : 50;
+  const winPoints = level === 1 ? 17 : level === 2 ? 50 : 100;
 
   const handleContinue = () => {
     setLevel((l) => (l + 1) as 1 | 2 | 3);
@@ -215,8 +215,7 @@ export default function SpoofTheSystem() {
     let drawPool = null;
 
     const foolsCount = finalAttempts.filter((a) => a.fooled).length;
-    if (foolsCount === 2) drawPool = 'airpods';
-    if (foolsCount === 3) drawPool = 'ipad';
+    if (foolsCount >= 2) drawPool = 'mystery_prize';
 
     if (pts >= 40) tier = 'Achiever';
 
@@ -320,7 +319,7 @@ export default function SpoofTheSystem() {
         if (!verdict.fooled) {
           endRun(failPoints, false, finalAttempts);
         } else if (level === 3) {
-          endRun(75, false, finalAttempts);
+          endRun(winPoints, false, finalAttempts);
         } else {
           setGameState('decision');
         }
@@ -336,9 +335,9 @@ export default function SpoofTheSystem() {
         <RulesScreen
           gameName="Spoof the System"
           premise="Generate a synthetic or AI face on your phone, upload it, and try to fool Bureau's detectors. Three attempts, getting stricter every time."
-          scoring="Up to 75 points. Beat level 1: 40 pts. Beat level 2: 60 pts. Beat level 3: 75 pts. Caught with nothing banked: 0 pts."
+          scoring="Up to 100 points. Beat level 1: 17 pts. Beat level 2: 50 pts total. Beat level 3: 100 pts total. Caught with nothing banked: 0 pts."
           endsWhen="If the detector catches you, your run ends. Banked points are kept."
-          lifelines="You can walk away with your banked points after beating level 1 or 2. AirPods finale entry for level 2, iPad entry for level 3."
+          lifelines="You can walk away with your banked points after beating level 1 or 2. Completing level 2 or level 3 enters you into the Mystery prize draw."
           standing={standing}
           gameKey="spoof_the_system"
           onStart={startGame}
@@ -374,9 +373,8 @@ export default function SpoofTheSystem() {
     let finalTier = 'Participation';
     let finalDraw = 'None';
     if (finalResult) {
-      if (finalResult.pointsRecorded >= 40) finalTier = 'Achiever';
-      if (finalResult.pointsRecorded === 60) finalDraw = 'AirPods Draw';
-      if (finalResult.pointsRecorded === 75) finalDraw = 'iPad MEGA Draw';
+        if (finalResult.pointsRecorded >= 17) finalTier = 'Achiever';
+        if (finalResult.pointsRecorded >= 50) finalDraw = 'Mystery prize draw';
     }
     return (
       <LifelineGate

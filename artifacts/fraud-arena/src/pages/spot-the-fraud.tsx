@@ -160,12 +160,18 @@ export default function SpotTheFraud() {
       gameState === 'explain' &&
       (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
     if (!isFailExplain) return;
-    if (explainFailSec <= 0) { setLocation('/'); return; }
+    if (explainFailSec <= 0) { endRun(); return; }
     const t = setTimeout(() => setExplainFailSec(s => s - 1), 1000);
     return () => clearTimeout(t);
   }, [explainFailSec, gameState, explainResult]);
 
-  const startGame = () => setGameState('playing');
+  const startGame = async () => {
+    // A visitor can press Start before the eager content preload completes.
+    // Resolve the reviewed v5 pack before showing a level in that case.
+    const pack = gamePack ?? await fetchQuizGamePack();
+    setGamePack(pack);
+    setGameState('playing');
+  };
 
   const handleTimeout = () => {
     setExplainResult('timeout');
@@ -318,9 +324,9 @@ export default function SpotTheFraud() {
       <Layout title="Spot the Fraud" back="/">
         <RulesScreen 
           gameName="Spot the Fraud"
-          premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. The higher you climb, the harder they get."
+          premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. Every question has four options; harder levels ask you to find two."
           scoring="Up to 100 points. Points banked are kept even if you fail later."
-          endsWhen="One wrong answer or timeout ends your run. On multi-select questions, one swap is a near-miss (half points) and ends the run."
+          endsWhen="One wrong answer or timeout ends your run. On two-answer levels, exactly one wrong pick is a near-miss (half points) and ends the run."
           lifelines="Skip is available on most levels. Use it to pass a question and bank 0 points for that level."
           standing={standing}
           gameKey="spot_the_fraud"

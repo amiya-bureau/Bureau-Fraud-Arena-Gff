@@ -5,16 +5,15 @@ description: How the Spot the Fraud question bank, Fraud Detective case bank, an
 
 ## Question bank (Spot the Fraud)
 
-- `src/data/quiz.ts` defines `QUESTIONS_A` (30 authored questions, levels 1–10) and exports `QUESTIONS = [...QUESTIONS_A, ...BATCH_B_QUESTIONS]`.
-- `src/data/quiz-batch-b.ts` exports `BATCH_B_QUESTIONS` — 110 additional questions covering all 10 levels, Indian fintech context.
-- Total bank: 140 questions; one per level is picked randomly per play.
-- `LEVELS` and all type exports remain in `quiz.ts`. `BUREAU_QUESTIONS` and `BureauQuestion` were removed when the 50:50/sponsor mechanic was replaced by the lifeline system.
+- The reviewed workbook is the canonical visitor-facing content source: 149 Spot questions across the ten levels and refreshed presentation content for all 52 Detective cases.
+- The generated local payload is decoded in the browser. A run chooses one reviewed Spot question per level and five reviewed Detective cases at random.
+- Every reviewed Spot question has four options; questions have one or two correct choices only.
+- The authored arrays remain as an emergency decode fallback, but are not the canonical bank.
 
 ## Case bank (Fraud Detective)
 
-- `src/data/detective.ts` has 52 cases (FD-01 to FD-52) in the `CASES` array.
-- 5 original cases (FD-01 to FD-05) + 47 new cases (FD-06 to FD-52, 8 fraud-pattern groups).
-- 5 random cases are picked per play.
+- The existing 52-case graph topology stays in place. Workbook content overlays the sector, title, clues, brief, answer, explanation, and hook, retaining each case's designed answer-node IDs.
+- Each run selects five cases at random.
 
 ## Lifeline question bank (all three games)
 
@@ -31,14 +30,14 @@ description: How the Spot the Fraud question bank, Fraud Detective case bank, an
 - `GameEndScreen` is no longer used by any of the three main games (it may still exist as a component but is not imported).
 - The 50:50 lifeline button and `handleFiftyFifty`/`BUREAU_QUESTIONS`/`bureauSeen`/`fiftyFifty` state were removed from Spot the Fraud entirely.
 
-## Server-side randomization (DB, currently empty)
+## Reviewed local content versus server packs
 
-- DB tables `quiz_questions`, `detective_cases`, and `lifeline_questions` exist (schema pushed).
-- API routes: `GET /api/quiz/game-pack`, `GET /api/detective/case-pack`, `GET /api/lifeline/question`.
-- All fall back to local data on 503 or error. The local fallback works perfectly for the booth.
-- Auto-seeding removed — cross-package esbuild imports fail at build time. Seeding via a standalone script in `lib/db` can be added later.
+- Quiz and Detective server endpoints may still contain old or unseeded rows. The booth game intentionally uses the reviewed local payload rather than those endpoints.
+- Lifeline questions remain independent and continue to prefer the server with a local fallback.
 
-**Why no seeding:** `artifacts/api-server` importing `artifacts/fraud-arena/src/data/` fails at esbuild build time across the workspace boundary. Local fallbacks in `gamePack.ts` are sufficient for the demo.
+**Why:** Content was approved from a workbook and must be identical for every booth visitor; allowing a stale database pack to win would silently undo that review.
+
+**How to apply:** Keep Spot and Detective loaders pointed to the reviewed local payload until the database has been explicitly reseeded from the exact same source and parity has been verified.
 
 ## Player gate (returning player)
 

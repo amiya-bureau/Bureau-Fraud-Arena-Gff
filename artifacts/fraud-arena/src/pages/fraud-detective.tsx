@@ -46,11 +46,11 @@ export default function FraudDetective() {
 
   // Load a server-randomised case pack at game start.
   const [casePack, setCasePack] = useState<DetectiveCase[] | null>(null);
+  const orderCasePack = (cases: DetectiveCase[]) => cases.map((c, i) => ({ ...c, order: i + 1 }));
   useEffect(() => {
     fetchDetectiveCasePack().then(cases => {
       // Re-number cases 1–5 so the progress counter stays consistent.
-      const reordered = cases.map((c, i) => ({ ...c, order: i + 1 }));
-      setCasePack(reordered);
+      setCasePack(orderCasePack(cases));
     });
   }, []);
 
@@ -183,22 +183,28 @@ export default function FraudDetective() {
     }
   }, [caseIndex, caseScore, bonusScore, gameState]);
 
-  const startGame = () => setGameState('case');
+  const startGame = async () => {
+    // Do not let an eager Start tap use the pre-v5 fallback while the reviewed
+    // pack is still decoding.
+    const pack = casePack ?? orderCasePack(await fetchDetectiveCasePack());
+    setCasePack(pack);
+    setGameState('case');
+  };
 
   const handleAccuse = () => {
     if (!selectedNode || solved || revealed) return;
     
     if (currentCase.answer.includes(selectedNode)) {
       setSolved(true);
-      let pts = 16;
-      if (wrongGuesses === 1) pts = 10;
-      if (wrongGuesses === 2) pts = 6;
-      if (wrongGuesses >= 3) pts = 2;
+      const pts = 15;
+      const milestoneBonus = currentCase.order === 3 ? 10 : currentCase.order === 5 ? 15 : 0;
       setCaseScore(s => s + pts);
+      if (milestoneBonus) setBonusScore(s => s + milestoneBonus);
       
       setCaseResults(prev => [...prev, {
         id: currentCase.id,
         points: pts,
+        milestoneBonus,
         wrongGuesses,
         revealed: false
       }]);
@@ -230,7 +236,7 @@ export default function FraudDetective() {
     if (caseIndex + 1 < activeCases.length) {
       setCaseIndex(i => i + 1);
     } else {
-      setGameState('bonus');
+      endRun();
     }
   };
 
@@ -262,10 +268,6 @@ export default function FraudDetective() {
   const endRun = () => {
     if (session) {
       const total = caseScore + bonusScore;
-      const bonusAnswersPayload = BONUS.questions.map((q, i) => ({
-        n: q.n,
-        correct: bonusAnswers[i] === q.answer
-      })).filter((_, i) => bonusAnswers[i] !== undefined);
 
       const payload: RunInput = {
         playerId: session.player.id,
@@ -276,11 +278,8 @@ export default function FraudDetective() {
         detail: {
           cases: caseResults,
           casePoints: caseScore,
-          bonusPoints: bonusScore,
+          milestonePoints: bonusScore,
           tier: total >= 80 ? "Master" : (total >= 40 ? "Achiever" : "Participation"),
-          bonus: {
-            answers: bonusAnswersPayload
-          }
         }
       };
       
@@ -344,7 +343,7 @@ export default function FraudDetective() {
 
   useEffect(() => {
     if (gameState !== 'casefail') return;
-    if (caseFailSec <= 0) { setLocation('/'); return; }
+    if (caseFailSec <= 0) { endRun(); return; }
     const t = setTimeout(() => setCaseFailSec(s => s - 1), 1000);
     return () => clearTimeout(t);
   }, [caseFailSec, gameState]);
@@ -354,8 +353,8 @@ export default function FraudDetective() {
       <Layout title="Fraud Detective" back="/">
         <RulesScreen 
           gameName="Fraud Detective"
-          premise="Five graph investigation cases plus a bonus trivia round. Find the hidden links that expose the rings."
-          scoring="16 points per case (80 total) + 20 points in the bonus round. Maximum 100 points."
+          premise="Five graph investigation cases. Find the hidden links that expose the rings."
+          scoring="15 points per case (75 total), plus 10 points for clearing case 3 and 15 points for clearing case 5. Maximum 100 points."
           endsWhen="Five cases. One wrong accusation ends that case — banked points carry forward."
           lifelines="Choose carefully. One wrong tap reveals the answer and fails the case."
           standing={standing}
@@ -623,7 +622,7 @@ export default function FraudDetective() {
           <div className="shrink-0">
             <EyebrowTag tone="coral">Case Failed</EyebrowTag>
             <div className="mt-3 flex items-center gap-4">
-              <StatReadout value={caseScore} caption="Points Banked" size="sm" tone="on-dark" />
+              <StatReadout value={caseScore + bonusScore} caption="Points Banked" size="sm" tone="on-dark" />
             </div>
           </div>
 
