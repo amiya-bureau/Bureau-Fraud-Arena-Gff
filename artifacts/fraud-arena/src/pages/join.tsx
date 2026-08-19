@@ -22,7 +22,12 @@ import { cn } from '@/lib/utils';
 const formSchema = z.object({
   workName: z.string().min(2, "Work name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().transform(val => val.replace(/[\s\-\+]/g, '').replace(/^91/, '')).pipe(
+  phone: z.string().transform(val => {
+    const compact = val.trim().replace(/[\s-]/g, '');
+    if (compact.startsWith('+91')) return compact.slice(3);
+    if (compact.length === 12 && compact.startsWith('91')) return compact.slice(2);
+    return compact;
+  }).pipe(
     z.string().length(10, "Must be exactly 10 digits").regex(/^[6-9]\d{9}$/, "Must start with 6-9")
   ),
   company: z.string().min(1, "Company is required"),

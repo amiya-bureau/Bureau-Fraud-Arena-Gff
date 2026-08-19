@@ -49,11 +49,17 @@ export function isFreeMail(email: string): boolean {
   return FREE_MAIL_DOMAINS.has(emailDomain(normalizeEmail(email)));
 }
 
-/** Strips spaces, dashes, brackets and a leading +91 / 91 / 0. */
+/** Strips formatting and an explicit Indian country/trunk prefix. */
 export function normalizePhone(raw: string): string {
-  const digitsAndPlus = raw.replace(/[\s\-()./]/g, "");
-  const stripped = digitsAndPlus.replace(/^(\+91|0091|91|0)/, "");
-  return stripped.replace(/\D/g, "");
+  const compact = raw.replace(/[\s\-()./]/g, "");
+  const digits = compact.replace(/\D/g, "");
+
+  if (compact.startsWith("+91")) return digits.slice(2);
+  if (digits.length === 14 && digits.startsWith("0091")) return digits.slice(4);
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+
+  return digits;
 }
 
 export function isValidIndianMobile(normalized: string): boolean {
