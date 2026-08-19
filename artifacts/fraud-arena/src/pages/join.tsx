@@ -176,10 +176,16 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
   return (
     <Layout title="Registration" back="/">
       {/* White hero panel with edge-cluster dots — visual contrast break before the dark form. */}
-      <div className="relative -mx-4 mb-0 shrink-0 overflow-hidden bg-white px-4 pb-5 pt-5">
+      <div className="relative -mx-4 mb-0 shrink-0 overflow-hidden bg-white px-4 pb-3 pt-3">
         <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
-        {gameLabel ? <EyebrowTag tone="dark">Entering {gameLabel}</EyebrowTag> : null}
-        <h1 className="mt-3 font-sans text-display-lg font-normal text-russian">Join the Arena</h1>
+        {gameLabel ? (
+          <EyebrowTag tone="dark" className="text-[13px]">
+            Entering {gameLabel}
+          </EyebrowTag>
+        ) : null}
+        <h1 className="mt-2 font-sans text-[24px] leading-none font-normal text-russian">
+          Join the Arena
+        </h1>
       </div>
 
       <Form {...form}>
@@ -187,7 +193,7 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex min-h-0 flex-1 flex-col pt-4"
         >
-          <div className="app-scroll flex min-h-0 flex-1 flex-col gap-3">
+          <div className="app-scroll flex min-h-0 flex-1 flex-col gap-3 pb-2">
             <FormField
               control={form.control}
               name="workName"
