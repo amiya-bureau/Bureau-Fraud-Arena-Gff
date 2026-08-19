@@ -3,7 +3,6 @@ import { useLocation } from 'wouter';
 import { usePlayerSession } from '@/lib/store';
 import { Layout } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
-import { QrPanel } from '@/components/qr-panel';
 import { Button } from '@/components/ui/button';
 import { LEVELS, QUESTIONS, Level, Question } from '@/data/quiz';
 import { LifelineGate } from '@/components/lifeline-gate';
@@ -349,11 +348,6 @@ export default function SpotTheFraud() {
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}
-          footerSlot={
-            <div className="hidden md:block">
-              <QrPanel game="spot-the-fraud" />
-            </div>
-          }
         />
       </Layout>
     );

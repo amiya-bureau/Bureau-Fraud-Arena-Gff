@@ -38,6 +38,8 @@ interface LifelineGateProps {
    * etc. — so the gate is generic but the display is game-specific.
    */
   scoreDisplay?: ReactNode;
+  /** Compact end-of-run treatment for dense graph-game screens. */
+  compact?: boolean;
   /** Called when the retry button is tapped (only after a correct answer). */
   onRetry: () => void;
   /** Called when Exit Run is tapped, or when the 10-second timer expires. */
@@ -49,6 +51,7 @@ export function LifelineGate({
   context,
   gameTitle,
   scoreDisplay,
+  compact = false,
   onRetry,
   onExit,
 }: LifelineGateProps) {
@@ -95,12 +98,26 @@ export function LifelineGate({
       <div className="flex min-h-0 flex-1 flex-col pb-4">
 
         {/* ── Header ── */}
-        <div className="shrink-0 pt-4">
+        <div className={cn("shrink-0", compact ? "pt-3" : "pt-4")}>
           <EyebrowTag tone="coral">Lifeline</EyebrowTag>
-          <h1 className="mt-3 font-sans text-display-lg font-normal text-white">
-            {context === 'reentry' ? 'Attempt Over.' : 'Run Over.'}
-          </h1>
-          <p className="mt-2 text-body-sm text-[var(--text-on-dark-muted)]">
+          <div className={cn(
+            "mt-3",
+            compact && "flex items-baseline justify-between gap-3"
+          )}>
+            <h1 className={cn(
+              "font-sans font-normal text-white",
+              compact ? "text-display-md" : "text-display-lg"
+            )}>
+              {context === 'reentry' ? 'Attempt Over.' : 'Run Over.'}
+            </h1>
+            {compact && scoreDisplay ? (
+              <div className="shrink-0">{scoreDisplay}</div>
+            ) : null}
+          </div>
+          <p className={cn(
+            "text-body-sm text-[var(--text-on-dark-muted)]",
+            compact ? "mt-1" : "mt-2"
+          )}>
             {context === 'reentry'
               ? 'You have already played this game. Answer the lifeline question to unlock a retry.'
               : 'Answer the lifeline question to unlock a retry.'}
@@ -108,22 +125,32 @@ export function LifelineGate({
         </div>
 
         {/* ── Game-specific score / result display ── */}
-        {scoreDisplay && (
+        {scoreDisplay && !compact && (
           <div className="mt-4 shrink-0">
             {scoreDisplay}
           </div>
         )}
 
         {/* ── Lifeline question card ── */}
-        <div className="mt-4 shrink-0 border border-amber-500/40 bg-[rgba(245,158,11,0.04)]">
+        <div className={cn(
+          "shrink-0 border border-amber-500/40 bg-[rgba(245,158,11,0.04)]",
+          compact ? "mt-3" : "mt-4"
+        )}>
 
           {/* Card header: label + status */}
-          <div className="flex items-center justify-between gap-3 border-b border-amber-500/20 px-4 py-2.5">
-            <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-amber-500">
+          <div className={cn(
+            "flex items-center justify-between gap-3 border-b border-amber-500/20",
+            compact ? "px-3 py-2" : "px-4 py-2.5"
+          )}>
+            <span className={cn(
+              "font-mono font-medium uppercase tracking-[0.03em] text-amber-500",
+              compact ? "text-[12px]" : "text-eyebrow-micro"
+            )}>
               {question.type === 'logo' ? 'Find the Logo' : 'Lifeline Question'}
             </span>
             <span className={cn(
-              "font-mono text-eyebrow-micro font-medium tabular-nums transition-colors duration-300",
+              "font-mono font-medium tabular-nums transition-colors duration-300",
+              compact ? "text-[12px]" : "text-eyebrow-micro",
               isCorrect ? "text-lime-400"
                 : isWrong ? "text-coral-600"
                 : timeLeft <= 3 ? "text-coral-600 animate-pulse"
@@ -146,14 +173,22 @@ export function LifelineGate({
           </div>
 
           {/* Question stem */}
-          <div className="px-4 pt-4 pb-3">
-            <p className="font-sans text-body-md leading-snug text-white">
+          <div className={cn(
+            compact ? "px-3 pb-2 pt-3" : "px-4 pb-3 pt-4"
+          )}>
+            <p className={cn(
+              "font-sans leading-snug text-white",
+              compact ? "text-[15px]" : "text-body-md"
+            )}>
               {question.stem}
             </p>
           </div>
 
           {/* Options */}
-          <div className="flex flex-col gap-2 px-4 pb-4 stagger-in">
+          <div className={cn(
+            "flex flex-col stagger-in",
+            compact ? "gap-1.5 px-3 pb-3" : "gap-2 px-4 pb-4"
+          )}>
             {shuffled.map((opt, idx) => {
               const isThisCorrect = idx === correctShuffledIdx;
               const isSelected    = selectedIdx === idx;
@@ -165,7 +200,8 @@ export function LifelineGate({
                   disabled={selectedIdx !== null}
                   onClick={() => handleSelect(idx)}
                   className={cn(
-                    "tap flex w-full items-center gap-3 border px-4 py-3 text-left transition-colors duration-[var(--dur-base)]",
+                    "tap flex w-full items-center border text-left transition-colors duration-[var(--dur-base)]",
+                    compact ? "gap-2 px-3 py-2" : "gap-3 px-4 py-3",
                     !showResult && "border-ink-700 bg-ink-900 hover:border-amber-500/60",
                     showResult && isThisCorrect && "border-lime-400/60 bg-lime-400/8",
                     showResult && isSelected && !isThisCorrect && "border-coral-600/60 bg-coral-600/8",
@@ -173,13 +209,15 @@ export function LifelineGate({
                   )}
                 >
                   <span className={cn(
-                    "shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums",
+                    "shrink-0 font-mono font-medium tabular-nums",
+                    compact ? "text-[12px]" : "text-eyebrow-micro",
                     showResult && isThisCorrect ? "text-lime-400" : "text-amber-500",
                   )}>
                     {String(idx + 1).padStart(2, '0')}
                   </span>
                   <span className={cn(
-                    "min-w-0 flex-1 font-sans text-body-md leading-snug",
+                    "min-w-0 flex-1 font-sans leading-snug",
+                    compact ? "text-[15px]" : "text-body-md",
                     showResult && isThisCorrect ? "text-lime-300" : "text-white",
                   )}>
                     {opt.text}
@@ -191,18 +229,21 @@ export function LifelineGate({
         </div>
 
         {/* ── Actions ── */}
-        <div className="mt-auto flex shrink-0 flex-col gap-3 pt-5">
+        <div className={cn(
+          "mt-auto flex shrink-0 flex-col",
+          compact ? "gap-2 pt-3" : "gap-3 pt-5"
+        )}>
           <Button
-            size="lg"
+            size={compact ? 'sm' : 'lg'}
             variant="light"
             chevron
             disabled={!retryUnlocked}
             onClick={retryUnlocked ? onRetry : undefined}
-            className="w-full"
+            className={cn("w-full", compact && "min-h-[44px] py-3")}
           >
             Retry
           </Button>
-          <Button size="lg" variant="outline" onClick={onExit} className="w-full">
+          <Button size={compact ? 'sm' : 'lg'} variant="outline" onClick={onExit} className={cn("w-full", compact && "min-h-[44px] py-3")}>
             Exit Run
           </Button>
         </div>

@@ -383,13 +383,13 @@ export default function FraudDetective() {
       >
         <ScreenBody className="pt-3 pb-safe">
           <div className="shrink-0 mb-3">
-            <h2 className="font-sans text-display-lg font-normal text-white leading-tight">
+             <h2 className="font-sans text-display-md font-normal text-white leading-tight">
               {currentCase.title}
             </h2>
           </div>
 
           {/* Canvas View — bleeds edge-to-edge to avoid the px-4 main padding creating a jarring clip boundary */}
-          <div className="-mx-4 relative flex-1 min-h-[200px] border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
+           <div className="-mx-4 relative min-h-0 flex-1 border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
             <SignalField texture="dots" tone="russian" fade={false} />
             {/* Gesture hint */}
             <div aria-hidden className="pointer-events-none absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
@@ -525,19 +525,19 @@ export default function FraudDetective() {
             </TransformWrapper>
           </div>
 
-          <div className="shrink-0 mt-3 space-y-2">
+           <div className="shrink-0 mt-2 space-y-1.5">
             {!isFinished && (
               <>
                 {/* Objective */}
                 <div className="border border-violet-700/40 bg-violet-700/5">
-                  <div className="flex items-center gap-2 border-b border-violet-700/30 px-3 py-2">
-                    <Target className="size-3.5 shrink-0 text-violet-400" strokeWidth={1.5} />
-                    <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-violet-400">
+                   <div className="flex items-center gap-2 border-b border-violet-700/30 px-3 py-1.5">
+                     <Target className="size-3 shrink-0 text-violet-400" strokeWidth={1.5} />
+                     <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-violet-400">
                       Objective
                     </span>
                   </div>
-                  <div className="px-3 py-2.5">
-                    <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
+                   <div className="px-3 py-2">
+                     <p className="font-mono text-[13px] text-[var(--text-on-dark)] leading-snug">
                       {currentCase.instruction}
                     </p>
                   </div>
@@ -545,23 +545,23 @@ export default function FraudDetective() {
                 {/* Clues */}
                 <div className="border border-amber-500/30 bg-[rgba(245,158,11,0.04)]">
                   {/* Header */}
-                  <div className="flex items-center gap-2 border-b border-amber-500/20 px-3 py-2">
-                    <Fingerprint className="size-3.5 shrink-0 text-amber-400" strokeWidth={1.5} />
-                    <span className="font-mono text-eyebrow-micro font-semibold uppercase tracking-[0.12em] text-amber-400">
+                   <div className="flex items-center gap-2 border-b border-amber-500/20 px-3 py-1.5">
+                     <Fingerprint className="size-3 shrink-0 text-amber-400" strokeWidth={1.5} />
+                     <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-amber-400">
                       Clues
                     </span>
-                    <span className="ml-auto font-mono text-eyebrow-micro text-[var(--text-on-dark-faint)] uppercase tracking-widest">
+                     <span className="ml-auto font-mono text-[11px] text-[var(--text-on-dark-faint)] uppercase tracking-widest">
                       {currentCase.id.replace(/_/g, '-').substring(0, 10).toUpperCase()}
                     </span>
                   </div>
                   {/* Evidence items */}
                   <div className="divide-y divide-amber-500/10">
                     {currentCase.clues.map((clue, i) => (
-                      <div key={i} className="flex items-start gap-3 px-3 py-2.5">
-                        <span className="shrink-0 font-mono text-eyebrow-micro font-bold tabular-nums text-amber-400 leading-snug pt-px">
+                       <div key={i} className="flex items-start gap-2 px-3 py-1.5">
+                         <span className="shrink-0 font-mono text-[12px] font-bold tabular-nums text-amber-400 leading-snug pt-px">
                           {String(i + 1).padStart(2, '0')}
                         </span>
-                        <p className="font-mono text-body-sm text-[var(--text-on-dark)] leading-snug">
+                         <p className="font-mono text-[13px] text-[var(--text-on-dark)] leading-snug">
                           {clue}
                         </p>
                       </div>
@@ -590,7 +590,7 @@ export default function FraudDetective() {
             )}
           </div>
 
-          <div className="shrink-0 mt-3 pt-3 border-t border-ink-800">
+           <div className="shrink-0 mt-2 pt-2 border-t border-ink-800">
             {!isFinished ? (
               <Button 
                 variant={selectedNode ? 'default' : 'secondary'} 
@@ -619,15 +619,21 @@ export default function FraudDetective() {
         <ScreenBody className="pt-3 pb-safe">
 
           {/* Header */}
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-center justify-between gap-3">
             <EyebrowTag tone="coral">Case Failed</EyebrowTag>
-            <div className="mt-3 flex items-center gap-4">
-              <StatReadout value={caseScore + bonusScore} caption="Points Banked" size="sm" tone="on-dark" />
+            <div className="relative flex items-baseline gap-1.5 pr-3">
+              <span className="font-sans text-display-md font-normal tabular-nums text-white">
+                {caseScore + bonusScore}
+              </span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                Points Banked
+              </span>
+              <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
             </div>
           </div>
 
           {/* Auto-exit countdown */}
-          <div className="mt-4 shrink-0">
+          <div className="mt-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                 Auto-exit
@@ -651,13 +657,13 @@ export default function FraudDetective() {
           </div>
 
           {/* Tab bar */}
-          <div className="-mx-4 mt-4 shrink-0 flex border-b border-ink-800">
+          <div className="-mx-4 mt-3 shrink-0 flex border-b border-ink-800">
             {(['graph', 'why'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setCaseFailTab(tab)}
                 className={cn(
-                  "flex-1 py-2.5 font-mono text-eyebrow-micro uppercase tracking-[0.1em] transition-colors tap",
+                  "flex-1 py-2 font-mono text-[12px] uppercase tracking-[0.1em] transition-colors tap",
                   caseFailTab === tab
                     ? "text-coral-500 border-b-2 border-coral-500 -mb-px"
                     : "text-[var(--text-on-dark-muted)] hover:text-[var(--text-on-dark)]"
@@ -669,7 +675,7 @@ export default function FraudDetective() {
           </div>
 
           {/* Tab content — fixed height keeps layout stable */}
-          <div className="shrink-0 h-[220px]">
+          <div className="shrink-0 h-[170px]">
             {caseFailTab === 'graph' ? (
               <div
                 className="-mx-4 h-full border-b border-ink-800 bg-russian overflow-hidden relative"
@@ -795,19 +801,19 @@ export default function FraudDetective() {
           </div>
 
           {/* Exit options */}
-          <div className="mt-4 flex shrink-0 flex-col gap-2 pt-1">
-            <Button size="lg" variant="light" chevron onClick={() => endRun()} className="w-full">
+          <div className="mt-3 flex shrink-0 flex-col gap-1.5 pt-1">
+            <Button size="sm" variant="light" chevron onClick={() => endRun()} className="min-h-[44px] w-full py-3">
               Retry
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="w-full justify-start gap-3">
+            <Button size="sm" variant="outline" onClick={() => setLocation('/spot-the-fraud')} className="min-h-[44px] w-full justify-start gap-3 py-3">
               <Target className="size-4 shrink-0 text-violet-400" />
               Try Spot the Fraud
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="w-full justify-start gap-3">
+            <Button size="sm" variant="outline" onClick={() => setLocation('/spoof-the-system')} className="min-h-[44px] w-full justify-start gap-3 py-3">
               <ScanEye className="size-4 shrink-0 text-violet-400" />
               Try Spoof the System
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation('/')} className="w-full justify-start gap-3">
+            <Button size="sm" variant="outline" onClick={() => setLocation('/')} className="min-h-[44px] w-full justify-start gap-3 py-3">
               <LogOut className="size-4 shrink-0 text-violet-400" />
               End Run
             </Button>
@@ -958,8 +964,15 @@ export default function FraudDetective() {
         context={lifelineContext}
         gameTitle="Fraud Detective"
         scoreDisplay={total > 0 ? (
-          <StatReadout value={total} caption="Points Secured" size="sm" tone="on-dark" />
+          <div className="relative flex items-baseline gap-1.5 pr-3">
+            <span className="font-sans text-display-md font-normal tabular-nums text-white">{total}</span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Points Secured
+            </span>
+            <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
+          </div>
         ) : undefined}
+        compact
         onRetry={() => {
           setCaseIndex(0);
           setCaseScore(0);
