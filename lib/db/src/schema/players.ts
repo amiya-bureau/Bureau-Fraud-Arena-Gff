@@ -14,6 +14,8 @@ export const playersTable = pgTable("players", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   company: text("company").notNull(),
+  /** Nullable only for registrations created before job function was collected. */
+  jobFunction: text("job_function"),
   /**
    * Set when the visitor used the "I don't have a work email" override on the
    * entry form. Flags the row for sales triage rather than blocking entry.

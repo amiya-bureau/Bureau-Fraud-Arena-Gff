@@ -58,6 +58,7 @@ router.post("/players", async (req, res): Promise<void> => {
       email: entry.email,
       phone: entry.phone,
       company: entry.company,
+      jobFunction: entry.jobFunction,
       noWorkEmail: entry.noWorkEmail,
       consentAt: new Date(),
     })

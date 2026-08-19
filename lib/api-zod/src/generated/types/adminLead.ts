@@ -12,6 +12,8 @@ export interface AdminLead {
   email: string;
   phone: string;
   company: string;
+  /** @nullable */
+  jobFunction: string | null;
   noWorkEmail: boolean;
   /** @nullable */
   consentAt: Date | null;

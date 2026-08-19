@@ -40,6 +40,21 @@ export const LeaderboardScope = {
   cumulative: 'cumulative',
 } as const;
 
+export type JobFunction = typeof JobFunction[keyof typeof JobFunction];
+
+
+export const JobFunction = {
+  Fraud_and_Risk: 'Fraud and Risk',
+  Compliance: 'Compliance',
+  Product: 'Product',
+  Information_Security: 'Information Security',
+  Engineering: 'Engineering',
+  'Sales_&_Marketing': 'Sales & Marketing',
+  Finance: 'Finance',
+  'Founder_/_Investor': 'Founder / Investor',
+  Others: 'Others',
+} as const;
+
 export interface PlayerInput {
   /** @minLength 2 */
   workName: string;
@@ -48,6 +63,7 @@ export interface PlayerInput {
   phone: string;
   /** @minLength 1 */
   company: string;
+  jobFunction: JobFunction;
   /** Set when the visitor used the "I don't have a work email" override. Flags the row rather than blocking the entry. */
   noWorkEmail?: boolean;
 }
@@ -267,6 +283,8 @@ export interface AdminLead {
   email: string;
   phone: string;
   company: string;
+  /** @nullable */
+  jobFunction: string | null;
   noWorkEmail: boolean;
   /** @nullable */
   consentAt: string | null;

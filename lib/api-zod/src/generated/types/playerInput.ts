@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { JobFunction } from './jobFunction';
 
 export interface PlayerInput {
   /** @minLength 2 */
@@ -14,6 +15,7 @@ export interface PlayerInput {
   phone: string;
   /** @minLength 1 */
   company: string;
+  jobFunction: JobFunction;
   /** Set when the visitor used the "I don't have a work email" override. Flags the row rather than blocking the entry. */
   noWorkEmail?: boolean;
 }

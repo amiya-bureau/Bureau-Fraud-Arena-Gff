@@ -31,6 +31,7 @@ export const RegisterPlayerBody = zod.object({
   "email": zod.string(),
   "phone": zod.string().describe('Indian mobile number; spaces, dashes and a +91 prefix are stripped server-side.'),
   "company": zod.string().min(1),
+  "jobFunction": zod.enum(['Fraud and Risk', 'Compliance', 'Product', 'Information Security', 'Engineering', 'Sales & Marketing', 'Finance', 'Founder / Investor', 'Others']),
   "noWorkEmail": zod.boolean().optional().describe('Set when the visitor used the \"I don\'t have a work email\" override. Flags the row rather than blocking the entry.\n')
 })
 
@@ -299,6 +300,7 @@ export const GetAdminLeadsResponseItem = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "company": zod.string(),
+  "jobFunction": zod.string().nullable(),
   "noWorkEmail": zod.boolean(),
   "consentAt": zod.coerce.date().nullable(),
   "gamesPlayed": zod.number(),

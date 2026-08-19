@@ -438,7 +438,7 @@ components:
 
     PlayerInput:
       type: object
-      required: [workName, email, phone, company]
+      required: [workName, email, phone, company, jobFunction]
       properties:
         workName:
           type: string
@@ -451,11 +451,26 @@ components:
         company:
           type: string
           minLength: 1
+        jobFunction:
+          $ref: "#/components/schemas/JobFunction"
         noWorkEmail:
           type: boolean
           description: >
             Set when the visitor used the "I don't have a work email" override.
             Flags the row rather than blocking the entry.
+
+    JobFunction:
+      type: string
+      enum:
+        - Fraud and Risk
+        - Compliance
+        - Product
+        - Information Security
+        - Engineering
+        - Sales & Marketing
+        - Finance
+        - Founder / Investor
+        - Others
 
     Player:
       type: object
@@ -809,7 +824,7 @@ components:
 
     AdminLead:
       type: object
-      required: [playerId, workName, email, phone, company, noWorkEmail, consentAt, gamesPlayed, total, createdAt, isDemo]
+      required: [playerId, workName, email, phone, company, jobFunction, noWorkEmail, consentAt, gamesPlayed, total, createdAt, isDemo]
       properties:
         playerId:
           type: string
@@ -821,6 +836,8 @@ components:
           type: string
         company:
           type: string
+        jobFunction:
+          type: ["string", "null"]
         noWorkEmail:
           type: boolean
         consentAt:

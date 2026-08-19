@@ -76,6 +76,7 @@ export interface EntryInput {
   email: string;
   phone: string;
   company: string;
+  jobFunction: string;
   noWorkEmail?: boolean;
 }
 
@@ -84,6 +85,7 @@ export interface ValidatedEntry {
   email: string;
   phone: string;
   company: string;
+  jobFunction: string;
   noWorkEmail: boolean;
 }
 
@@ -133,5 +135,16 @@ export function validateEntry(
     };
   }
 
-  return { ok: true, value: { workName, email, phone, company, noWorkEmail } };
+  const jobFunction = input.jobFunction.trim();
+  if (jobFunction.length === 0) {
+    return {
+      ok: false,
+      error: { field: "jobFunction", message: "Please select your job function." },
+    };
+  }
+
+  return {
+    ok: true,
+    value: { workName, email, phone, company, jobFunction, noWorkEmail },
+  };
 }

@@ -147,6 +147,7 @@ router.get("/admin/leads", async (_req, res): Promise<void> => {
       email: playersTable.email,
       phone: playersTable.phone,
       company: playersTable.company,
+      jobFunction: playersTable.jobFunction,
       noWorkEmail: playersTable.noWorkEmail,
       consentAt: playersTable.consentAt,
       isDemo: playersTable.isDemo,

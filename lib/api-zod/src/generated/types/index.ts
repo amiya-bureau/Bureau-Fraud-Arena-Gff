@@ -26,6 +26,7 @@ export * from './getLeaderboardParams';
 export * from './healthStatus';
 export * from './heatmapRegion';
 export * from './itemAccuracy';
+export * from './jobFunction';
 export * from './leaderboard';
 export * from './leaderboardRow';
 export * from './leaderboardScope';

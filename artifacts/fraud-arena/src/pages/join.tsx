@@ -18,6 +18,19 @@ import { useToast } from '@/hooks/use-toast';
 import { Layout } from '@/components/layout';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { cn } from '@/lib/utils';
+import { ChevronDown } from 'lucide-react';
+
+const JOB_FUNCTIONS = [
+  'Fraud and Risk',
+  'Compliance',
+  'Product',
+  'Information Security',
+  'Engineering',
+  'Sales & Marketing',
+  'Finance',
+  'Founder / Investor',
+  'Others',
+] as const;
 
 const formSchema = z.object({
   workName: z.string().min(2, "Work name must be at least 2 characters"),
@@ -31,6 +44,13 @@ const formSchema = z.object({
     z.string().length(10, "Must be exactly 10 digits").regex(/^[6-9]\d{9}$/, "Must start with 6-9")
   ),
   company: z.string().min(1, "Company is required"),
+  jobFunction: z
+    .string()
+    .min(1, "Please select your job function.")
+    .refine(
+      (value) => JOB_FUNCTIONS.includes(value as (typeof JOB_FUNCTIONS)[number]),
+      "Please select your job function.",
+    ),
 });
 
 /**
@@ -62,6 +82,20 @@ const BureauInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes
   )
 );
 BureauInput.displayName = 'BureauInput';
+
+const BureauSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+  ({ className, ...props }, ref) => (
+    <select
+      ref={ref}
+      className={cn(
+        "flex h-12 w-full appearance-none border border-ink-800 bg-ink-900 px-3 pr-10 font-sans text-body-md text-white transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+BureauSelect.displayName = 'BureauSelect';
 
 /**
  * Registration.
@@ -97,6 +131,7 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
       email: '',
       phone: '',
       company: '',
+      jobFunction: '',
     },
   });
 
@@ -112,6 +147,7 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
 
     const payload: PlayerInput = {
       ...values,
+      jobFunction: values.jobFunction as PlayerInput['jobFunction'],
       noWorkEmail
     };
 
@@ -212,6 +248,38 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
                   </FormLabel>
                   <FormControl>
                     <BureauInput placeholder="Your organisation" {...field} />
+                  </FormControl>
+                  <FormMessage className="font-mono text-body-sm text-coral-600" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="jobFunction"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-white">
+                    Job Function
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <BureauSelect {...field} value={field.value ?? ''}>
+                        <option value="" disabled>
+                          Select your job function
+                        </option>
+                        {JOB_FUNCTIONS.map((jobFunction) => (
+                          <option key={jobFunction} value={jobFunction} className="bg-ink-900 text-white">
+                            {jobFunction}
+                          </option>
+                        ))}
+                      </BureauSelect>
+                      <ChevronDown
+                        aria-hidden
+                        className="pointer-events-none absolute right-3 top-1/2 size-5 -translate-y-1/2 text-[var(--text-on-dark-faint)]"
+                        strokeWidth={1.5}
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage className="font-mono text-body-sm text-coral-600" />
                 </FormItem>

@@ -107,9 +107,9 @@ function AdminDashboard({ passcode }: { passcode: string }) {
 
   const handleExportCSV = () => {
     if (!leads) return;
-    const header = "Player ID,Name,Email,Phone,Company,Consent Date,Games Played,Tier,Total Points\n";
+    const header = "Player ID,Name,Email,Phone,Company,Job Function,Consent Date,Games Played,Tier,Total Points\n";
     const rows = leads.map(l => 
-      `${l.playerId},"${l.workName}","${l.email}","${l.phone}","${l.company}",${l.consentAt || ''},${l.gamesPlayed},"${l.tier || ''}",${l.total}`
+      `${l.playerId},"${l.workName}","${l.email}","${l.phone}","${l.company}","${l.jobFunction || ''}",${l.consentAt || ''},${l.gamesPlayed},"${l.tier || ''}",${l.total}`
     ).join("\n");
     
     const blob = new Blob([header + rows], { type: 'text/csv' });
