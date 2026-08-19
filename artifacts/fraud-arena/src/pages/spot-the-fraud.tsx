@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { StatReadout } from '@/components/bureau/stat-readout';
 import { IconTile } from '@/components/bureau/icon-tile';
+import { getAiQuizImage } from '@/data/ai-quiz-images';
 
 
 // We shuffle options but keep track of their original 1-based index
@@ -586,37 +587,67 @@ export default function SpotTheFraud() {
               </p>
             )}
 
-            {/* Options — naturally-sized cards, scrollable if they overflow */}
-            <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5 stagger-in">
+            {/* Image questions use a four-card visual grid. Text questions keep
+                the larger, naturally-sized answer rows. */}
+            <div className={cn(
+              "mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5 stagger-in",
+              currentQuestion.kind === 'image' ? "grid grid-cols-2 gap-2 content-start" : "flex flex-col gap-2"
+            )}>
               {shuffledOptions.map((opt, i) => {
                 const isSelected = selectedIndices.includes(opt.originalIndex);
+                const quizImage = currentQuestion.kind === 'image' ? getAiQuizImage(opt.originalIndex) : null;
                 return (
                   <button
                     key={i}
                     onClick={() => toggleOption(opt.originalIndex)}
                     className={cn(
-                      "tap group flex w-full shrink-0 items-center gap-3 border px-4 py-3.5 text-left transition-colors duration-[var(--dur-base)]",
+                      "tap group relative shrink-0 overflow-hidden border text-left transition-colors duration-[var(--dur-base)]",
+                      currentQuestion.kind === 'image'
+                        ? "aspect-[4/5] w-full"
+                        : "flex w-full items-center gap-3 px-4 py-3.5",
                       isSelected
                         ? "border-violet-700 bg-[rgba(71,21,255,0.08)]"
                         : "border-ink-800 bg-ink-900 hover:border-violet-700"
                     )}
                   >
-                    <span className={cn(
-                      "shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums",
-                      isSelected ? "text-violet-500" : "text-[var(--text-on-dark-muted)]"
-                    )}>
-                      {String(opt.originalIndex).padStart(2, '0')}
-                    </span>
-                    <span className="min-w-0 flex-1 font-sans text-body-md leading-snug text-white">
-                      {opt.text}
-                    </span>
                     {currentQuestion.kind === 'image' && (
-                      <ScanEye className={cn("size-4 shrink-0", isSelected ? "text-violet-500" : "text-ink-700")} strokeWidth={1.5} />
+                      <>
+                        <img
+                          src={quizImage!.src}
+                          alt={`Quiz ${quizImage!.label} placeholder`}
+                          className={cn(
+                            "absolute inset-0 size-full object-cover transition-opacity duration-[var(--dur-base)]",
+                            isSelected && "opacity-60"
+                          )}
+                        />
+                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-[rgba(0,2,36,0.82)] px-2 py-1.5">
+                          <span className="font-mono text-eyebrow-micro font-medium tabular-nums text-white">
+                            {quizImage!.label}
+                          </span>
+                          <ScanEye className={cn("size-4", isSelected ? "text-violet-500" : "text-white/70")} strokeWidth={1.5} />
+                        </div>
+                      </>
                     )}
-                    <div className="shrink-0">
+                    {currentQuestion.kind !== 'image' && (
+                      <>
+                        <span className={cn(
+                          "shrink-0 font-mono text-eyebrow-micro font-medium tabular-nums",
+                          isSelected ? "text-violet-500" : "text-[var(--text-on-dark-muted)]"
+                        )}>
+                          {String(opt.originalIndex).padStart(2, '0')}
+                        </span>
+                        <span className="min-w-0 flex-1 font-sans text-body-md leading-snug text-white">
+                          {opt.text}
+                        </span>
+                      </>
+                    )}
+                    <div className={cn(
+                      "shrink-0",
+                      currentQuestion.kind === 'image' && "absolute right-2 top-2"
+                    )}>
                       {isSelected
                         ? <div className="size-3 bg-violet-500" />
-                        : <div className="size-3 border border-ink-700" />
+                        : <div className={cn("size-3 border", currentQuestion.kind === 'image' ? "border-white/80 bg-[rgba(0,2,36,0.5)]" : "border-ink-700")} />
                       }
                     </div>
                   </button>
