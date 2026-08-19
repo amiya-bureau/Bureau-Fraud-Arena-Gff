@@ -88,7 +88,7 @@ const BureauSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttribu
     <select
       ref={ref}
       className={cn(
-        "flex h-12 w-full appearance-none border border-ink-800 bg-ink-900 px-3 pr-10 font-sans text-body-md text-white transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
+        "flex h-10 w-full appearance-none border border-ink-800 bg-ink-900 px-3 pr-10 font-sans text-[16px] text-white transition-colors duration-[var(--dur-base)] ease-[var(--ease-standard)] focus:border-violet-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}
       {...props}
@@ -176,14 +176,14 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
   return (
     <Layout title="Registration" back="/">
       {/* White hero panel with edge-cluster dots — visual contrast break before the dark form. */}
-      <div className="relative -mx-4 mb-0 shrink-0 overflow-hidden bg-white px-4 pb-3 pt-3">
+      <div className="relative -mx-4 mb-0 shrink-0 overflow-hidden bg-white px-4 pb-2 pt-2">
         <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
         {gameLabel ? (
-          <EyebrowTag tone="dark" className="text-[13px]">
+          <EyebrowTag tone="dark" className="text-[12px]">
             Entering {gameLabel}
           </EyebrowTag>
         ) : null}
-        <h1 className="mt-2 font-sans text-[24px] leading-none font-normal text-russian">
+        <h1 className="mt-1 font-sans text-[22px] leading-none font-normal text-russian">
           Join the Arena
         </h1>
       </div>
@@ -294,7 +294,7 @@ function RegistrationForm({ gameLabel }: { gameLabel?: string }) {
 
           </div>
 
-          <p className="shrink-0 font-mono text-eyebrow-micro leading-relaxed tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+          <p className="mt-2 shrink-0 font-mono text-[12px] leading-[1.35] tracking-[0.02em] text-[var(--text-on-dark-muted)]">
             By clicking 'Join the Arena', you agree to Bureau's{' '}
             <a
               href="https://bureau.id/privacy-policy"
