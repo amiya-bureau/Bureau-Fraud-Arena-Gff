@@ -44,8 +44,8 @@ router.post("/runs", async (req, res): Promise<void> => {
 
   // Spoof the System is a fixed ladder, so anything off a rung is a tampered
   // or buggy client rather than a real run. Check what was *submitted*, not
-  // the clamped value: clamping first would quietly promote a bogus 100 to the
-  // top rung of 100, which is the one direction we must never round towards.
+  // the clamped value: clamping first would quietly promote a bogus score to a
+  // valid top rung, which is the one direction we must never round towards.
   // The other two games accumulate per-question points, so their space of
   // valid totals is genuinely wide and the cap is the only server-side check.
   if (game === "spoof_the_system" && !SPOOF_LADDER.has(Math.floor(points))) {

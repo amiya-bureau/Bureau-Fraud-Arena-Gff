@@ -5,20 +5,36 @@ import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import {
-  type DetectorVerdict,
-  type RunInput,
   useDetectSpoof,
   useGetPlayerStanding,
   useSubmitRun,
+  type DetectorVerdict,
+  type RunInput,
 } from '@workspace/api-client-react';
 import { v4 as uuidv4 } from 'uuid';
+import { ShieldAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShieldAlert, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EyebrowTag, IconTile, LiveDot, ScanFrame } from '@/components/bureau';
+import {
+  EyebrowTag,
+  IconTile,
+  LiveDot,
+  ScanFrame,
+  StatReadout,
+} from '@/components/bureau';
 import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 
+type GameLevel = 1 | 2 | 3;
+type GameState = 'rules' | 'uploading' | 'detecting' | 'reveal' | 'decision' | 'lifeline' | 'error';
+
+type Attempt = {
+  level: GameLevel;
+  fooled: boolean;
+  confidence: number;
+};
+
+const LEVEL_POINTS: Record<GameLevel, number> = { 1: 17, 2: 50, 3: 100 };
 const DETECTING_MESSAGES = [
   'Extracting frequency vectors…',
   'Running noise-residual analysis…',
@@ -33,37 +49,36 @@ const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   'Frequency-domain artefacts': 'High-frequency noise patterns inconsistent with natural capture.',
   'Noise-residual consistency': 'The noise residual is too uniform to be camera output.',
   'Facial-landmark geometry': 'Micro-asymmetries in specular reflections were detected.',
-  'Compression-history analysis': 'Expected JPEG compression history is missing.',
-  'Colour-channel correlation': 'Chroma subsampling anomalies appear around high-contrast edges.',
+  'Compression-history analysis': 'Expected camera compression traces are missing.',
+  'Colour-channel correlation': 'Chroma correlations diverge at high-contrast edges.',
 };
 
-type GameState = 'rules' | 'uploading' | 'detecting' | 'reveal' | 'decision' | 'lifeline' | 'error';
-type GameLevel = 1 | 2 | 3;
-
-const pointsForLevel = (level: GameLevel) => level === 1 ? 17 : level === 2 ? 50 : 100;
-const bankedPoints = (level: GameLevel) => level === 1 ? 0 : level === 2 ? 17 : 50;
+function bankedPoints(level: GameLevel) {
+  return level === 1 ? 0 : level === 2 ? 17 : 50;
+}
 
 function QrCodeBlock() {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  return <QRCodeSVG value={`${origin}${base}/spoof-the-system?src=qr`} size={200} level="M" />;
+  return <QRCodeSVG value={`${origin}${base}/spoof-the-system?src=qr`} size={180} level="M" />;
 }
 
 export default function SpoofTheSystem() {
   const { session } = usePlayerSession();
   const [, setLocation] = useLocation();
-  const { data: standing } = useGetPlayerStanding(session?.player.id ?? '', 'today');
+  const { data: standing } = useGetPlayerStanding(session?.player.id || '', 'today');
   const submitRun = useSubmitRun();
   const detectSpoof = useDetectSpoof();
 
   const [gameState, setGameState] = useState<GameState>('rules');
   const [level, setLevel] = useState<GameLevel>(1);
-  const [attempts, setAttempts] = useState<Array<{ level: GameLevel; fooled: boolean; confidence: number }>>([]);
+  const [attemptsData, setAttemptsData] = useState<Attempt[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<DetectorVerdict | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [detectMessageIndex, setDetectMessageIndex] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [detectMsgIndex, setDetectMsgIndex] = useState(0);
   const [detectProgress, setDetectProgress] = useState(0);
+  const [revealStep, setRevealStep] = useState(0);
   const [finalResult, setFinalResult] = useState<any>(null);
   const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
   const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
@@ -82,8 +97,21 @@ export default function SpoofTheSystem() {
   }, []);
 
   useEffect(() => {
+    if (!reentryChecked.current && standing && gameState === 'rules') {
+      reentryChecked.current = true;
+      const hasPlayed = (standing as any).scores?.find(
+        (score: any) => score.game === 'spoof_the_system',
+      )?.played;
+      if (hasPlayed) {
+        setLifelineContext('reentry');
+        setGameState('lifeline');
+      }
+    }
+  }, [standing, gameState]);
+
+  useEffect(() => {
     if (gameState !== 'detecting') {
-      setDetectMessageIndex(0);
+      setDetectMsgIndex(0);
       setDetectProgress(0);
       return;
     }
@@ -93,7 +121,7 @@ export default function SpoofTheSystem() {
       setDetectProgress(Math.min(95, ((Date.now() - startedAt) / 20_000) * 100));
     }, 200);
     const messageTimer = window.setInterval(() => {
-      setDetectMessageIndex((index) => (index + 1) % DETECTING_MESSAGES.length);
+      setDetectMsgIndex((index) => (index + 1) % DETECTING_MESSAGES.length);
     }, 3_000);
 
     return () => {
@@ -103,39 +131,19 @@ export default function SpoofTheSystem() {
   }, [gameState]);
 
   useEffect(() => {
-    if (!reentryChecked.current && standing && gameState === 'rules') {
-      reentryChecked.current = true;
-      const hasPlayed = (standing as any).scores?.find((score: any) => score.game === 'spoof_the_system')?.played;
-      if (hasPlayed) {
-        setLifelineContext('reentry');
-        setGameState('lifeline');
-      }
-    }
-  }, [standing, gameState]);
+    if (gameState !== 'reveal' || !verdict || revealStep > verdict.signals.length) return;
+    const timer = window.setTimeout(() => setRevealStep((step) => step + 1), 600);
+    return () => window.clearTimeout(timer);
+  }, [gameState, verdict, revealStep]);
 
-  const startGame = () => {
-    setLevel(1);
-    setAttempts([]);
-    setImagePreview(null);
-    setVerdict(null);
-    setErrorMessage(null);
-    setGameState('uploading');
+  const showPostRun = (result: any) => {
+    setFinalResult(result);
+    setLifelineContext('gameover');
+    setGameState('lifeline');
   };
 
-  const resetAttempt = (nextLevel: GameLevel) => {
-    setLevel(nextLevel);
-    setImagePreview(null);
-    setVerdict(null);
-    setErrorMessage(null);
-    setGameState('uploading');
-  };
-
-  const endRun = (
-    points: number,
-    quitVoluntarily: boolean,
-    finalAttempts: Array<{ level: GameLevel; fooled: boolean; confidence: number }>,
-  ) => {
-    const drawPool = finalAttempts.filter((attempt) => attempt.fooled).length >= 2 ? 'mystery_prize' : null;
+  const endRun = (points: number, quitVoluntarily: boolean, finalAttempts: Attempt[]) => {
+    const fooledCount = finalAttempts.filter((attempt) => attempt.fooled).length;
     const payload: RunInput = {
       playerId: session?.player.id ?? '',
       game: 'spoof_the_system',
@@ -146,95 +154,153 @@ export default function SpoofTheSystem() {
         attempts: finalAttempts,
         ladderReached: level,
         quitVoluntarily,
-        drawPool,
+        drawPool: fooledCount >= 2 ? 'mystery_prize' : null,
         tier: points >= 50 ? 'Achiever' : 'Participation',
       },
     };
 
     if (!session) {
-      setFinalResult({ pointsRecorded: points, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
-      setLifelineContext('gameover');
-      setGameState('lifeline');
+      showPostRun({ pointsRecorded: points, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
       return;
     }
 
     lastPayloadRef.current = payload;
-    submitRun.mutate({ data: payload }, {
-      onSuccess: (result) => {
-        setFinalResult(result);
-        setLifelineContext('gameover');
-        setGameState('lifeline');
+    submitRun.mutate(
+      { data: payload },
+      {
+        onSuccess: showPostRun,
+        onError: () => setGameState('error'),
       },
-      onError: () => setGameState('error'),
-    });
+    );
+  };
+
+  useEffect(() => {
+    if (gameState !== 'reveal' || !verdict || revealStep <= verdict.signals.length) return;
+
+    const recorded = attemptsData.some((attempt) => attempt.level === level);
+    const finalAttempts = recorded
+      ? attemptsData
+      : [...attemptsData, { level, fooled: verdict.fooled, confidence: verdict.confidence }];
+
+    if (!recorded) setAttemptsData(finalAttempts);
+
+    const gameOver = !verdict.fooled || level === 3;
+    const timer = window.setTimeout(() => {
+      if (!verdict.fooled) {
+        endRun(bankedPoints(level), false, finalAttempts);
+      } else if (level === 3) {
+        endRun(LEVEL_POINTS[3], false, finalAttempts);
+      } else {
+        setGameState('decision');
+      }
+    }, gameOver ? 10_000 : 3_000);
+
+    return () => window.clearTimeout(timer);
+  }, [gameState, verdict, revealStep, attemptsData, level]);
+
+  const startGame = () => {
+    // A submitted run keeps its idempotency key so a network retry cannot
+    // duplicate it. A deliberately new attempt must get a new key instead.
+    runIdRef.current = uuidv4();
+    setLevel(1);
+    setAttemptsData([]);
+    setImagePreview(null);
+    setVerdict(null);
+    setErrorMsg(null);
+    setFinalResult(null);
+    lastPayloadRef.current = null;
+    setGameState('uploading');
   };
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
 
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setErrorMessage('Only JPEG, PNG and WebP images are supported.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('Image must be under 10 MB.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('Image must be under 10MB.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setErrorMsg('Only JPEG, PNG and WebP images are supported.');
       return;
     }
 
-    setErrorMessage(null);
     const reader = new FileReader();
     reader.onload = () => {
-      const imageData = reader.result as string;
-      setImagePreview(imageData);
+      const dataUrl = reader.result as string;
+      const image = dataUrl.split(',')[1];
+      if (!image) {
+        setErrorMsg('That image could not be read. Please choose another.');
+        return;
+      }
+
+      setErrorMsg(null);
+      setImagePreview(dataUrl);
+      setVerdict(null);
+      setRevealStep(0);
       setGameState('detecting');
-      detectSpoof.mutate({
-        data: {
-          playerId: session?.player.id ?? '',
-          level,
-          image: imageData.split(',')[1],
-          mimeType: file.type,
-          fileName: file.name,
+      detectSpoof.mutate(
+        {
+          data: {
+            playerId: session?.player.id ?? '',
+            level,
+            image,
+            mimeType: file.type,
+            fileName: file.name,
+          },
         },
-      }, {
-        onSuccess: (result) => {
-          setDetectProgress(100);
-          setVerdict(result);
-          setGameState('reveal');
+        {
+          onSuccess: (result) => {
+            setDetectProgress(100);
+            setVerdict(result);
+            setRevealStep(0);
+            setGameState('reveal');
+          },
+          onError: (error: any) => {
+            setErrorMsg(error?.response?.data?.error ?? 'Detector failed to run. Please try again.');
+            setGameState('uploading');
+          },
         },
-        onError: (error: any) => {
-          setErrorMessage(error?.response?.data?.error ?? 'Detector failed to run. Please try again.');
-          setGameState('uploading');
-        },
-      });
+      );
     };
     reader.readAsDataURL(file);
-    event.target.value = '';
   };
 
-  const resolveVerdict = () => {
-    if (!verdict) return;
-    const nextAttempts = [...attempts, { level, fooled: verdict.fooled, confidence: verdict.confidence }];
-    setAttempts(nextAttempts);
-    if (!verdict.fooled) {
-      endRun(bankedPoints(level), false, nextAttempts);
-    } else if (level === 3) {
-      endRun(pointsForLevel(level), false, nextAttempts);
-    } else {
-      setGameState('decision');
-    }
+  const handleContinue = () => {
+    setLevel((current) => (current + 1) as GameLevel);
+    setImagePreview(null);
+    setVerdict(null);
+    setErrorMsg(null);
+    setGameState('uploading');
   };
 
-  const retrySave = () => {
+  const handleQuit = () => endRun(LEVEL_POINTS[level], true, attemptsData);
+
+  const handleRetrySubmit = () => {
     if (!lastPayloadRef.current) return;
-    submitRun.mutate({ data: lastPayloadRef.current }, {
-      onSuccess: (result) => {
-        setFinalResult(result);
-        setLifelineContext('gameover');
-        setGameState('lifeline');
+    submitRun.mutate(
+      { data: lastPayloadRef.current },
+      {
+        onSuccess: showPostRun,
+        onError: () => setGameState('error'),
       },
-      onError: () => setGameState('error'),
-    });
+    );
+  };
+
+  const resetRun = () => {
+    setLevel(1);
+    setAttemptsData([]);
+    setImagePreview(null);
+    setVerdict(null);
+    setErrorMsg(null);
+    setDetectMsgIndex(0);
+    setDetectProgress(0);
+    setRevealStep(0);
+    setFinalResult(null);
+    lastPayloadRef.current = null;
+    fetchLifelineQuestion().then(setLifelineQuestion);
+    setGameState('rules');
   };
 
   if (gameState === 'rules') {
@@ -242,10 +308,10 @@ export default function SpoofTheSystem() {
       <Layout title="Spoof the System" back="/">
         <RulesScreen
           gameName="Spoof the System"
-          premise="Generate a synthetic or AI face on your phone, upload it, and try to fool Bureau's detectors. Three attempts, getting stricter every time."
-          scoring="Up to 100 points. Beat level 1: 17 pts. Beat level 2: 50 pts total. Beat level 3: 100 pts total."
-          endsWhen="If the detector catches you, your run ends. Banked points are kept."
-          lifelines="You can walk away with your banked points after level 1 or 2. Completing level 2 or level 3 enters you into the Mystery prize draw."
+          premise="Upload a synthetic or AI face and try to fool Bureau's detectors. Each of the three levels gets stricter."
+          scoring="Up to 100 points. Clear level 1: 17 pts. Clear level 2: 50 pts total. Clear level 3: 100 pts total."
+          endsWhen="If the detector catches your image, the run ends. Points from earlier levels remain banked."
+          lifelines="Bank your score after level 1 or 2, or risk it against a stricter detector. Clearing level 2 or level 3 enters the Mystery prize draw."
           standing={standing}
           gameKey="spoof_the_system"
           onStart={startGame}
@@ -261,11 +327,13 @@ export default function SpoofTheSystem() {
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 text-center">
             <IconTile icon={ShieldAlert} size={60} />
             <h1 className="mt-6 font-sans text-display-xl font-normal text-white">Save Failed</h1>
-            <p className="mt-3 max-w-[32ch] text-body-lg text-[var(--text-on-dark-muted)]">We couldn't record your run. Your points are safe.</p>
+            <p className="mt-3 max-w-[32ch] text-body-lg text-[var(--text-on-dark-muted)]">
+              We could not record your run due to a network error. Your points are safe.
+            </p>
           </div>
           <div className="mt-auto shrink-0 py-4">
-            <Button size="lg" onClick={retrySave} disabled={submitRun.isPending} chevron className="w-full" variant="light">
-              {submitRun.isPending ? 'Retrying' : 'Retry Submit'}
+            <Button size="lg" onClick={handleRetrySubmit} disabled={submitRun.isPending} chevron className="w-full" variant="light">
+              {submitRun.isPending ? 'Retrying' : 'Retry submit'}
             </Button>
           </div>
         </ScreenBody>
@@ -275,59 +343,79 @@ export default function SpoofTheSystem() {
 
   if (gameState === 'lifeline') {
     if (!lifelineQuestion) return null;
-    const points = finalResult?.pointsRecorded ?? 0;
+    const pointsRecorded = finalResult?.pointsRecorded ?? 0;
     return (
       <LifelineGate
         question={lifelineQuestion}
         context={lifelineContext}
         gameTitle="Spoof the System"
+        compact
         scoreDisplay={finalResult ? (
           <div className="relative flex max-w-[58%] flex-wrap items-baseline justify-end gap-x-2 gap-y-0.5 pr-3 text-right">
-            <span className="font-sans text-display-md font-normal tabular-nums text-white">{points}</span>
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">Points Secured</span>
-            {points >= 50 && <span className="font-mono text-[10px] uppercase tracking-[0.03em] text-violet-400">Mystery prize draw</span>}
+            <span className="font-sans text-display-md font-normal tabular-nums text-white">{pointsRecorded}</span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+              Points secured
+            </span>
+            {pointsRecorded >= 50 && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.03em] text-violet-400">
+                Mystery prize draw
+              </span>
+            )}
             <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
           </div>
         ) : undefined}
-        compact
-        onRetry={startGame}
+        onRetry={resetRun}
         onExit={() => setLocation('/')}
       />
     );
   }
 
-  const revealed = gameState === 'reveal' && verdict;
-  const verdictTone = verdict?.fooled ? 'violet' : 'coral';
+  const isRevealFinished = gameState === 'reveal' && verdict && revealStep > verdict.signals.length;
+  const revealTone = isRevealFinished ? (verdict?.fooled ? 'violet' : 'coral') : 'cyan';
 
   return (
     <Layout
       title="Spoof the System"
       back="/"
-      headerRight={<span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">Level {level}/3</span>}
+      headerRight={
+        <span className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+          Level {level}/3
+        </span>
+      }
     >
       {gameState === 'uploading' && (
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone="violet">Level {level} upload</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Select Payload</h1>
-            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">Provide a synthetic face to test the detector.</p>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Select payload</h1>
+            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
+              Choose a JPEG, PNG or WebP image to test the detector.
+            </p>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
             <ScanFrame id={`ATTEMPT-L${level}`} tone="violet" className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-ink-900 px-8 py-6 text-center">
                 <div className="bg-white p-3"><QrCodeBlock /></div>
                 <div>
-                  <p className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">Scan to upload from your phone</p>
-                  {errorMessage && <p className="mt-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">{errorMessage}</p>}
+                  <p className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                    Scan to upload from your phone
+                  </p>
+                  {errorMsg && <p role="alert" className="mt-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">{errorMsg}</p>}
                 </div>
               </div>
             </ScanFrame>
           </div>
           <div className="mt-auto shrink-0 py-4">
             <Button size="lg" chevron onClick={() => fileInputRef.current?.click()} className="w-full" variant="light">
-              <UploadCloud className="size-4" strokeWidth={1.5} /> Select Image
+              Select image
             </Button>
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileUpload}
+            />
           </div>
         </ScreenBody>
       )}
@@ -336,66 +424,80 @@ export default function SpoofTheSystem() {
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone="cyan">Analysis active</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Scanning Payload</h1>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Scanning payload</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id="ANALYSIS" tone="cyan" className="flex min-h-0 flex-1 flex-col">
-              <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-ink-900">
-                {imagePreview && <img src={imagePreview} alt="Uploaded payload under analysis" className="absolute inset-0 size-full object-cover opacity-20 grayscale" />}
-                <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center">
-                  <LiveDot label="Analysis Active" />
-                  <h2 className="font-mono text-body-sm font-medium text-cyan-400">{DETECTING_MESSAGES[detectMessageIndex]}</h2>
+            <ScanFrame id={`ANALYSIS-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone="cyan">
+              <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-ink-900">
+                {imagePreview && <img src={imagePreview} alt="Uploaded image being scanned" className="absolute inset-0 size-full object-cover opacity-20 grayscale" />}
+                <div className="relative z-10 flex flex-col items-center gap-4 px-6">
+                  <LiveDot label="Analysis active" />
+                  <p key={detectMsgIndex} className="font-mono text-body-sm font-medium text-center text-cyan-400">{DETECTING_MESSAGES[detectMsgIndex]}</p>
                 </div>
               </div>
             </ScanFrame>
           </div>
           <div className="mt-auto shrink-0 space-y-2 py-4">
-            <div className="h-1.5 overflow-hidden rounded-full bg-ink-800"><div className="h-full rounded-full bg-cyan-500 transition-[width] duration-200" style={{ width: `${detectProgress}%` }} /></div>
-            <div className="flex justify-between font-mono text-eyebrow-micro uppercase text-[var(--text-on-dark-muted)]"><span>Bureau detector running</span><span className="text-cyan-500">{Math.round(detectProgress)}%</span></div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-ink-800">
+              <div className="h-full rounded-full bg-cyan-500 transition-[width] duration-200" style={{ width: `${detectProgress}%` }} />
+            </div>
+            <div className="flex justify-between font-mono text-eyebrow-micro uppercase">
+              <span className="text-[var(--text-on-dark-muted)]">Bureau detector running</span>
+              <span className="text-cyan-500">{Math.round(detectProgress)}%</span>
+            </div>
           </div>
         </ScreenBody>
       )}
 
-      {revealed && (
+      {gameState === 'reveal' && verdict && (
         <ScreenBody>
           <div className="shrink-0 py-4">
-            <EyebrowTag tone={verdictTone}>Analysis complete</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
+            <EyebrowTag tone={revealTone}>Analysis complete</EyebrowTag>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Detector verdict</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id={`VERDICT-L${level}`} tone={verdictTone} className="flex min-h-0 flex-1 flex-col">
-              <div className="relative h-[45%] min-h-[180px] overflow-hidden border-b border-ink-800">
-                {imagePreview && <img src={imagePreview} alt="Analysed upload" className={cn('size-full object-cover', verdict.fooled ? 'opacity-75' : 'opacity-50 grayscale')} />}
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink-900/35">
-                  <span className={cn('border bg-russian/90 px-5 py-2 font-mono text-display-sm font-medium uppercase tracking-[0.05em]', verdict.fooled ? 'border-lime-300 text-lime-300' : 'border-coral-600 text-coral-600')}>
-                    {verdict.fooled ? 'Fooled' : 'Detected'}
-                  </span>
-                  <span className={cn('font-mono text-body-sm uppercase', verdict.fooled ? 'text-lime-300' : 'text-coral-600')}>
-                    {verdict.fooled ? `+${pointsForLevel(level)} pts` : 'No points awarded'}
-                  </span>
-                  <span className="font-mono text-eyebrow-micro uppercase text-white/70">Synthetic confidence {(verdict.confidence * 100).toFixed(1)}%</span>
+            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone}>
+              <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
+                <div className="relative h-[45%] min-h-[150px] shrink-0 overflow-hidden border-b border-ink-800">
+                  {imagePreview && <img src={imagePreview} alt="Analyzed upload" className={cn('size-full object-cover transition-[filter,opacity] duration-500', isRevealFinished ? (verdict.fooled ? 'opacity-80' : 'opacity-50 grayscale') : 'opacity-30 grayscale')} />}
+                  {isRevealFinished && !verdict.fooled && verdict.heatmapRegions.map((region, index) => (
+                    <div key={index} className="absolute border border-coral-600" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%`, backgroundColor: `rgba(253,118,58,${region.intensity * .35})` }} />
+                  ))}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-t from-ink-900/80 to-transparent">
+                    {isRevealFinished ? (
+                      <>
+                        <span className={cn('border px-5 py-2 font-mono text-display-sm font-medium uppercase tracking-[0.05em]', verdict.fooled ? 'border-lime-300 bg-russian/80 text-lime-300' : 'border-coral-600 bg-russian/80 text-coral-600')}>
+                          {verdict.fooled ? 'Fooled' : 'Detected'}
+                        </span>
+                        <span className={cn('font-mono text-body-sm uppercase tracking-widest', verdict.fooled ? 'text-lime-300' : 'text-coral-600')}>
+                          {verdict.fooled ? `+${LEVEL_POINTS[level]} points` : 'No points awarded'}
+                        </span>
+                      </>
+                    ) : <span className="animate-pulse font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">Reviewing traces…</span>}
+                  </div>
                 </div>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto bg-russian">
-                {verdict.signals.slice().sort((left, right) => right.score - left.score).slice(0, 4).map((signal) => {
-                  const synthetic = signal.verdict === 'synthetic';
-                  return (
-                    <div key={signal.name} className="border-b border-ink-800 px-4 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className={cn('font-mono text-eyebrow-micro uppercase tracking-[0.03em]', synthetic ? 'text-coral-600' : 'text-lime-300')}>{signal.name}</span>
-                        <span className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)]">{Math.round(signal.score * 100)}%</span>
+                <div className="min-h-0 flex-1 app-scroll bg-russian">
+                  {[...verdict.signals].sort((left, right) => right.score - left.score).slice(0, 3).map((signal, index) => {
+                    const visible = revealStep > index;
+                    const hit = signal.verdict === 'synthetic';
+                    return (
+                      <div key={signal.name} className={cn('border-b border-ink-800 px-4 py-3 transition-opacity duration-300', visible ? 'opacity-100' : 'opacity-0')}>
+                        <div className="flex justify-between gap-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
+                          <span className={hit ? 'text-coral-600' : signal.verdict === 'authentic' ? 'text-lime-300' : 'text-[var(--text-on-dark-muted)]'}>{signal.name}</span>
+                          <span className={hit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'}>{(signal.score * 100).toFixed(0)}%</span>
+                        </div>
+                        {isRevealFinished && hit && SIGNAL_DESCRIPTIONS[signal.name] && <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">{SIGNAL_DESCRIPTIONS[signal.name]}</p>}
                       </div>
-                      {synthetic && SIGNAL_DESCRIPTIONS[signal.name] && <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">{SIGNAL_DESCRIPTIONS[signal.name]}</p>}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </ScanFrame>
           </div>
-          <div className="mt-auto shrink-0 py-4">
-            <Button size="lg" chevron className="w-full" variant="light" onClick={resolveVerdict}>
-              {verdict.fooled ? level === 3 ? 'Finish run' : 'Bank or risk' : `End with ${bankedPoints(level)} pts`}
-            </Button>
+          <div className="mt-auto shrink-0 py-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
+            <span className={isRevealFinished ? (verdict.fooled ? 'text-lime-300' : 'text-coral-600') : 'animate-pulse text-[var(--text-on-dark-muted)]'}>
+              {isRevealFinished ? (verdict.fooled ? `Level ${level} bypassed — points banked` : 'Image identified as synthetic — run ends') : 'Reviewing traces…'}
+            </span>
           </div>
         </ScreenBody>
       )}
@@ -404,22 +506,26 @@ export default function SpoofTheSystem() {
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone="violet">Level {level} bypassed</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">{pointsForLevel(level)} points banked.</h1>
+            <h1 className="mt-2 font-sans text-display-lg text-white">{LEVEL_POINTS[level]} points banked.</h1>
             <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">Bank your score, or risk it against a stricter detector.</p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col justify-center py-4">
             <div className="flex flex-col gap-px border border-ink-800 bg-ink-800 p-px">
-              {[100, 50, 17, 0].map((points) => (
-                <div key={points} className={cn('flex items-center justify-between px-4 py-3', points > 0 && points <= pointsForLevel(level) ? 'bg-violet-700 text-white' : 'bg-russian text-[var(--text-on-dark-muted)]')}>
-                  <span className="font-mono text-body-sm uppercase tracking-[0.03em]">{points === 0 ? 'Caught' : `${points} point level`}</span>
-                  <span className="font-mono text-body-sm tabular-nums">{points}</span>
-                </div>
-              ))}
+              {[100, 50, 17, 0].map((points) => {
+                const achieved = points > 0 && LEVEL_POINTS[level] >= points;
+                const target = points === LEVEL_POINTS[(level + 1) as GameLevel];
+                return (
+                  <div key={points} className={cn('flex items-center justify-between px-4 py-3', achieved ? 'bg-violet-700 text-white' : target ? 'border-l-[3px] border-violet-700 bg-ink-900 text-white' : 'bg-russian text-[var(--text-on-dark-muted)]')}>
+                    <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em]">{points === 0 ? 'Detected' : `${points} point level`}</span>
+                    <span className="font-mono text-body-sm tabular-nums">{points}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div className="mt-auto flex shrink-0 flex-col gap-3 py-4">
-            <Button size="lg" chevron onClick={() => resetAttempt((level + 1) as GameLevel)} className="w-full" variant="light">Risk Level {level + 1}</Button>
-            <Button size="lg" variant="outline" onClick={() => endRun(pointsForLevel(level), true, attempts)} className="w-full">Take {pointsForLevel(level)} pts</Button>
+            <Button size="lg" chevron onClick={handleContinue} className="w-full" variant="light">Risk level {level + 1}</Button>
+            <Button size="lg" variant="outline" onClick={handleQuit} className="w-full">Take {LEVEL_POINTS[level]} pts</Button>
           </div>
         </ScreenBody>
       )}

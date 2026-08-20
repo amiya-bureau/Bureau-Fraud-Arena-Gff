@@ -65,9 +65,9 @@ interface Props {
   standing?: { rank: number | null; total: number; playedAllThree?: boolean } | null;
   /** Whether this run is a personal best. */
   isPersonalBest?: boolean;
-  /** Fully cleared runs use the high-score variant and do not offer replay. */
-  perfectRun?: boolean;
-  /** Callback to replay the current game, when replay is allowed. */
+  /** A flawless run ends in a final celebration instead of a replay prompt. */
+  highScore?: boolean;
+  /** Callback to replay the current game for standard completion screens. */
   onPlayAgain?: () => void;
 }
 
@@ -76,7 +76,7 @@ export function GameEndScreen({
   points,
   standing,
   isPersonalBest,
-  perfectRun = false,
+  highScore = false,
   onPlayAgain,
 }: Props) {
   const [, setLocation] = useLocation();
@@ -84,6 +84,7 @@ export function GameEndScreen({
 
   const otherGames = GAMES.filter((g) => g.key !== currentGame);
   const allPlayed = standing?.playedAllThree ?? false;
+  const showOtherGames = highScore || !allPlayed;
 
   const handleExitArena = () => {
     // Clear the session so the next visitor starts fresh, and go to a results
@@ -103,7 +104,7 @@ export function GameEndScreen({
       {/* Result summary — white panel with corner-cluster dots for contrast relief. */}
       <div className="relative -mx-4 shrink-0 overflow-hidden bg-white px-4 pb-6 pt-6 text-center">
         <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
-        <EyebrowTag tone="dark">{perfectRun ? 'High Score Achieved' : 'Run Complete'}</EyebrowTag>
+        <EyebrowTag tone="dark">{highScore ? 'High Score Achieved' : 'Run Complete'}</EyebrowTag>
 
         <div className="mt-6 flex justify-center gap-8">
           <StatReadout value={points.toString()} caption="Points" tone="on-light" size="md" />
@@ -117,7 +118,7 @@ export function GameEndScreen({
           )}
         </div>
 
-        {allPlayed && (
+        {allPlayed && !highScore && (
           <div className="mt-4 border border-violet-700/30 bg-violet-700/8 px-4 py-2">
             <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-700">
               All three games complete
@@ -127,7 +128,7 @@ export function GameEndScreen({
       </div>
 
       {/* Other games to try */}
-      {!allPlayed && (
+      {showOtherGames && (
         <div className="mt-5 flex flex-col gap-2">
           <p className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-faint)]">
             Try another game
@@ -161,7 +162,7 @@ export function GameEndScreen({
 
       {/* Actions — pushed to the bottom of the flex column */}
       <div className="mt-auto flex shrink-0 flex-col gap-3 pt-5 pb-4">
-        {onPlayAgain && (
+        {!highScore && onPlayAgain && (
           <Button variant="light" size="lg" chevron onClick={onPlayAgain} className="w-full">
             Play again
           </Button>

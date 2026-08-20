@@ -43,31 +43,45 @@ function takeRandom<T>(pool: readonly T[], count: number, label: string): T[] {
 }
 
 /**
- * Builds the four visual choices for a generic image round.
+ * Supplies randomized real/Fake media for one authored visual question.
  *
- * A single-select round draws one spoofed/AI image and three real images.
- * A two-select round draws two spoofed/AI images and two real images.
- * Adding a file to either asset folder automatically expands its pool.
+ * The question bank remains the scoring authority: every listed correct option
+ * receives a random Fake asset, while every other option receives a random Real
+ * asset. The calling game can shuffle the cards without breaking that mapping.
  */
 export function drawImageQuizOptions(
-  selectCount: number,
-  excludedImageIds: ReadonlySet<string> = new Set(),
+  totalChoices: number,
+  correctOptionIndices: readonly number[],
 ): ImageQuizOption[] {
-  const totalChoices = 4;
-  const realCount = totalChoices - selectCount;
+  const fakeCount = correctOptionIndices.length;
+  const realCount = totalChoices - fakeCount;
 
-  if (!Number.isInteger(selectCount) || selectCount < 1 || realCount < 1) {
-    throw new Error("Image quiz rounds must select between one and three images.");
+  if (
+    !Number.isInteger(totalChoices) ||
+    totalChoices < 2 ||
+    fakeCount < 1 ||
+    realCount < 1 ||
+    new Set(correctOptionIndices).size !== fakeCount ||
+    correctOptionIndices.some((index) => !Number.isInteger(index) || index < 1 || index > totalChoices)
+  ) {
+    throw new Error("Visual quiz rounds need valid real and Fake answer positions.");
   }
 
-  const availableFakeImages = FAKE_IMAGE_POOL.filter((image) => !excludedImageIds.has(image.id));
-  const availableRealImages = REAL_IMAGE_POOL.filter((image) => !excludedImageIds.has(image.id));
+  const fakeImages = takeRandom(FAKE_IMAGE_POOL, fakeCount, "Fake");
+  const realImages = takeRandom(REAL_IMAGE_POOL, realCount, "Real");
+  let fakeIndex = 0;
+  let realIndex = 0;
+  const correct = new Set(correctOptionIndices);
 
-  return shuffle([
-    ...takeRandom(availableFakeImages, selectCount, "Fake"),
-    ...takeRandom(availableRealImages, realCount, "Real"),
-  ]).map((image, index) => ({
-    ...image,
-    label: `Image ${index + 1}`,
-  }));
+  return Array.from({ length: totalChoices }, (_, index) => {
+    const optionIndex = index + 1;
+    const image = correct.has(optionIndex)
+      ? fakeImages[fakeIndex++]
+      : realImages[realIndex++];
+
+    return {
+      ...image,
+      label: `Image ${optionIndex}`,
+    };
+  });
 }

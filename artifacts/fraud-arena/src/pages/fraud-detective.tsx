@@ -5,6 +5,7 @@ import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
 import { RetryOptions } from '@/components/retry-options';
+import { GameEndScreen } from '@/components/game-end-screen';
 import { useSubmitRun, useSaveRunProgress, useGetPlayerStanding, RunInput } from '@workspace/api-client-react';
 import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
 import { LifelineGate } from '@/components/lifeline-gate';
@@ -21,9 +22,8 @@ import {
   StatReadout,
 } from '@/components/bureau';
 import { isDevTestMode } from '@/lib/dev-test-mode';
-import { GameEndScreen } from '@/components/game-end-screen';
 
-type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'complete' | 'lifeline' | 'error';
+type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'highscore' | 'error';
 const CASE_TIMER_SECONDS = 45;
 
 // Simple deterministic seeded random
@@ -289,16 +289,20 @@ export default function FraudDetective() {
     }
   };
 
+  // A solved case stays on screen long enough for its explanation to land,
+  // then the investigation moves forward without a second tap.
   useEffect(() => {
     if (gameState !== 'case' || !solved) return;
+
     setCaseClosedSec(5);
-    const advanceTimer = window.setTimeout(handleNextCase, 5_000);
-    const countdownTimer = window.setInterval(() => {
+    const advance = window.setTimeout(handleNextCase, 5_000);
+    const countdown = window.setInterval(() => {
       setCaseClosedSec((seconds) => Math.max(0, seconds - 1));
     }, 1_000);
+
     return () => {
-      window.clearTimeout(advanceTimer);
-      window.clearInterval(countdownTimer);
+      window.clearTimeout(advance);
+      window.clearInterval(countdown);
     };
   }, [gameState, solved, caseIndex]);
 
@@ -328,9 +332,10 @@ export default function FraudDetective() {
   const reentryChecked = useRef(false);
 
   const endRun = () => {
-    const perfectRun =
+    const completedPerfectly =
       caseResults.length === activeCases.length &&
-      caseResults.every((result) => !result.revealed && result.points > 0);
+      caseResults.every((result) => result.points > 0 && !result.revealed);
+
     if (session) {
       const total = caseScore + bonusScore;
 
@@ -353,12 +358,7 @@ export default function FraudDetective() {
       submitRun.mutate({ data: payload }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          if (perfectRun) {
-            setGameState('complete');
-          } else {
-            setLifelineContext('gameover');
-            setGameState('lifeline');
-          }
+          setGameState(completedPerfectly ? 'highscore' : 'lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -366,12 +366,7 @@ export default function FraudDetective() {
       });
     } else {
       setFinalResult({ pointsRecorded: caseScore + bonusScore, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
-      if (perfectRun) {
-        setGameState('complete');
-      } else {
-        setLifelineContext('gameover');
-        setGameState('lifeline');
-      }
+      setGameState(completedPerfectly ? 'highscore' : 'lifeline');
     }
   };
 
@@ -380,8 +375,10 @@ export default function FraudDetective() {
       submitRun.mutate({ data: lastPayloadRef.current }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setLifelineContext('gameover');
-          setGameState('lifeline');
+          const completedPerfectly =
+            caseResults.length === activeCases.length &&
+            caseResults.every((result) => result.points > 0 && !result.revealed);
+          setGameState(completedPerfectly ? 'highscore' : 'lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -683,7 +680,7 @@ export default function FraudDetective() {
               </>
             )}
 
-            {isFinished && (
+            {solved && (
               <div className="animate-resolve-in border border-violet-500/60 bg-violet-700/10">
                 {/* Header */}
                 <div className="flex items-center gap-2 border-b border-violet-500/30 px-3 py-2">
@@ -697,6 +694,18 @@ export default function FraudDetective() {
                   <p className="font-mono text-body-sm text-[var(--text-on-dark-muted)] leading-snug">
                     {currentCase.explanation}
                   </p>
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-center justify-between font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                      <span>Next case loading</span>
+                      <span className="tabular-nums">{caseClosedSec}s</span>
+                    </div>
+                    <div className="h-0.5 bg-ink-800">
+                      <div
+                        key={`case-closed-${caseIndex}`}
+                        className="correct-countdown-drain h-full w-full bg-violet-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -714,29 +723,14 @@ export default function FraudDetective() {
               >
                 Submit accusation
               </Button>
+            ) : solved ? (
+              <div className="py-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-300">
+                Advancing to the next case…
+              </div>
             ) : (
-              solved ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                      Next case loading
-                    </span>
-                    <span className="font-mono text-eyebrow-micro tabular-nums text-violet-300">
-                      {caseClosedSec}s
-                    </span>
-                  </div>
-                  <div className="h-0.5 w-full bg-ink-800">
-                    <div
-                      className="h-full bg-violet-500 transition-[width] duration-1000 ease-linear"
-                      style={{ width: `${(caseClosedSec / 5) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
-                  Next case
-                </Button>
-              )
+              <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
+                Next case
+              </Button>
             )}
           </div>
         </ScreenBody>
@@ -1078,15 +1072,14 @@ export default function FraudDetective() {
     );
   }
 
-  if (gameState === 'complete') {
-    const total = finalResult?.pointsRecorded ?? (caseScore + bonusScore);
+  if (gameState === 'highscore') {
     return (
       <GameEndScreen
         currentGame="fraud_detective"
-        points={total}
+        points={finalResult?.pointsRecorded ?? (caseScore + bonusScore)}
         standing={finalResult?.standing}
         isPersonalBest={finalResult?.isPersonalBest}
-        perfectRun={true}
+        highScore
       />
     );
   }
