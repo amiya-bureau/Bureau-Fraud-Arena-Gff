@@ -22,11 +22,12 @@ import {
   ScanFrame,
   StatReadout,
 } from '@/components/bureau';
+import { GameEndScreen } from '@/components/game-end-screen';
 import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 
 type GameLevel = 1 | 2 | 3;
-type GameState = 'rules' | 'uploading' | 'detecting' | 'reveal' | 'decision' | 'lifeline' | 'error';
+type GameState = 'rules' | 'uploading' | 'detecting' | 'reveal' | 'decision' | 'lifeline' | 'highscore' | 'error';
 
 type Attempt = {
   level: GameLevel;
@@ -34,7 +35,10 @@ type Attempt = {
   confidence: number;
 };
 
-const LEVEL_POINTS: Record<GameLevel, number> = { 1: 17, 2: 50, 3: 100 };
+/** Points added by clearing each level; the three clears total 100 points. */
+const LEVEL_CLEAR_POINTS: Record<GameLevel, number> = { 1: 17, 2: 33, 3: 50 };
+/** Cumulative leaderboard score after each successful level. */
+const LEVEL_TOTAL_POINTS: Record<GameLevel, number> = { 1: 17, 2: 50, 3: 100 };
 const DETECTING_MESSAGES = [
   'Extracting frequency vectors…',
   'Running noise-residual analysis…',
@@ -53,8 +57,12 @@ const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   'Colour-channel correlation': 'Chroma correlations diverge at high-contrast edges.',
 };
 
-function bankedPoints(level: GameLevel) {
+function pointsBeforeLevel(level: GameLevel) {
   return level === 1 ? 0 : level === 2 ? 17 : 50;
+}
+
+function pointsBankedAfter(level: GameLevel) {
+  return LEVEL_TOTAL_POINTS[level];
 }
 
 function QrCodeBlock() {
@@ -86,6 +94,7 @@ export default function SpoofTheSystem() {
   const runIdRef = useRef('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
+  const lastRunWasHighScoreRef = useRef(false);
   const reentryChecked = useRef(false);
 
   useEffect(() => {
@@ -136,14 +145,18 @@ export default function SpoofTheSystem() {
     return () => window.clearTimeout(timer);
   }, [gameState, verdict, revealStep]);
 
-  const showPostRun = (result: any) => {
+  const showPostRun = (result: any, highScore = false) => {
     setFinalResult(result);
     setLifelineContext('gameover');
-    setGameState('lifeline');
+    setGameState(highScore ? 'highscore' : 'lifeline');
   };
 
   const endRun = (points: number, quitVoluntarily: boolean, finalAttempts: Attempt[]) => {
     const fooledCount = finalAttempts.filter((attempt) => attempt.fooled).length;
+    const completedPerfectly =
+      finalAttempts.length === 3 &&
+      finalAttempts.every((attempt) => attempt.fooled);
+    lastRunWasHighScoreRef.current = completedPerfectly;
     const payload: RunInput = {
       playerId: session?.player.id ?? '',
       game: 'spoof_the_system',
@@ -160,7 +173,10 @@ export default function SpoofTheSystem() {
     };
 
     if (!session) {
-      showPostRun({ pointsRecorded: points, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
+      showPostRun(
+        { pointsRecorded: points, isPersonalBest: false, standing: { rank: 0, behind: 0 } },
+        completedPerfectly,
+      );
       return;
     }
 
@@ -168,7 +184,7 @@ export default function SpoofTheSystem() {
     submitRun.mutate(
       { data: payload },
       {
-        onSuccess: showPostRun,
+        onSuccess: (result) => showPostRun(result, completedPerfectly),
         onError: () => setGameState('error'),
       },
     );
@@ -187,9 +203,9 @@ export default function SpoofTheSystem() {
     const gameOver = !verdict.fooled || level === 3;
     const timer = window.setTimeout(() => {
       if (!verdict.fooled) {
-        endRun(bankedPoints(level), false, finalAttempts);
+        endRun(pointsBeforeLevel(level), false, finalAttempts);
       } else if (level === 3) {
-        endRun(LEVEL_POINTS[3], false, finalAttempts);
+        endRun(LEVEL_TOTAL_POINTS[3], false, finalAttempts);
       } else {
         setGameState('decision');
       }
@@ -209,6 +225,7 @@ export default function SpoofTheSystem() {
     setErrorMsg(null);
     setFinalResult(null);
     lastPayloadRef.current = null;
+    lastRunWasHighScoreRef.current = false;
     setGameState('uploading');
   };
 
@@ -275,14 +292,14 @@ export default function SpoofTheSystem() {
     setGameState('uploading');
   };
 
-  const handleQuit = () => endRun(LEVEL_POINTS[level], true, attemptsData);
+  const handleQuit = () => endRun(pointsBankedAfter(level), true, attemptsData);
 
   const handleRetrySubmit = () => {
     if (!lastPayloadRef.current) return;
     submitRun.mutate(
       { data: lastPayloadRef.current },
       {
-        onSuccess: showPostRun,
+        onSuccess: (result) => showPostRun(result, lastRunWasHighScoreRef.current),
         onError: () => setGameState('error'),
       },
     );
@@ -299,6 +316,7 @@ export default function SpoofTheSystem() {
     setRevealStep(0);
     setFinalResult(null);
     lastPayloadRef.current = null;
+    lastRunWasHighScoreRef.current = false;
     fetchLifelineQuestion().then(setLifelineQuestion);
     setGameState('rules');
   };
@@ -309,7 +327,7 @@ export default function SpoofTheSystem() {
         <RulesScreen
           gameName="Spoof the System"
           premise="Upload a synthetic or AI face and try to fool Bureau's detectors. Each of the three levels gets stricter."
-          scoring="Up to 100 points. Clear level 1: 17 pts. Clear level 2: 50 pts total. Clear level 3: 100 pts total."
+          scoring="Up to 100 points. Clear level 1: 17 pts. Clear level 2: 33 pts. Clear level 3: 50 pts."
           endsWhen="If the detector catches your image, the run ends. Points from earlier levels remain banked."
           lifelines="Bank your score after level 1 or 2, or risk it against a stricter detector. Clearing level 2 or level 3 enters the Mystery prize draw."
           standing={standing}
@@ -338,6 +356,18 @@ export default function SpoofTheSystem() {
           </div>
         </ScreenBody>
       </Layout>
+    );
+  }
+
+  if (gameState === 'highscore') {
+    return (
+      <GameEndScreen
+        currentGame="spoof_the_system"
+        points={finalResult?.pointsRecorded ?? 100}
+        standing={finalResult?.standing}
+        isPersonalBest={finalResult?.isPersonalBest}
+        highScore
+      />
     );
   }
 
@@ -470,7 +500,7 @@ export default function SpoofTheSystem() {
                           {verdict.fooled ? 'Fooled' : 'Detected'}
                         </span>
                         <span className={cn('font-mono text-body-sm uppercase tracking-widest', verdict.fooled ? 'text-lime-300' : 'text-coral-600')}>
-                          {verdict.fooled ? `+${LEVEL_POINTS[level]} points` : 'No points awarded'}
+                          {verdict.fooled ? `+${LEVEL_CLEAR_POINTS[level]} points` : 'No points awarded'}
                         </span>
                       </>
                     ) : <span className="animate-pulse font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">Reviewing traces…</span>}
@@ -479,12 +509,16 @@ export default function SpoofTheSystem() {
                 <div className="min-h-0 flex-1 app-scroll bg-russian">
                   {[...verdict.signals].sort((left, right) => right.score - left.score).slice(0, 3).map((signal, index) => {
                     const visible = revealStep > index;
-                    const hit = signal.verdict === 'synthetic';
+                     const hit = signal.score > 0.5;
+                     const scoreLabel = hit ? 'Synthetic' : 'Real';
                     return (
                       <div key={signal.name} className={cn('border-b border-ink-800 px-4 py-3 transition-opacity duration-300', visible ? 'opacity-100' : 'opacity-0')}>
                         <div className="flex justify-between gap-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
-                          <span className={hit ? 'text-coral-600' : signal.verdict === 'authentic' ? 'text-lime-300' : 'text-[var(--text-on-dark-muted)]'}>{signal.name}</span>
-                          <span className={hit ? 'text-coral-600' : 'text-[var(--text-on-dark-faint)]'}>{(signal.score * 100).toFixed(0)}%</span>
+                           <span className={hit ? 'text-coral-600' : 'text-lime-300'}>{signal.name}</span>
+                           <span className={cn('flex shrink-0 items-center gap-2', hit ? 'text-coral-600' : 'text-lime-300')}>
+                             <span>{scoreLabel}</span>
+                             <span>{(signal.score * 100).toFixed(0)}%</span>
+                           </span>
                         </div>
                         {isRevealFinished && hit && SIGNAL_DESCRIPTIONS[signal.name] && <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">{SIGNAL_DESCRIPTIONS[signal.name]}</p>}
                       </div>
@@ -506,14 +540,16 @@ export default function SpoofTheSystem() {
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone="violet">Level {level} bypassed</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">{LEVEL_POINTS[level]} points banked.</h1>
-            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">Bank your score, or risk it against a stricter detector.</p>
+            <h1 className="mt-2 font-sans text-display-lg text-white">{pointsBankedAfter(level)} total points banked.</h1>
+            <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
+              Level {level} added {LEVEL_CLEAR_POINTS[level]} points. Bank your score, or risk it against a stricter detector.
+            </p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col justify-center py-4">
             <div className="flex flex-col gap-px border border-ink-800 bg-ink-800 p-px">
               {[100, 50, 17, 0].map((points) => {
-                const achieved = points > 0 && LEVEL_POINTS[level] >= points;
-                const target = points === LEVEL_POINTS[(level + 1) as GameLevel];
+                const achieved = points > 0 && pointsBankedAfter(level) >= points;
+                const target = points === LEVEL_TOTAL_POINTS[(level + 1) as GameLevel];
                 return (
                   <div key={points} className={cn('flex items-center justify-between px-4 py-3', achieved ? 'bg-violet-700 text-white' : target ? 'border-l-[3px] border-violet-700 bg-ink-900 text-white' : 'bg-russian text-[var(--text-on-dark-muted)]')}>
                     <span className="font-mono text-body-sm font-medium uppercase tracking-[0.03em]">{points === 0 ? 'Detected' : `${points} point level`}</span>
@@ -525,7 +561,7 @@ export default function SpoofTheSystem() {
           </div>
           <div className="mt-auto flex shrink-0 flex-col gap-3 py-4">
             <Button size="lg" chevron onClick={handleContinue} className="w-full" variant="light">Risk level {level + 1}</Button>
-            <Button size="lg" variant="outline" onClick={handleQuit} className="w-full">Take {LEVEL_POINTS[level]} pts</Button>
+            <Button size="lg" variant="outline" onClick={handleQuit} className="w-full">Take {pointsBankedAfter(level)} pts</Button>
           </div>
         </ScreenBody>
       )}

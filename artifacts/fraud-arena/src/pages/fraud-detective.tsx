@@ -76,6 +76,7 @@ export default function FraudDetective() {
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [solved, setSolved] = useState(false);
+  const advancingSolvedCaseRef = useRef(false);
 
   // Bonus round state
   const [bonusIndex, setBonusIndex] = useState(0);
@@ -281,6 +282,13 @@ export default function FraudDetective() {
   };
 
   const handleNextCase = () => {
+    // The countdown and the manual button share this handler. Once either one
+    // starts the transition, ignore the other trigger while React advances.
+    if (solved) {
+      if (advancingSolvedCaseRef.current) return;
+      advancingSolvedCaseRef.current = true;
+    }
+
     if (caseIndex + 1 < activeCases.length) {
       resetCaseTimer();
       setCaseIndex(i => i + 1);
@@ -305,6 +313,10 @@ export default function FraudDetective() {
       window.clearInterval(countdown);
     };
   }, [gameState, solved, caseIndex]);
+
+  useEffect(() => {
+    if (!solved) advancingSolvedCaseRef.current = false;
+  }, [solved]);
 
   const handleBonusTap = (ringDegree: number) => {
     if (bonusAnswers[bonusIndex] !== undefined) return; // already answered
@@ -724,9 +736,9 @@ export default function FraudDetective() {
                 Submit accusation
               </Button>
             ) : solved ? (
-              <div className="py-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-300">
-                Advancing to the next case…
-              </div>
+              <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
+                Next Round
+              </Button>
             ) : (
               <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
                 Next case

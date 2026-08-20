@@ -124,10 +124,10 @@ async function pollStatus(requestId: string, user: string, key: string): Promise
   throw new Error("Bureau detector timed out (30 s)");
 }
 
-function mapSignalVerdict(v: string): SignalVerdict {
-  if (v === "SYNTHETIC") return "synthetic";
-  if (v === "AUTHENTIC") return "authentic";
-  return "inconclusive";
+function signalVerdictFromScore(score: number): SignalVerdict {
+  // Scores above 50% are Synthetic. Treat the exact midpoint as Real so the
+  // UI never labels a tied result as synthetic.
+  return score > 0.5 ? "synthetic" : "authentic";
 }
 
 function bureauResultToVerdict(
@@ -139,19 +139,21 @@ function bureauResultToVerdict(
   // Base detector rows only — noise variants are internal calibration runs.
   const baseRows = result.detector_rows.filter((r) => !SUB_REGION_RE.test(r.name));
 
-  // fooled = detector classified a synthetic face as authentic
-  const fooled = result.overall_result === "Authentic";
-
   // confidence: average synthetic-probability across base detectors (0–1).
   // row.score is already "probability of being synthetic" in 0–100.
   const confidence =
     baseRows.length > 0
       ? round2(baseRows.reduce((sum, r) => sum + r.score, 0) / baseRows.length / 100)
-      : fooled ? 0.15 : 0.82;
+      : result.overall_result === "Authentic" ? 0.15 : 0.82;
+
+  // The arena has one clear boundary: above 50% is Synthetic; 50% or below
+  // is Real. The same rule drives the screen labels and whether a player
+  // fooled the detector.
+  const fooled = confidence <= 0.5;
 
   const signals: DetectorSignal[] = baseRows.map((r) => ({
     name: r.name,
-    verdict: mapSignalVerdict(r.verdict),
+    verdict: signalVerdictFromScore(round2(r.score / 100)),
     score: round2(r.score / 100),
   }));
 
@@ -179,9 +181,6 @@ async function runBureauDetector(
 // ── Fake fallback (dev / no credentials) ──────────────────────────────────
 
 const BEAT_RATE: Record<DetectorLevel, number> = { 1: 0.35, 2: 0.15, 3: 0.04 };
-const SYNTHETIC_THRESHOLD = 0.66;
-const AUTHENTIC_THRESHOLD = 0.4;
-
 const FAKE_SIGNAL_NAMES = [
   "Frequency-domain artefacts",
   "Noise-residual consistency",
@@ -213,9 +212,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 
 function fakeSignalVerdict(score: number): SignalVerdict {
-  if (score >= SYNTHETIC_THRESHOLD) return "synthetic";
-  if (score <= AUTHENTIC_THRESHOLD) return "authentic";
-  return "inconclusive";
+  return signalVerdictFromScore(score);
 }
 
 function heatmapFromHash(hash: string, level: number): HeatmapRegion[] {
