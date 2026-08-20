@@ -65,11 +65,20 @@ interface Props {
   standing?: { rank: number | null; total: number; playedAllThree?: boolean } | null;
   /** Whether this run is a personal best. */
   isPersonalBest?: boolean;
-  /** Callback to replay the current game. */
-  onPlayAgain: () => void;
+  /** Fully cleared runs use the high-score variant and do not offer replay. */
+  perfectRun?: boolean;
+  /** Callback to replay the current game, when replay is allowed. */
+  onPlayAgain?: () => void;
 }
 
-export function GameEndScreen({ currentGame, points, standing, isPersonalBest, onPlayAgain }: Props) {
+export function GameEndScreen({
+  currentGame,
+  points,
+  standing,
+  isPersonalBest,
+  perfectRun = false,
+  onPlayAgain,
+}: Props) {
   const [, setLocation] = useLocation();
   const { session, clearSession } = usePlayerSession();
 
@@ -94,7 +103,7 @@ export function GameEndScreen({ currentGame, points, standing, isPersonalBest, o
       {/* Result summary — white panel with corner-cluster dots for contrast relief. */}
       <div className="relative -mx-4 shrink-0 overflow-hidden bg-white px-4 pb-6 pt-6 text-center">
         <div aria-hidden className="bureau-dots-edge pointer-events-none absolute inset-0" />
-        <EyebrowTag tone="dark">Run Complete</EyebrowTag>
+        <EyebrowTag tone="dark">{perfectRun ? 'High Score Achieved' : 'Run Complete'}</EyebrowTag>
 
         <div className="mt-6 flex justify-center gap-8">
           <StatReadout value={points.toString()} caption="Points" tone="on-light" size="md" />
@@ -152,9 +161,11 @@ export function GameEndScreen({ currentGame, points, standing, isPersonalBest, o
 
       {/* Actions — pushed to the bottom of the flex column */}
       <div className="mt-auto flex shrink-0 flex-col gap-3 pt-5 pb-4">
-        <Button variant="light" size="lg" chevron onClick={onPlayAgain} className="w-full">
-          Play again
-        </Button>
+        {onPlayAgain && (
+          <Button variant="light" size="lg" chevron onClick={onPlayAgain} className="w-full">
+            Play again
+          </Button>
+        )}
         <Button variant="outline" size="lg" onClick={handleExitArena} className="w-full">
           Exit Arena
         </Button>

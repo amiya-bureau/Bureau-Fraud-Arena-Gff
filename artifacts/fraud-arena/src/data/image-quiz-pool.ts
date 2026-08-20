@@ -49,7 +49,10 @@ function takeRandom<T>(pool: readonly T[], count: number, label: string): T[] {
  * A two-select round draws two spoofed/AI images and two real images.
  * Adding a file to either asset folder automatically expands its pool.
  */
-export function drawImageQuizOptions(selectCount: number): ImageQuizOption[] {
+export function drawImageQuizOptions(
+  selectCount: number,
+  excludedImageIds: ReadonlySet<string> = new Set(),
+): ImageQuizOption[] {
   const totalChoices = 4;
   const realCount = totalChoices - selectCount;
 
@@ -57,9 +60,12 @@ export function drawImageQuizOptions(selectCount: number): ImageQuizOption[] {
     throw new Error("Image quiz rounds must select between one and three images.");
   }
 
+  const availableFakeImages = FAKE_IMAGE_POOL.filter((image) => !excludedImageIds.has(image.id));
+  const availableRealImages = REAL_IMAGE_POOL.filter((image) => !excludedImageIds.has(image.id));
+
   return shuffle([
-    ...takeRandom(FAKE_IMAGE_POOL, selectCount, "Fake"),
-    ...takeRandom(REAL_IMAGE_POOL, realCount, "Real"),
+    ...takeRandom(availableFakeImages, selectCount, "Fake"),
+    ...takeRandom(availableRealImages, realCount, "Real"),
   ]).map((image, index) => ({
     ...image,
     label: `Image ${index + 1}`,

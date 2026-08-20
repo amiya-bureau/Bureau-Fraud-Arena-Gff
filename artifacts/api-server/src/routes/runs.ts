@@ -23,7 +23,7 @@ import { computeStanding } from "../lib/standing";
 const router: IRouter = Router();
 
 /** Fail attempt 1, beat L1, beat L2, beat L3 — plus an abandoned run. */
-const SPOOF_LADDER = new Set([0, 15, 40, 60, 75]);
+const SPOOF_LADDER = new Set([0, 17, 50, 100]);
 
 router.post("/runs", async (req, res): Promise<void> => {
   const parsed = SubmitRunBody.safeParse(req.body);
@@ -45,7 +45,7 @@ router.post("/runs", async (req, res): Promise<void> => {
   // Spoof the System is a fixed ladder, so anything off a rung is a tampered
   // or buggy client rather than a real run. Check what was *submitted*, not
   // the clamped value: clamping first would quietly promote a bogus 100 to the
-  // top rung of 75, which is the one direction we must never round towards.
+  // top rung of 100, which is the one direction we must never round towards.
   // The other two games accumulate per-question points, so their space of
   // valid totals is genuinely wide and the cap is the only server-side check.
   if (game === "spoof_the_system" && !SPOOF_LADDER.has(Math.floor(points))) {

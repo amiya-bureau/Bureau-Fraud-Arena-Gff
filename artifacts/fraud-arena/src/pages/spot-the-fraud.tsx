@@ -15,7 +15,8 @@ import { cn } from '@/lib/utils';
 import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { StatReadout } from '@/components/bureau/stat-readout';
 import { IconTile } from '@/components/bureau/icon-tile';
-import { getAiQuizImage } from '@/data/ai-quiz-images';
+import { GameEndScreen } from '@/components/game-end-screen';
+import { drawImageQuizOptions, type ImageQuizOption } from '@/data/image-quiz-pool';
 import { isDevTestMode } from '@/lib/dev-test-mode';
 
 
@@ -23,9 +24,10 @@ import { isDevTestMode } from '@/lib/dev-test-mode';
 interface ShuffledOption {
   text: string;
   originalIndex: number;
+  image?: ImageQuizOption;
 }
 
-type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'error';
+type GameState = 'rules' | 'playing' | 'explain' | 'complete' | 'lifeline' | 'error';
 
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
@@ -37,6 +39,7 @@ export default function SpotTheFraud() {
 
   const [gameState, setGameState] = useState<GameState>('rules');
   const [levelIndex, setLevelIndex] = useState(0);
+  const usedImageIdsRef = useRef(new Set<string>());
   
   // Game session identifiers
   const runIdRef = useRef<string>('');
@@ -88,7 +91,12 @@ export default function SpotTheFraud() {
       const q = questionPool[Math.floor(Math.random() * questionPool.length)];
       setCurrentQuestion(q);
       
-      const options = q.options.map((text, i) => ({ text, originalIndex: i + 1 }));
+      const options = q.kind === 'image'
+        ? drawImageQuizOptions(q.selectN, usedImageIdsRef.current).map((image, i) => {
+            usedImageIdsRef.current.add(image.id);
+            return { text: q.options[i] ?? image.label, originalIndex: i + 1, image };
+          })
+        : q.options.map((text, i) => ({ text, originalIndex: i + 1 }));
       // Shuffle options safely
       for (let i = options.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -190,6 +198,7 @@ export default function SpotTheFraud() {
     // Resolve the reviewed v5 pack before showing a level in that case.
     const pack = gamePack ?? await fetchQuizGamePack();
     setGamePack(pack);
+    usedImageIdsRef.current.clear();
     setGameState('playing');
   };
 
@@ -232,7 +241,11 @@ export default function SpotTheFraud() {
   const handleSubmit = () => {
     if (!currentQuestion) return;
     
-    const correctAnswers = currentQuestion.correct;
+    const correctAnswers = currentQuestion.kind === 'image'
+      ? shuffledOptions
+          .filter((option) => option.image?.isSpoofed)
+          .map((option) => option.originalIndex)
+      : currentQuestion.correct;
     let correctCount = 0;
     selectedIndices.forEach(idx => {
       if (correctAnswers.includes(idx)) correctCount++;
@@ -284,6 +297,7 @@ export default function SpotTheFraud() {
   const reentryChecked = useRef(false);
 
   const endRun = () => {
+    const perfectRun = cleared.length === LEVELS.length;
     if (session) {
       let tier = "Participation";
       if (cleared.includes(10)) tier = "Master";
@@ -310,8 +324,12 @@ export default function SpotTheFraud() {
       submitRun.mutate({ data: payload }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setLifelineContext('gameover');
-          setGameState('lifeline');
+          if (perfectRun) {
+            setGameState('complete');
+          } else {
+            setLifelineContext('gameover');
+            setGameState('lifeline');
+          }
         },
         onError: () => {
           setGameState('error');
@@ -319,8 +337,12 @@ export default function SpotTheFraud() {
       });
     } else {
       setFinalResult({ pointsRecorded: score, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
-      setLifelineContext('gameover');
-      setGameState('lifeline');
+      if (perfectRun) {
+        setGameState('complete');
+      } else {
+        setLifelineContext('gameover');
+        setGameState('lifeline');
+      }
     }
   };
 
@@ -492,6 +514,18 @@ export default function SpotTheFraud() {
     );
   }
 
+  if (gameState === 'complete') {
+    return (
+      <GameEndScreen
+        currentGame="spot_the_fraud"
+        points={finalResult?.pointsRecorded ?? score}
+        standing={finalResult?.standing}
+        isPersonalBest={finalResult?.isPersonalBest}
+        perfectRun={true}
+      />
+    );
+  }
+
   if (gameState === 'lifeline') {
     if (!lifelineQuestion) return null;
     return (
@@ -613,8 +647,12 @@ export default function SpotTheFraud() {
             )}>
               {shuffledOptions.map((opt, i) => {
                 const isSelected = selectedIndices.includes(opt.originalIndex);
-                const isDevCorrect = devTestMode && currentQuestion.correct.includes(opt.originalIndex);
-                const quizImage = currentQuestion.kind === 'image' ? getAiQuizImage(opt.originalIndex) : null;
+                const isDevCorrect = devTestMode && (
+                  currentQuestion.kind === 'image'
+                    ? opt.image?.isSpoofed
+                    : currentQuestion.correct.includes(opt.originalIndex)
+                );
+                const quizImage = opt.image;
                 return (
                   <button
                     key={i}
@@ -636,7 +674,7 @@ export default function SpotTheFraud() {
                       <>
                         <img
                           src={quizImage!.src}
-                            alt={`Quiz ${quizImage!.label} placeholder`}
+                          alt={`Quiz ${quizImage!.label}`}
                           className={cn(
                             "absolute inset-0 size-full object-cover transition-opacity duration-[var(--dur-base)]",
                             isSelected && "opacity-60"
