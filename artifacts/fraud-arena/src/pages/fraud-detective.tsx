@@ -20,6 +20,7 @@ import {
   ScanFrame,
   StatReadout,
 } from '@/components/bureau';
+import { isDevTestMode } from '@/lib/dev-test-mode';
 
 type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'error';
 const CASE_TIMER_SECONDS = 45;
@@ -34,6 +35,7 @@ function seededRandom(s: number) {
 export default function FraudDetective() {
   const { session } = usePlayerSession();
   const [, setLocation] = useLocation();
+  const devTestMode = isDevTestMode();
   const { data: standing } = useGetPlayerStanding(session?.player.id || '', 'today');
   const submitRun = useSubmitRun();
   const saveProgress = useSaveRunProgress();
@@ -415,6 +417,7 @@ export default function FraudDetective() {
 
   if (gameState === 'case' && currentCase) {
     const isFinished = solved || revealed;
+    const showAnswerHints = isFinished || devTestMode;
     const visibleCaseTitle = isFinished ? currentCase.title : `Case ${currentCase.order}`;
 
     return (
@@ -436,6 +439,11 @@ export default function FraudDetective() {
 
            {/* Case timer — resets for each investigation and fails the case at zero. */}
            <div className="shrink-0 mb-2">
+             {devTestMode && (
+               <span className="mb-1 block font-mono text-[10px] font-medium uppercase tracking-[0.03em] text-lime-300">
+                 Dev test mode · correct nodes highlighted
+               </span>
+             )}
              <div className="mb-1 flex items-center justify-between">
                <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                  Case timer
@@ -503,7 +511,7 @@ export default function FraudDetective() {
 
                       {/* Edges */}
                       {graphEdges.map((e, i) => {
-                        const isAnswerEdge = isFinished && (currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id));
+                        const isAnswerEdge = showAnswerHints && (currentCase.answer.includes(e.source.id) || currentCase.answer.includes(e.target.id));
                         // Shorten endpoints so arrowheads don't disappear behind node boxes (48 px centred on x,y)
                         const dx = e.target.x - e.source.x;
                         const dy = e.target.y - e.source.y;
@@ -555,16 +563,17 @@ export default function FraudDetective() {
                       {/* Nodes */}
                       {graphNodes.map((n, i) => {
                         const isSelected = selectedNode === n.id;
-                        const isAnswerNode = isFinished && currentCase.answer.includes(n.id);
+                        const isAnswerNode = showAnswerHints && currentCase.answer.includes(n.id);
 
                         return (
                           <g 
                             key={n.id} 
                             transform={`translate(${n.x},${n.y})`}
                             onClick={() => !isFinished && setSelectedNode(n.id)}
+                            data-dev-correct={(devTestMode && isAnswerNode) || undefined}
                             className={cn(
                               "cursor-pointer transition-opacity duration-[var(--dur-base)] ease-[var(--ease-standard)]",
-                              isFinished && !isAnswerNode ? "opacity-30" : "opacity-100"
+                               isFinished && !isAnswerNode ? "opacity-30" : "opacity-100"
                             )}
                           >
                             <foreignObject x={-60} y={-60} width={120} height={120} className="overflow-visible">
@@ -904,6 +913,11 @@ export default function FraudDetective() {
           <div className="shrink-0 mb-4 space-y-1">
             <h2 className="font-sans text-display-lg font-normal text-white leading-tight">{BONUS.title}</h2>
             <p className="text-body-sm text-[var(--text-on-dark-muted)] leading-snug">{BONUS.brief}</p>
+            {devTestMode && (
+              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.03em] text-lime-300">
+                Dev test mode · correct ring highlighted
+              </span>
+            )}
           </div>
 
           <div className="relative flex min-h-[360px] flex-1 items-center justify-center border border-ink-800 bg-ink-900 overflow-hidden shrink-0">
@@ -933,7 +947,7 @@ export default function FraudDetective() {
                 const size = 70 + (degree * 70);
                 const isSelected = answeredRing === degree;
                 const isCorrect = q.answer === degree;
-                const showResult = answeredRing !== undefined;
+                const showResult = answeredRing !== undefined || devTestMode;
 
                 const borderColor = !showResult 
                   ? 'var(--ink-700)' 
@@ -952,8 +966,9 @@ export default function FraudDetective() {
                       height: `${size}px`,
                       border: `1px solid ${borderColor}`,
                     }}
+                    data-dev-correct={(devTestMode && isCorrect) || undefined}
                     onClick={() => handleBonusTap(degree)}
-                    disabled={showResult}
+                    disabled={answeredRing !== undefined}
                   >
                     {!showResult && (
                       <div className="absolute -top-[9px] bg-ink-900 px-1 font-mono text-eyebrow-micro leading-none uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] group-hover:text-violet-500 transition-colors">

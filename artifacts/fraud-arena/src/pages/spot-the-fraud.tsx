@@ -16,6 +16,7 @@ import { EyebrowTag } from '@/components/bureau/eyebrow-tag';
 import { StatReadout } from '@/components/bureau/stat-readout';
 import { IconTile } from '@/components/bureau/icon-tile';
 import { getAiQuizImage } from '@/data/ai-quiz-images';
+import { isDevTestMode } from '@/lib/dev-test-mode';
 
 
 // We shuffle options but keep track of their original 1-based index
@@ -29,6 +30,7 @@ type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'error';
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
   const [, setLocation] = useLocation();
+  const devTestMode = isDevTestMode();
   const { data: standing } = useGetPlayerStanding(session?.player.id || '', 'today');
   const submitRun = useSubmitRun();
   const saveProgress = useSaveRunProgress();
@@ -611,17 +613,21 @@ export default function SpotTheFraud() {
             )}>
               {shuffledOptions.map((opt, i) => {
                 const isSelected = selectedIndices.includes(opt.originalIndex);
+                const isDevCorrect = devTestMode && currentQuestion.correct.includes(opt.originalIndex);
                 const quizImage = currentQuestion.kind === 'image' ? getAiQuizImage(opt.originalIndex) : null;
                 return (
                   <button
                     key={i}
                     onClick={() => toggleOption(opt.originalIndex)}
+                    data-dev-correct={isDevCorrect || undefined}
                     className={cn(
                       "tap group relative shrink-0 overflow-hidden border text-left transition-colors duration-[var(--dur-base)]",
                       currentQuestion.kind === 'image'
                         ? "h-full min-h-0 w-full"
                         : "flex w-full items-center gap-3 px-4 py-3.5",
-                      isSelected
+                      isDevCorrect
+                        ? "border-lime-300 bg-[rgba(190,242,100,0.10)] hover:border-lime-300"
+                        : isSelected
                         ? "border-violet-700 bg-[rgba(71,21,255,0.08)]"
                         : "border-ink-800 bg-ink-900 hover:border-violet-700"
                     )}
@@ -630,7 +636,7 @@ export default function SpotTheFraud() {
                       <>
                         <img
                           src={quizImage!.src}
-                          alt={`Quiz ${quizImage!.label} placeholder`}
+                            alt={`Quiz ${quizImage!.label} placeholder`}
                           className={cn(
                             "absolute inset-0 size-full object-cover transition-opacity duration-[var(--dur-base)]",
                             isSelected && "opacity-60"
@@ -656,6 +662,14 @@ export default function SpotTheFraud() {
                           {opt.text}
                         </span>
                       </>
+                    )}
+                    {isDevCorrect && (
+                      <span className={cn(
+                        "pointer-events-none absolute z-10 bg-lime-300 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.03em] text-ink-950",
+                        currentQuestion.kind === 'image' ? "left-2 top-2" : "right-8 top-2"
+                      )}>
+                        Dev correct
+                      </span>
                     )}
                     <div className={cn(
                       "shrink-0",
