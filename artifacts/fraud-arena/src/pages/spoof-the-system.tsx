@@ -481,6 +481,7 @@ export default function SpoofTheSystem() {
                     className="absolute inset-0 size-full object-contain p-3 opacity-90 saturate-[0.75]"
                   />
                 )}
+                <div aria-hidden="true" className="absolute inset-0 bg-ink-950/45" />
                 <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/10 to-ink-950/25" />
                 <div className="relative z-10 flex flex-col items-center gap-4 border border-cyan-500/40 bg-ink-950/75 px-5 py-4 text-center shadow-[0_0_28px_rgba(34,211,238,0.12)]">
                   <LiveDot label="Analysis active" />
@@ -505,7 +506,7 @@ export default function SpoofTheSystem() {
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone={revealTone}>Analysis complete</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Detector verdict</h1>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
             <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone}>
@@ -515,6 +516,7 @@ export default function SpoofTheSystem() {
                   {isRevealFinished && !verdict.fooled && verdict.heatmapRegions.map((region, index) => (
                     <div key={index} className="absolute border border-coral-600" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%`, backgroundColor: `rgba(253,118,58,${region.intensity * .35})` }} />
                   ))}
+                   <div aria-hidden="true" className="absolute inset-0 bg-ink-950/35" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-t from-ink-900/80 to-transparent">
                     {isRevealFinished ? (
                       <>
