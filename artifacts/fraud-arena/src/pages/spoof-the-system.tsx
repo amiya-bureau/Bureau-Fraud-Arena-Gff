@@ -94,6 +94,7 @@ export default function SpoofTheSystem() {
 
   const runIdRef = useRef('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signalsScrollRef = useRef<HTMLDivElement>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
   const lastRunWasHighScoreRef = useRef(false);
   const revealTransitionRef = useRef(false);
@@ -226,6 +227,17 @@ export default function SpoofTheSystem() {
       window.clearInterval(countdown);
     };
   }, [gameState, verdict, revealStep]);
+
+  useEffect(() => {
+    if (gameState !== 'reveal' || !signalsScrollRef.current) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const log = signalsScrollRef.current;
+      if (log) log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [gameState, revealStep]);
 
   const startGame = () => {
     // A submitted run keeps its idempotency key so a network retry cannot
@@ -509,7 +521,7 @@ export default function SpoofTheSystem() {
             <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone}>
+            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone} className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
                 <div className="relative h-[45%] min-h-[150px] shrink-0 overflow-hidden border-b border-ink-800">
                   {imagePreview && <img src={imagePreview} alt="Analyzed upload" className={cn('size-full object-cover transition-[filter,opacity] duration-500', isRevealFinished ? (verdict.fooled ? 'opacity-80' : 'opacity-50 grayscale') : 'opacity-30 grayscale')} />}
@@ -530,7 +542,7 @@ export default function SpoofTheSystem() {
                     ) : <span className="animate-pulse font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">Reviewing traces…</span>}
                   </div>
                 </div>
-                <div className="min-h-0 flex-1 app-scroll bg-russian">
+                <div ref={signalsScrollRef} className="min-h-0 flex-1 overflow-y-auto app-scroll bg-russian">
                   {[...verdict.signals].sort((left, right) => right.score - left.score).slice(0, 3).map((signal, index) => {
                     const visible = revealStep > index;
                      const hit = signal.score > 0.5;
