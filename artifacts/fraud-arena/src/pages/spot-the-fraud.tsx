@@ -667,9 +667,9 @@ export default function SpotTheFraud() {
                       <>
                         <img
                           src={quizImage!.src}
-                            alt={`${quizImage!.label} visual quiz card`}
+                          alt={`${quizImage!.label} visual quiz card`}
                           className={cn(
-                            "absolute inset-0 size-full object-cover transition-opacity duration-[var(--dur-base)]",
+                            "absolute inset-0 size-full bg-ink-950 object-contain px-2 pt-2 pb-10 transition-opacity duration-[var(--dur-base)] sm:px-3 sm:pt-3",
                             isSelected && "opacity-60"
                           )}
                         />
