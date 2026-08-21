@@ -87,6 +87,7 @@ export default function SpoofTheSystem() {
   const [detectMsgIndex, setDetectMsgIndex] = useState(0);
   const [detectProgress, setDetectProgress] = useState(0);
   const [revealStep, setRevealStep] = useState(0);
+  const [revealCountdown, setRevealCountdown] = useState(5);
   const [finalResult, setFinalResult] = useState<any>(null);
   const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
   const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
@@ -95,6 +96,7 @@ export default function SpoofTheSystem() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
   const lastRunWasHighScoreRef = useRef(false);
+  const revealTransitionRef = useRef(false);
   const reentryChecked = useRef(false);
 
   useEffect(() => {
@@ -190,8 +192,9 @@ export default function SpoofTheSystem() {
     );
   };
 
-  useEffect(() => {
-    if (gameState !== 'reveal' || !verdict || revealStep <= verdict.signals.length) return;
+  function advanceAfterReveal() {
+    if (!verdict || revealTransitionRef.current) return;
+    revealTransitionRef.current = true;
 
     const recorded = attemptsData.some((attempt) => attempt.level === level);
     const finalAttempts = recorded
@@ -200,19 +203,29 @@ export default function SpoofTheSystem() {
 
     if (!recorded) setAttemptsData(finalAttempts);
 
-    const gameOver = !verdict.fooled || level === 3;
-    const timer = window.setTimeout(() => {
-      if (!verdict.fooled) {
-        endRun(pointsBeforeLevel(level), false, finalAttempts);
-      } else if (level === 3) {
-        endRun(LEVEL_TOTAL_POINTS[3], false, finalAttempts);
-      } else {
-        setGameState('decision');
-      }
-    }, gameOver ? 10_000 : 3_000);
+    if (!verdict.fooled) {
+      endRun(pointsBeforeLevel(level), false, finalAttempts);
+    } else if (level === 3) {
+      endRun(LEVEL_TOTAL_POINTS[3], false, finalAttempts);
+    } else {
+      setGameState('decision');
+    }
+  }
 
-    return () => window.clearTimeout(timer);
-  }, [gameState, verdict, revealStep, attemptsData, level]);
+  useEffect(() => {
+    if (gameState !== 'reveal' || !verdict || revealStep <= verdict.signals.length) return;
+
+    setRevealCountdown(5);
+    const timer = window.setTimeout(advanceAfterReveal, 5_000);
+    const countdown = window.setInterval(() => {
+      setRevealCountdown((seconds) => Math.max(0, seconds - 1));
+    }, 1_000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(countdown);
+    };
+  }, [gameState, verdict, revealStep]);
 
   const startGame = () => {
     // A submitted run keeps its idempotency key so a network retry cannot
@@ -256,6 +269,8 @@ export default function SpoofTheSystem() {
       setImagePreview(dataUrl);
       setVerdict(null);
       setRevealStep(0);
+       setRevealCountdown(5);
+       revealTransitionRef.current = false;
       setGameState('detecting');
       detectSpoof.mutate(
         {
@@ -503,8 +518,8 @@ export default function SpoofTheSystem() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-t from-ink-900/80 to-transparent">
                     {isRevealFinished ? (
                       <>
-                        <span className={cn('border px-5 py-2 font-mono text-display-sm font-medium uppercase tracking-[0.05em]', verdict.fooled ? 'border-lime-300 bg-russian/80 text-lime-300' : 'border-coral-600 bg-russian/80 text-coral-600')}>
-                          {verdict.fooled ? 'Fooled' : 'Detected'}
+                         <span className={cn('border px-5 py-2 font-mono text-display-sm font-medium uppercase tracking-[0.05em]', verdict.fooled ? 'border-lime-300 bg-russian/80 text-lime-300' : 'border-coral-600 bg-russian/80 text-coral-600')}>
+                           {verdict.fooled ? 'Real Image' : 'Fake Image'}
                         </span>
                         <span className={cn('font-mono text-body-sm uppercase tracking-widest', verdict.fooled ? 'text-lime-300' : 'text-coral-600')}>
                           {verdict.fooled ? `+${LEVEL_CLEAR_POINTS[level]} points` : 'No points awarded'}
@@ -535,10 +550,18 @@ export default function SpoofTheSystem() {
               </div>
             </ScanFrame>
           </div>
-          <div className="mt-auto shrink-0 py-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
+          <div className="mt-auto shrink-0 space-y-2 py-3 text-center font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
             <span className={isRevealFinished ? (verdict.fooled ? 'text-lime-300' : 'text-coral-600') : 'animate-pulse text-[var(--text-on-dark-muted)]'}>
-              {isRevealFinished ? (verdict.fooled ? `Level ${level} bypassed — points banked` : 'Image identified as synthetic — run ends') : 'Reviewing traces…'}
+              {isRevealFinished ? (verdict.fooled ? `Real Image · +${LEVEL_CLEAR_POINTS[level]} points` : 'Fake Image · run ends') : 'Reviewing traces…'}
             </span>
+            {isRevealFinished && (
+              <>
+                <p className="text-[var(--text-on-dark-muted)]">Auto continuing in {revealCountdown}s</p>
+                <Button size="lg" variant="light" chevron onClick={advanceAfterReveal} className="w-full">
+                  Continue
+                </Button>
+              </>
+            )}
           </div>
         </ScreenBody>
       )}
