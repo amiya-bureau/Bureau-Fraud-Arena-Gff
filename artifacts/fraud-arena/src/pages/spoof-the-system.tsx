@@ -49,13 +49,37 @@ const DETECTING_MESSAGES = [
   'Cross-referencing detector ensemble…',
 ];
 
-const SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  'Frequency-domain artefacts': 'High-frequency noise patterns inconsistent with natural capture.',
-  'Noise-residual consistency': 'The noise residual is too uniform to be camera output.',
-  'Facial-landmark geometry': 'Micro-asymmetries in specular reflections were detected.',
-  'Compression-history analysis': 'Expected camera compression traces are missing.',
-  'Colour-channel correlation': 'Chroma correlations diverge at high-contrast edges.',
+const DETECTOR_PASS_NAMES = [
+  'Spectral frequency analyzer',
+  'Noise residual analyzer',
+  'Entropy compression analyzer',
+  'Facial geometry analyzer',
+  'Colour channel analyzer',
+  'Texture coherence analyzer',
+  'Lighting reflection analyzer',
+  'Edge interpolation analyzer',
+  'Metadata consistency analyzer',
+  'Ensemble consensus analyzer',
+] as const;
+
+type DetectorPass = {
+  name: string;
+  score: number;
 };
+
+function buildDetectorFeed(verdict: DetectorVerdict): DetectorPass[] {
+  const sourceSignals = [...verdict.signals].sort((left, right) => right.score - left.score);
+
+  return DETECTOR_PASS_NAMES.map((name, index) => {
+    const sourceScore = sourceSignals[index % sourceSignals.length]?.score ?? verdict.confidence;
+    const adjustment = ((index % 5) - 2) * 0.025;
+
+    return {
+      name,
+      score: Math.min(1, Math.max(0, sourceScore + adjustment)),
+    };
+  });
+}
 
 function pointsBeforeLevel(level: GameLevel) {
   return level === 1 ? 0 : level === 2 ? 17 : 50;
@@ -94,11 +118,11 @@ export default function SpoofTheSystem() {
 
   const runIdRef = useRef('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const signalsScrollRef = useRef<HTMLDivElement>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
   const lastRunWasHighScoreRef = useRef(false);
   const revealTransitionRef = useRef(false);
   const reentryChecked = useRef(false);
+  const detectorFeed = verdict ? buildDetectorFeed(verdict) : [];
 
   useEffect(() => {
     if (!runIdRef.current) runIdRef.current = uuidv4();
@@ -143,10 +167,10 @@ export default function SpoofTheSystem() {
   }, [gameState]);
 
   useEffect(() => {
-    if (gameState !== 'reveal' || !verdict || revealStep > verdict.signals.length) return;
+    if (gameState !== 'reveal' || !verdict || revealStep > detectorFeed.length) return;
     const timer = window.setTimeout(() => setRevealStep((step) => step + 1), 600);
     return () => window.clearTimeout(timer);
-  }, [gameState, verdict, revealStep]);
+  }, [gameState, verdict, revealStep, detectorFeed.length]);
 
   const showPostRun = (result: any, highScore = false) => {
     setFinalResult(result);
@@ -214,7 +238,7 @@ export default function SpoofTheSystem() {
   }
 
   useEffect(() => {
-    if (gameState !== 'reveal' || !verdict || revealStep <= verdict.signals.length) return;
+    if (gameState !== 'reveal' || !verdict || revealStep <= detectorFeed.length) return;
 
     setRevealCountdown(5);
     const timer = window.setTimeout(advanceAfterReveal, 5_000);
@@ -226,18 +250,7 @@ export default function SpoofTheSystem() {
       window.clearTimeout(timer);
       window.clearInterval(countdown);
     };
-  }, [gameState, verdict, revealStep]);
-
-  useEffect(() => {
-    if (gameState !== 'reveal' || !signalsScrollRef.current) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      const log = signalsScrollRef.current;
-      if (log) log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [gameState, revealStep]);
+  }, [gameState, verdict, revealStep, detectorFeed.length]);
 
   const startGame = () => {
     // A submitted run keeps its idempotency key so a network retry cannot
@@ -427,8 +440,10 @@ export default function SpoofTheSystem() {
     );
   }
 
-  const isRevealFinished = gameState === 'reveal' && verdict && revealStep > verdict.signals.length;
+  const isRevealFinished = gameState === 'reveal' && verdict && revealStep > detectorFeed.length;
   const revealTone = isRevealFinished ? (verdict?.fooled ? 'violet' : 'coral') : 'cyan';
+  const revealedDetectorCount = Math.min(revealStep, detectorFeed.length);
+  const detectorFeedOffset = Math.max(0, revealedDetectorCount - 2) * 44;
 
   return (
     <Layout
@@ -493,8 +508,8 @@ export default function SpoofTheSystem() {
                     className="absolute inset-0 size-full object-contain p-3 opacity-90 saturate-[0.75]"
                   />
                 )}
-                <div aria-hidden="true" className="absolute inset-0 bg-ink-950/60" />
-                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/25 to-ink-950/45" />
+                <div aria-hidden="true" className="absolute inset-0 bg-ink-950/75" />
+                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/40 to-ink-950/60" />
                 <div className="relative z-10 flex flex-col items-center gap-4 border border-cyan-500/40 bg-ink-950/75 px-5 py-4 text-center shadow-[0_0_28px_rgba(34,211,238,0.12)]">
                   <LiveDot label="Analysis active" />
                   <p key={detectMsgIndex} className="font-mono text-body-sm font-medium text-center text-cyan-400">{DETECTING_MESSAGES[detectMsgIndex]}</p>
@@ -521,7 +536,7 @@ export default function SpoofTheSystem() {
             <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone} className="flex min-h-0 flex-1 flex-col">
+            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone}>
               <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
                 <div className="relative h-[45%] min-h-[150px] shrink-0 overflow-hidden border-b border-ink-800">
                   {imagePreview && <img src={imagePreview} alt="Analyzed upload" className={cn('size-full object-cover transition-[filter,opacity] duration-500', isRevealFinished ? (verdict.fooled ? 'opacity-80' : 'opacity-50 grayscale') : 'opacity-30 grayscale')} />}
@@ -542,24 +557,25 @@ export default function SpoofTheSystem() {
                     ) : <span className="animate-pulse font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-cyan-500">Reviewing traces…</span>}
                   </div>
                 </div>
-                <div ref={signalsScrollRef} className="min-h-0 flex-1 overflow-y-auto app-scroll bg-russian">
-                  {[...verdict.signals].sort((left, right) => right.score - left.score).slice(0, 3).map((signal, index) => {
-                    const visible = revealStep > index;
-                     const hit = signal.score > 0.5;
-                     const scoreLabel = hit ? 'Synthetic' : 'Real';
-                    return (
-                      <div key={signal.name} className={cn('border-b border-ink-800 px-4 py-3 transition-opacity duration-300', visible ? 'opacity-100' : 'opacity-0')}>
-                        <div className="flex justify-between gap-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
-                           <span className={hit ? 'text-coral-600' : 'text-lime-300'}>{signal.name}</span>
-                           <span className={cn('flex shrink-0 items-center gap-2', hit ? 'text-coral-600' : 'text-lime-300')}>
-                             <span>{scoreLabel}</span>
-                             <span>{(signal.score * 100).toFixed(0)}%</span>
-                           </span>
+                <div className="h-[5.5rem] shrink-0 overflow-hidden bg-russian">
+                  <div
+                    className="transition-transform duration-500 ease-out"
+                    style={{ transform: `translateY(-${detectorFeedOffset}px)` }}
+                  >
+                    {detectorFeed.slice(0, revealedDetectorCount).map((pass, index) => {
+                      const synthetic = pass.score > 0.5;
+                      const scoreLabel = synthetic ? 'Synthetic' : 'Real';
+                      return (
+                        <div key={`${pass.name}-${index}`} className="flex h-11 items-center justify-between gap-3 border-b border-ink-800 px-4 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
+                          <span className={cn('truncate', synthetic ? 'text-coral-600' : 'text-lime-300')}>{pass.name}</span>
+                          <span className={cn('flex shrink-0 items-center gap-2', synthetic ? 'text-coral-600' : 'text-lime-300')}>
+                            <span>{scoreLabel}</span>
+                            <span>{(pass.score * 100).toFixed(0)}%</span>
+                          </span>
                         </div>
-                        {isRevealFinished && hit && SIGNAL_DESCRIPTIONS[signal.name] && <p className="mt-1.5 text-body-sm leading-snug text-[var(--text-on-dark-muted)]">{SIGNAL_DESCRIPTIONS[signal.name]}</p>}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </ScanFrame>
