@@ -481,8 +481,8 @@ export default function SpoofTheSystem() {
                     className="absolute inset-0 size-full object-contain p-3 opacity-90 saturate-[0.75]"
                   />
                 )}
-                <div aria-hidden="true" className="absolute inset-0 bg-ink-950/45" />
-                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/10 to-ink-950/25" />
+                <div aria-hidden="true" className="absolute inset-0 bg-ink-950/60" />
+                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/25 to-ink-950/45" />
                 <div className="relative z-10 flex flex-col items-center gap-4 border border-cyan-500/40 bg-ink-950/75 px-5 py-4 text-center shadow-[0_0_28px_rgba(34,211,238,0.12)]">
                   <LiveDot label="Analysis active" />
                   <p key={detectMsgIndex} className="font-mono text-body-sm font-medium text-center text-cyan-400">{DETECTING_MESSAGES[detectMsgIndex]}</p>
