@@ -457,10 +457,17 @@ export default function SpoofTheSystem() {
             <h1 className="mt-2 font-sans text-display-lg text-white">Scanning payload</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id={`ANALYSIS-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone="cyan">
-              <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-ink-900">
-                {imagePreview && <img src={imagePreview} alt="Uploaded image being scanned" className="absolute inset-0 size-full object-cover opacity-20 grayscale" />}
-                <div className="relative z-10 flex flex-col items-center gap-4 px-6">
+            <ScanFrame id={`ANALYSIS-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone="cyan" className="flex min-h-[18rem] flex-1 flex-col">
+              <div className="relative flex min-h-[18rem] flex-1 items-center justify-center overflow-hidden bg-ink-950">
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Uploaded image being scanned"
+                    className="absolute inset-0 size-full object-contain p-3 opacity-90 saturate-[0.75]"
+                  />
+                )}
+                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/10 to-ink-950/25" />
+                <div className="relative z-10 flex flex-col items-center gap-4 border border-cyan-500/40 bg-ink-950/75 px-5 py-4 text-center shadow-[0_0_28px_rgba(34,211,238,0.12)]">
                   <LiveDot label="Analysis active" />
                   <p key={detectMsgIndex} className="font-mono text-body-sm font-medium text-center text-cyan-400">{DETECTING_MESSAGES[detectMsgIndex]}</p>
                 </div>
