@@ -548,6 +548,9 @@ export default function SpotTheFraud() {
   }
 
   // gameState === 'playing'
+  const isImageQuestion = currentQuestion?.kind === 'image';
+  const imageQuestionInstruction = currentQuestion?.selectN === 1 ? 'Only One Correct' : 'Two Correct';
+
   return (
     <Layout 
       title="Spot the Fraud" 
@@ -559,7 +562,11 @@ export default function SpotTheFraud() {
         <div className="shrink-0 flex flex-col gap-2 border-b border-ink-800 pb-3">
           {/* Level + score row */}
           <div className="flex items-center justify-between">
-            <EyebrowTag>{currentLevel.label}</EyebrowTag>
+             <EyebrowTag>
+               {currentLevel.kind === 'image'
+                 ? `Find the AI generated image · ${currentLevel.correctCount === 1 ? 'Only One Correct' : 'Two Correct'}`
+                 : currentLevel.label}
+             </EyebrowTag>
             <span className="font-mono text-eyebrow-micro tabular-nums text-white uppercase tracking-[0.03em]">
               Score <span className="text-violet-500">{score}</span>
             </span>
@@ -612,10 +619,14 @@ export default function SpotTheFraud() {
           <div className="flex min-h-0 flex-1 flex-col">
             {/* Stem */}
             <h2 className="shrink-0 pt-4 font-sans text-card-title font-medium leading-snug text-white">
-              {currentQuestion.stem}
+              {isImageQuestion ? 'Find the AI generated image.' : currentQuestion.stem}
             </h2>
 
-            {currentQuestion.selectN > 1 && (
+            {isImageQuestion ? (
+              <p className="mt-2 shrink-0 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-violet-500">
+                {imageQuestionInstruction}
+              </p>
+            ) : currentQuestion.selectN > 1 && (
               <p className="mt-2 shrink-0 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-violet-500">
                 Select {currentQuestion.selectN}
               </p>

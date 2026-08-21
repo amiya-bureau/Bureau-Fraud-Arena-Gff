@@ -536,9 +536,9 @@ export default function SpoofTheSystem() {
             <h1 className="mt-2 font-sans text-display-lg text-white">Detector Verdict</h1>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
-            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone}>
+            <ScanFrame id={`VERDICT-${runIdRef.current.slice(0, 8).toUpperCase()}`} tone={revealTone} className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
-                <div className="relative h-[45%] min-h-[150px] shrink-0 overflow-hidden border-b border-ink-800">
+                <div className="relative h-[clamp(12rem,38vh,22rem)] min-h-0 shrink-0 overflow-hidden border-b border-ink-800">
                   {imagePreview && <img src={imagePreview} alt="Analyzed upload" className={cn('size-full object-cover transition-[filter,opacity] duration-500', isRevealFinished ? (verdict.fooled ? 'opacity-80' : 'opacity-50 grayscale') : 'opacity-30 grayscale')} />}
                   {isRevealFinished && !verdict.fooled && verdict.heatmapRegions.map((region, index) => (
                     <div key={index} className="absolute border border-coral-600" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%`, backgroundColor: `rgba(253,118,58,${region.intensity * .35})` }} />
