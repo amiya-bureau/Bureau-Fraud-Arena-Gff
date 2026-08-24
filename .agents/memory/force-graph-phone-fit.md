@@ -34,3 +34,18 @@ positions *and* boxes by the same factor, so the collide separation survives.
   only when one of its endpoints is selected declutters more than any amount of
   layout tuning, and a `paint-order: stroke` outline in the panel background
   colour keeps it legible over connector lines.
+
+## Panning a fitted graph
+
+For a transformable graph that lives in a clipped game canvas, use explicit,
+generous pan limits instead of unbounded panning.
+
+**Why:** an unbounded transformed SVG can be dragged completely outside its
+own visible viewport. With persistent HUD or action controls around that
+viewport, this reads as though another component has hidden the graph.
+
+**How to apply:** keep the initial centering, enable transform bounds, and set
+deliberate min/max X and Y positions that provide exploration room without
+letting every node leave the visible canvas. Do not use a zoomed-out centering
+option as a substitute: some transform libraries treat it as a hard snap-back
+constraint.

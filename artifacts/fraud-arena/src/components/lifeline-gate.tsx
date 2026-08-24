@@ -133,8 +133,10 @@ export function LifelineGate({
 
         {/* ── Lifeline question card ── */}
         <div className={cn(
-          "shrink-0 border border-amber-500/40 bg-[rgba(245,158,11,0.04)]",
-          compact ? "mt-3" : "mt-4"
+          "border border-amber-500/40 bg-[rgba(245,158,11,0.04)]",
+          compact
+            ? "mt-3 min-h-0 flex-1 overflow-y-auto"
+            : "mt-4 shrink-0"
         )}>
 
           {/* Card header: label + status */}

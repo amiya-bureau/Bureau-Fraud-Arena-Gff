@@ -580,10 +580,16 @@ export default function FraudDetective() {
               minScale={0.3}
               maxScale={4}
               centerOnInit
-              limitToBounds={false}
-              // `centerZoomedOut` makes the library reapply bounds after a drag,
-              // even with limitToBounds disabled. Keep the initial centering but
-              // let players pan freely in every direction afterwards.
+              // Keep a generous, deliberate pan range. Completely unbounded
+              // panning lets the SVG leave its own viewport, which looks like
+              // the graph has disappeared behind the persistent game controls.
+              // These bounds retain useful exploration room in every direction
+              // without losing the player’s graph context.
+              limitToBounds
+              minPositionX={-160}
+              maxPositionX={160}
+              minPositionY={-180}
+              maxPositionY={180}
               panning={{ velocityDisabled: true }}
               doubleClick={{ disabled: true }}
             >
