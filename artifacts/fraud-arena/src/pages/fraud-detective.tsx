@@ -580,9 +580,11 @@ export default function FraudDetective() {
               minScale={0.3}
               maxScale={4}
               centerOnInit
-              centerZoomedOut
               limitToBounds={false}
-              panning={{ velocityDisabled: false }}
+              // `centerZoomedOut` makes the library reapply bounds after a drag,
+              // even with limitToBounds disabled. Keep the initial centering but
+              // let players pan freely in every direction afterwards.
+              panning={{ velocityDisabled: true }}
               doubleClick={{ disabled: true }}
             >
               {({ resetTransform }) => (
