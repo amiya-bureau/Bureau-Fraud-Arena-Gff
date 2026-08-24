@@ -7,6 +7,7 @@ uri = "file://bureau-fraud-arena-question-bank.html"
 type = "text"
 title = "Bureau Fraud Arena — Complete Question Bank"
 description = "All 135 Spot the Fraud questions, 52 Detective cases, 15 Lifeline Gate questions, 5 Bureau brand questions, and Spoof the System host notes. Fully self-contained HTML — open in browser and save as PDF for print."
+logical_id = "4c98b410-9c95-4ae0-aefa-88238a0231e5"
 
 [[outputs]]
 id = "_oN_YkOq6bXOXtEc-cSDF"
@@ -14,3 +15,18 @@ uri = "file://bureau-fraud-arena-point-system.docx"
 type = "word_document"
 title = "Bureau Fraud Arena — Leaderboard & Point System"
 description = "Complete scoring reference for all three games: Spot the Fraud (level-by-level breakdown), Spoof the System (prize draw tiers), and Fraud Detective (cases + bonus). Includes leaderboard view guide and quick-reference point caps."
+logical_id = "42938799-8ff1-4327-b48e-9565786969c3"
+
+[[outputs]]
+id = "vM0bYxWnklvzqNWdG0yP4"
+uri = "file://artifacts/fraud-arena/OFFLINE_GAME_SPEC.md"
+type = "text"
+title = "Bureau Fraud Arena — Offline Replication Specification"
+description = "Complete offline handoff covering screens, routes, game logic, scoring, timers, Lifeline recovery, content banks, persistence, detector replacement, and QA acceptance criteria."
+logical_id = "a324ec46-d6ee-48fb-b889-e53f11667835"
+content_hash = "sha256:687321c46df57865763a83ba3b269a5fbe6b85e5d28a79408597682307ec1a3e"
+size = 29430
+mtime_ms = 1787582316387
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:70e650d2-2f5b-4b8c-8e75-45f421f81569/a324ec46-d6ee-48fb-b889-e53f11667835/ce84c92b-b139-4bb4-8a65-c3bcc620fcb5"
+storage_version_token = "1787582330068781"
+content_type = "text/markdown"
