@@ -2,6 +2,18 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { PlayerSession } from '@workspace/api-client-react';
 
 const PLAYER_STORAGE_KEY = 'bureau-player-session';
+const ACTIVE_RUN_STORAGE_PREFIX = 'bureau-active-run:';
+
+export type ActiveRunGame =
+  | 'spot_the_fraud'
+  | 'spoof_the_system'
+  | 'fraud_detective';
+
+interface StoredActiveRun {
+  version: 1;
+  gameState: string;
+  [key: string]: unknown;
+}
 
 /**
  * The player session, held in one place.
@@ -50,6 +62,75 @@ function setSession(next: PlayerSession | null): void {
   listeners.forEach((listener) => listener());
 }
 
+function activeRunStorageKey(game: ActiveRunGame, playerId: string): string {
+  return `${ACTIVE_RUN_STORAGE_PREFIX}${game}:${encodeURIComponent(playerId)}`;
+}
+
+/**
+ * Active runs are deliberately keyed by player as well as game. A shared booth
+ * may switch visitors without clearing the browser, and a later visitor must
+ * never inherit the previous visitor's in-progress question.
+ */
+export function readActiveRun<T extends Pick<StoredActiveRun, 'version' | 'gameState'>>(
+  game: ActiveRunGame,
+  playerId: string,
+): T | null {
+  if (typeof window === 'undefined' || !playerId) return null;
+
+  const key = activeRunStorageKey(game, playerId);
+  const stored = window.localStorage.getItem(key);
+  if (!stored) return null;
+
+  try {
+    const parsed = JSON.parse(stored) as Partial<StoredActiveRun>;
+    if (parsed.version !== 1 || typeof parsed.gameState !== 'string') {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    return parsed as T;
+  } catch {
+    window.localStorage.removeItem(key);
+    return null;
+  }
+}
+
+export function saveActiveRun<T extends Pick<StoredActiveRun, 'version' | 'gameState'>>(
+  game: ActiveRunGame,
+  playerId: string,
+  snapshot: T,
+): void {
+  if (typeof window === 'undefined' || !playerId) return;
+  window.localStorage.setItem(
+    activeRunStorageKey(game, playerId),
+    JSON.stringify(snapshot),
+  );
+}
+
+export function clearActiveRun(game: ActiveRunGame, playerId: string): void {
+  if (typeof window === 'undefined' || !playerId) return;
+  window.localStorage.removeItem(activeRunStorageKey(game, playerId));
+}
+
+/**
+ * Only non-briefing states count as active. Completed screens are kept until
+ * their explicit exit so a reconnect during result rendering cannot send the
+ * player back through the gate or lose their high-score view.
+ */
+export function hasActiveRun(game: ActiveRunGame, playerId: string): boolean {
+  const snapshot = readActiveRun(game, playerId);
+  return Boolean(snapshot && snapshot.gameState !== 'rules');
+}
+
+function clearAllActiveRuns(): void {
+  if (typeof window === 'undefined') return;
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(ACTIVE_RUN_STORAGE_PREFIX)) {
+      window.localStorage.removeItem(key);
+    }
+  }
+}
+
 /*
  * A second tab is the other way the session can change. Without this, ending a
  * session in one tab leaves the others still playing as the previous visitor —
@@ -78,6 +159,7 @@ export function usePlayerSession() {
 
   const clearSession = useCallback(() => {
     window.localStorage.removeItem(PLAYER_STORAGE_KEY);
+    clearAllActiveRuns();
     setSession(null);
   }, []);
 
