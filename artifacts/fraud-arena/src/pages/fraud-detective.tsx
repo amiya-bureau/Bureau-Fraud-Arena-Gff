@@ -26,6 +26,9 @@ import { isDevTestMode } from '@/lib/dev-test-mode';
 type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'highscore' | 'error';
 const CASE_TIMER_SECONDS = 45;
 const DETECTIVE_RECOVERY_SKIP_COUNT = 2;
+const DETECTIVE_CASE_POINTS = 15;
+const DETECTIVE_THREE_CASE_BONUS = 10;
+const DETECTIVE_ALL_CASES_BONUS = 15;
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -267,15 +270,12 @@ export default function FraudDetective() {
     
     if (currentCase.answer.includes(selectedNode)) {
       setSolved(true);
-      const pts = 15;
-      const milestoneBonus = currentCase.order === 3 ? 10 : currentCase.order === 5 ? 15 : 0;
+      const pts = DETECTIVE_CASE_POINTS;
       setCaseScore(s => s + pts);
-      if (milestoneBonus) setBonusScore(s => s + milestoneBonus);
       
       setCaseResults(prev => [...prev, {
         id: currentCase.id,
         points: pts,
-        milestoneBonus,
         wrongGuesses,
         revealed: false
       }]);
@@ -388,12 +388,18 @@ export default function FraudDetective() {
   const reentryChecked = useRef(false);
 
   const endRun = () => {
+    const correctCaseCount = caseResults.filter(
+      (result) => result.points > 0 && !result.revealed
+    ).length;
+    const milestoneBonus =
+      (correctCaseCount >= 3 ? DETECTIVE_THREE_CASE_BONUS : 0) +
+      (correctCaseCount === 5 ? DETECTIVE_ALL_CASES_BONUS : 0);
     const completedPerfectly =
       caseResults.length === activeCases.length &&
       caseResults.every((result) => result.points > 0 && !result.revealed);
 
     if (session) {
-      const total = caseScore + bonusScore;
+      const total = caseScore + bonusScore + milestoneBonus;
 
       const payload: RunInput = {
         playerId: session.player.id,
@@ -404,8 +410,9 @@ export default function FraudDetective() {
         detail: {
           cases: caseResults,
           casePoints: caseScore,
-          milestonePoints: bonusScore,
-        recoverySkipsUsed: DETECTIVE_RECOVERY_SKIP_COUNT - recoverySkipsRemaining,
+          milestonePoints: milestoneBonus,
+          bonusRoundPoints: bonusScore,
+          recoverySkipsUsed: DETECTIVE_RECOVERY_SKIP_COUNT - recoverySkipsRemaining,
           tier: total >= 80 ? "Master" : (total >= 40 ? "Achiever" : "Participation"),
         }
       };
@@ -422,7 +429,7 @@ export default function FraudDetective() {
         }
       });
     } else {
-      setFinalResult({ pointsRecorded: caseScore + bonusScore, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
+      setFinalResult({ pointsRecorded: caseScore + bonusScore + milestoneBonus, isPersonalBest: false, standing: { rank: 0, behind: 0 } });
       setGameState(completedPerfectly ? 'highscore' : 'lifeline');
     }
   };
