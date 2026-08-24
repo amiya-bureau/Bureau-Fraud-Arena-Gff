@@ -777,11 +777,11 @@ export default function FraudDetective() {
 
            <div className="shrink-0 mt-2 pt-2 border-t border-ink-800">
             {!isFinished ? (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2">
                 <Button
                   variant={selectedNode ? 'default' : 'secondary'}
                   size="lg"
-                  className="w-full"
+                  className="min-w-0 flex-1"
                   disabled={!selectedNode}
                   onClick={handleAccuse}
                   chevron
@@ -790,8 +790,8 @@ export default function FraudDetective() {
                 </Button>
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="w-full"
+                  size="sm"
+                  className="shrink-0"
                   disabled={recoverySkipsRemaining <= 0}
                   onClick={handleSkipCase}
                 >

@@ -655,16 +655,6 @@ export default function SpotTheFraud() {
               )}>
                 Skips {recoverySkipsRemaining}/{SPOT_RECOVERY_SKIP_COUNT}
               </span>
-              {currentLevel.skip && recoverySkipsRemaining > 0 && (
-                <div className="flex border border-ink-800">
-                <button
-                  className="tap px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] hover:bg-ink-900 hover:text-white"
-                  onClick={handleSkip}
-                >
-                  Skip
-                </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -787,17 +777,27 @@ export default function SpotTheFraud() {
               })}
             </div>
 
-            <div className="shrink-0 pt-3">
+            <div className="flex shrink-0 items-center gap-2 pt-3">
               <Button
                 variant="light"
                 size="lg"
                 chevron
                 disabled={selectedIndices.length !== currentQuestion.selectN}
                 onClick={handleSubmit}
-                className="w-full"
+                className="min-w-0 flex-1"
               >
                 Submit response
               </Button>
+              {currentLevel.skip && recoverySkipsRemaining > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={handleSkip}
+                >
+                  Skip
+                </Button>
+              )}
             </div>
           </div>
         )}

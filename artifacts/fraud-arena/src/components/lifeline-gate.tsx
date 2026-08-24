@@ -238,11 +238,11 @@ export function LifelineGate({
             chevron
             disabled={!retryUnlocked}
             onClick={retryUnlocked ? onRetry : undefined}
-            className={cn("w-full", compact && "min-h-[44px] py-3")}
+            className={cn("w-full", compact && "min-h-[64px] py-5")}
           >
             Retry
           </Button>
-          <Button size={compact ? 'sm' : 'lg'} variant="outline" onClick={onExit} className={cn("w-full", compact && "min-h-[44px] py-3")}>
+          <Button size={compact ? 'sm' : 'lg'} variant="outline" onClick={onExit} className={cn("w-full", compact && "min-h-[64px] py-5")}>
             Exit Run
           </Button>
         </div>
