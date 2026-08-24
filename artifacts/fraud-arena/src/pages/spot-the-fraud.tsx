@@ -122,6 +122,14 @@ export default function SpotTheFraud() {
   );
   const [timeLeft, setTimeLeft] = useState(() => restoredRun?.timeLeft ?? 0);
   const prevTimeLeftRef = useRef(restoredRun?.timeLeft ?? 0);
+<<<<<<< HEAD
+=======
+  const restoredExpiredPlayingRef = useRef(
+    restoredRun?.gameState === 'playing' &&
+    restoredRun.timeLeft <= 0 &&
+    restoredRun.currentQuestion !== null,
+  );
+>>>>>>> fc6016e (Preserve Spot and Detective runs across recovery reloads)
   // Failure uses 10 seconds for auto-exit, while a recovered failure
   // auto-continues after five seconds.
   const [explainFailSec, setExplainFailSec] = useState(
@@ -194,10 +202,16 @@ export default function SpotTheFraud() {
     // A real timeout is a transition from a running clock down to zero.
     const prev = prevTimeLeftRef.current;
     prevTimeLeftRef.current = timeLeft;
-    if (gameState === 'playing' && prev > 0 && timeLeft === 0) {
+    const restoredExpiredRun =
+      restoredExpiredPlayingRef.current &&
+      gameState === 'playing' &&
+      timeLeft === 0 &&
+      currentQuestion !== null;
+    if (gameState === 'playing' && timeLeft === 0 && (prev > 0 || restoredExpiredRun)) {
+      restoredExpiredPlayingRef.current = false;
       handleTimeout();
     }
-  }, [timeLeft, gameState]);
+  }, [timeLeft, gameState, currentQuestion]);
 
   // Persist progress periodically
   useEffect(() => {
