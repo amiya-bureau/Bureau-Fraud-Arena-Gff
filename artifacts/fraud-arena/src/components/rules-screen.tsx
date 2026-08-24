@@ -61,7 +61,7 @@ export function RulesScreen({
   const rules = [
     { label: 'Scoring', body: scoring },
     { label: 'Game Over', body: endsWhen },
-    ...(lifelines ? [{ label: 'Lifelines & Attempts', body: lifelines }] : []),
+    ...(lifelines ? [{ label: 'Lifeline', body: lifelines }] : []),
   ];
 
   return (

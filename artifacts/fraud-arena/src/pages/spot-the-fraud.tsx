@@ -72,7 +72,7 @@ export default function SpotTheFraud() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const prevTimeLeftRef = useRef(0);
-  // 10-second auto-exit timer shown on wrong/timeout/nearMiss explain screen
+  // 10-second failure timer shown on wrong/timeout/nearMiss explain screen
   const [explainFailSec, setExplainFailSec] = useState(10);
   // Visible countdown for the five-second Correct-screen auto-advance.
   const [correctExplainSec, setCorrectExplainSec] = useState(5);
@@ -226,7 +226,7 @@ export default function SpotTheFraud() {
   };
 
   const handleTimeout = () => {
-    setFailureCanAdvance(false);
+    const canAdvance = consumeRecoverySkip();
     setExplainResult('timeout');
     setPointsEarned(0);
     setPerLevelData(prev => [...prev, {
@@ -234,8 +234,8 @@ export default function SpotTheFraud() {
       questionId: currentQuestion?.id,
       correct: false,
       points: 0,
-       outcome: 'timeout',
-       recoverySkipUsed: false,
+      outcome: 'timeout',
+      recoverySkipUsed: canAdvance,
     }]);
     setGameState('explain');
   };
@@ -399,10 +399,10 @@ export default function SpotTheFraud() {
       <Layout title="Spot the Fraud" back="/">
         <RulesScreen 
           gameName="Spot the Fraud"
-          premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. Every question has four options; harder levels ask you to find two."
-          scoring="Up to 100 points. Points banked are kept even if you fail later."
-          endsWhen="A wrong answer ends your run after all 3 recovery skips are used. Timeouts still end the run immediately."
-          lifelines="You have 3 recovery skips. A wrong answer or Skip uses one and advances; correct answers use none."
+          premise="Ten levels of fraud rings, mule chains, and synthetic media. Four options each - harder levels need two answers."
+          scoring="Up to 100 points - Banked points stay yours, even if you fail later."
+          endsWhen="A wrong answer ends your run once all 3 skips are used."
+          lifelines="After game over answer the Lifeline question to retry."
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}

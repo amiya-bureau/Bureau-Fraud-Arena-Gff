@@ -12,9 +12,9 @@ export interface DetectiveCase {
 export const PRIMER = {
   title: "What you're looking for",
   body: [
-    "Fraud rings cluster. Members transact with each other far more than with outsiders, forming dense communities inside the graph.",
-    "Community detection finds these clusters automatically — no manual labelling needed. Tight-knit groups get flagged.",
-    "Watch for: a bridge node linking two clusters that shouldn't touch, a hub with unusually high connections, or a group that formed suspiciously fast.",
+    "Fraud rings cluster - members who transact with each other.",
+    "Watch for a bridge node linking two clusters that shouldn't interact.",
+    "Watch for an unusually high-connection hub, or a group that formed.",
   ],
 };
 

@@ -366,10 +366,10 @@ export default function SpoofTheSystem() {
       <Layout title="Spoof the System" back="/">
         <RulesScreen
           gameName="Spoof the System"
-          premise="Upload a synthetic or AI face and try to fool Bureau's detectors. Each of the three levels gets stricter."
-          scoring="Up to 100 points. Clear level 1: 17 pts. Clear level 2: 33 pts. Clear level 3: 50 pts."
-          endsWhen="If the detector catches your image, the run ends. Points from earlier levels remain banked."
-          lifelines="Bank your score after level 1 or 2, or risk it against a stricter detector. Clearing level 2 or level 3 enters the Mystery prize draw."
+          premise="Upload a synthetic or AI face and try to fool Bureau's detectors. Three levels."
+          scoring="Up to 100 points - 17 for level 1, 33 for level 2, 50 for level 3."
+          endsWhen="If the detector catches your image, the run ends - but earlier points stay banked."
+          lifelines="After game over answer the Lifeline question to retry."
           standing={standing}
           gameKey="spoof_the_system"
           onStart={startGame}

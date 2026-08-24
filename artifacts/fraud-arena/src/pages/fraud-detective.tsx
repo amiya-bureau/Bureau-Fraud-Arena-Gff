@@ -173,18 +173,18 @@ export default function FraudDetective() {
   useEffect(() => {
     if (gameState !== 'case' || solved || revealed || caseTimeLeft > 0) return;
 
+    const canAdvance = consumeRecoverySkip();
     setRevealed(true);
-    setCaseFailCanAdvance(false);
     setCaseResults(prev => [...prev, {
       id: currentCase?.id,
       points: 0,
       wrongGuesses,
       revealed: true,
       timedOut: true,
-      recoverySkipUsed: false,
+      recoverySkipUsed: canAdvance,
     }]);
     setGameState('casefail');
-  }, [caseTimeLeft, gameState, solved, revealed, currentCase, wrongGuesses]);
+  }, [caseTimeLeft, gameState, solved, revealed, currentCase, wrongGuesses, recoverySkipsRemaining]);
 
   /**
    * Fit the SVG coordinate system to the settled layout.
@@ -485,9 +485,9 @@ export default function FraudDetective() {
         <RulesScreen 
           gameName="Fraud Detective"
           premise="Five graph investigation cases. Find the hidden links that expose the rings."
-          scoring="15 points per case (75 total), plus 10 points for clearing case 3 and 15 points for clearing case 5. Maximum 100 points."
-          endsWhen="A wrong accusation ends the run after all 2 recovery skips are used. Timeouts still end the run immediately."
-          lifelines="You have 2 recovery skips. A wrong accusation or Skip uses one and advances; correct accusations use none."
+          scoring="Up to 100 points - 15 points per case, 10 for 3+ correct and 15 for all 5 correct."
+          endsWhen="A wrong accusation ends your run after 2 skips are used."
+          lifelines="After game over answer the Lifeline question to retry."
           standing={standing}
           gameKey="fraud_detective"
           onStart={startGame}
