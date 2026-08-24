@@ -25,6 +25,7 @@ import { isDevTestMode } from '@/lib/dev-test-mode';
 
 type GameState = 'rules' | 'primer' | 'case' | 'casefail' | 'bonus' | 'lifeline' | 'highscore' | 'error';
 const CASE_TIMER_SECONDS = 45;
+const DETECTIVE_RECOVERY_SKIP_COUNT = 2;
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -63,6 +64,8 @@ export default function FraudDetective() {
 
   const [caseScore, setCaseScore] = useState(0);
   const [bonusScore, setBonusScore] = useState(0);
+  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(DETECTIVE_RECOVERY_SKIP_COUNT);
+  const [caseFailCanAdvance, setCaseFailCanAdvance] = useState(false);
   const [caseResults, setCaseResults] = useState<any[]>([]);
   const [caseTimeLeft, setCaseTimeLeft] = useState(CASE_TIMER_SECONDS);
   const [caseTimerStartedAt, setCaseTimerStartedAt] = useState<number | null>(null);
@@ -171,12 +174,14 @@ export default function FraudDetective() {
     if (gameState !== 'case' || solved || revealed || caseTimeLeft > 0) return;
 
     setRevealed(true);
+    setCaseFailCanAdvance(false);
     setCaseResults(prev => [...prev, {
       id: currentCase?.id,
       points: 0,
       wrongGuesses,
       revealed: true,
       timedOut: true,
+      recoverySkipUsed: false,
     }]);
     setGameState('casefail');
   }, [caseTimeLeft, gameState, solved, revealed, currentCase, wrongGuesses]);
@@ -225,19 +230,36 @@ export default function FraudDetective() {
           idempotencyKey: runIdRef.current,
           playerId: session.player.id,
           game: 'fraud_detective',
-          state: { caseIndex, caseScore, bonusScore, caseResults }
+          state: {
+            caseIndex,
+            caseScore,
+            bonusScore,
+            caseResults,
+            recoverySkipsRemaining,
+          }
         }
       });
     }
-  }, [caseIndex, caseScore, bonusScore, gameState]);
+  }, [caseIndex, caseScore, bonusScore, recoverySkipsRemaining, gameState]);
 
   const startGame = async () => {
     // Do not let an eager Start tap use the pre-v5 fallback while the reviewed
     // pack is still decoding.
     const pack = casePack ?? orderCasePack(await fetchDetectiveCasePack());
     setCasePack(pack);
+    setRecoverySkipsRemaining(DETECTIVE_RECOVERY_SKIP_COUNT);
+    setCaseFailCanAdvance(false);
     resetCaseTimer();
     setGameState('case');
+  };
+
+  const consumeRecoverySkip = () => {
+    const canAdvance = recoverySkipsRemaining > 0;
+    if (canAdvance) {
+      setRecoverySkipsRemaining((remaining) => Math.max(0, remaining - 1));
+    }
+    setCaseFailCanAdvance(canAdvance);
+    return canAdvance;
   };
 
   const handleAccuse = () => {
@@ -259,25 +281,45 @@ export default function FraudDetective() {
       }]);
     } else {
       // First wrong accusation — immediately reveal the answer and fail this case.
+      const canAdvance = consumeRecoverySkip();
       setRevealed(true);
       setCaseResults(prev => [...prev, {
         id: currentCase.id,
         points: 0,
         wrongGuesses: 1,
         revealed: true,
+        recoverySkipUsed: canAdvance,
       }]);
       setGameState('casefail');
     }
   };
 
-  const handleReveal = () => {
-    if (solved || revealed) return;
+  const handleSkipCase = () => {
+    if (solved || revealed || recoverySkipsRemaining <= 0) return;
+
+    consumeRecoverySkip();
     setRevealed(true);
     setCaseResults(prev => [...prev, {
       id: currentCase.id,
       points: 0,
       wrongGuesses,
-      revealed: true
+      revealed: true,
+      skipped: true,
+      recoverySkipUsed: true,
+    }]);
+    setGameState('casefail');
+  };
+
+  const handleReveal = () => {
+    if (solved || revealed) return;
+    setRevealed(true);
+    setCaseFailCanAdvance(false);
+    setCaseResults(prev => [...prev, {
+      id: currentCase.id,
+      points: 0,
+      wrongGuesses,
+      revealed: true,
+      recoverySkipUsed: false,
     }]);
   };
 
@@ -290,8 +332,10 @@ export default function FraudDetective() {
     }
 
     if (caseIndex + 1 < activeCases.length) {
+      setCaseFailCanAdvance(false);
       resetCaseTimer();
       setCaseIndex(i => i + 1);
+      setGameState('case');
     } else {
       endRun();
     }
@@ -361,6 +405,7 @@ export default function FraudDetective() {
           cases: caseResults,
           casePoints: caseScore,
           milestonePoints: bonusScore,
+        recoverySkipsUsed: DETECTIVE_RECOVERY_SKIP_COUNT - recoverySkipsRemaining,
           tier: total >= 80 ? "Master" : (total >= 40 ? "Achiever" : "Participation"),
         }
       };
@@ -425,10 +470,14 @@ export default function FraudDetective() {
 
   useEffect(() => {
     if (gameState !== 'casefail') return;
-    if (caseFailSec <= 0) { endRun(); return; }
+    if (caseFailSec <= 0) {
+      if (caseFailCanAdvance) handleNextCase();
+      else endRun();
+      return;
+    }
     const t = setTimeout(() => setCaseFailSec(s => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [caseFailSec, gameState]);
+  }, [caseFailSec, gameState, caseFailCanAdvance]);
 
   if (gameState === 'rules') {
     return (
@@ -437,8 +486,8 @@ export default function FraudDetective() {
           gameName="Fraud Detective"
           premise="Five graph investigation cases. Find the hidden links that expose the rings."
           scoring="15 points per case (75 total), plus 10 points for clearing case 3 and 15 points for clearing case 5. Maximum 100 points."
-          endsWhen="Five cases. One wrong accusation ends that case — banked points carry forward."
-          lifelines="Choose carefully. One wrong tap reveals the answer and fails the case."
+          endsWhen="A wrong accusation ends the run after all 2 recovery skips are used. Timeouts still end the run immediately."
+          lifelines="You have 2 recovery skips. A wrong accusation or Skip uses one and advances; correct accusations use none."
           standing={standing}
           gameKey="fraud_detective"
           onStart={startGame}
@@ -460,8 +509,11 @@ export default function FraudDetective() {
         title={currentCase.sector}
         back="/"
         headerRight={
-          <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em] px-1">
-            {currentCase.order}/5
+          <div className="flex items-center gap-3 px-1 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
+            <span className={recoverySkipsRemaining > 0 ? "text-violet-400" : "text-[var(--text-on-dark-faint)]"}>
+              Skips {recoverySkipsRemaining}/{DETECTIVE_RECOVERY_SKIP_COUNT}
+            </span>
+            <span className="text-[var(--text-on-dark-muted)]">{currentCase.order}/5</span>
           </div>
         }
       >
@@ -725,16 +777,27 @@ export default function FraudDetective() {
 
            <div className="shrink-0 mt-2 pt-2 border-t border-ink-800">
             {!isFinished ? (
-              <Button 
-                variant={selectedNode ? 'default' : 'secondary'} 
-                size="lg" 
-                className="w-full"
-                disabled={!selectedNode}
-                onClick={handleAccuse}
-                chevron
-              >
-                Submit accusation
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={selectedNode ? 'default' : 'secondary'}
+                  size="lg"
+                  className="w-full"
+                  disabled={!selectedNode}
+                  onClick={handleAccuse}
+                  chevron
+                >
+                  Submit accusation
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  disabled={recoverySkipsRemaining <= 0}
+                  onClick={handleSkipCase}
+                >
+                  Skip case
+                </Button>
+              </div>
             ) : solved ? (
               <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
                 Next Round
@@ -757,7 +820,9 @@ export default function FraudDetective() {
 
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between gap-3">
-            <EyebrowTag tone="coral">Case Failed</EyebrowTag>
+            <EyebrowTag tone={caseFailCanAdvance ? 'violet' : 'coral'}>
+              {caseFailCanAdvance ? 'Recovery Skip Used' : 'Case Failed'}
+            </EyebrowTag>
             <div className="relative flex items-baseline gap-1.5 pr-3">
               <span className="font-sans text-display-md font-normal tabular-nums text-white">
                 {caseScore + bonusScore}
@@ -773,7 +838,7 @@ export default function FraudDetective() {
           <div className="mt-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                Auto-exit
+                {caseFailCanAdvance ? 'Auto-continue' : 'Auto-exit'}
               </span>
               <span className={cn(
                 "font-mono text-eyebrow-micro tabular-nums",
@@ -937,9 +1002,20 @@ export default function FraudDetective() {
             )}
           </div>
 
-          {/* The shared action stack keeps every retry screen in the same place. */}
+          {/* A recovered case continues; an exhausted run keeps the game-over actions. */}
           <div className="mt-auto pt-3">
-            <RetryOptions currentGame="fraud_detective" onRetry={endRun} />
+            {caseFailCanAdvance ? (
+              <>
+                <p className="mb-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
+                  Recovery skip used · {recoverySkipsRemaining} remaining
+                </p>
+                <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
+                  Continue
+                </Button>
+              </>
+            ) : (
+              <RetryOptions currentGame="fraud_detective" onRetry={endRun} />
+            )}
           </div>
         </ScreenBody>
       </Layout>
@@ -1118,6 +1194,8 @@ export default function FraudDetective() {
           setCaseIndex(0);
           setCaseScore(0);
           setBonusScore(0);
+          setRecoverySkipsRemaining(DETECTIVE_RECOVERY_SKIP_COUNT);
+          setCaseFailCanAdvance(false);
           setCaseResults([]);
           setSelectedNode(null);
           setWrongGuesses(0);

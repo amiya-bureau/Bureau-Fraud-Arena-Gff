@@ -27,6 +27,7 @@ interface ShuffledOption {
 }
 
 type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'highscore' | 'error';
+const SPOT_RECOVERY_SKIP_COUNT = 3;
 
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
@@ -54,6 +55,8 @@ export default function SpotTheFraud() {
   }, []);
 
   const [score, setScore] = useState(0);
+  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(SPOT_RECOVERY_SKIP_COUNT);
+  const [failureCanAdvance, setFailureCanAdvance] = useState(false);
   
   // Current question data
   const currentLevel = LEVELS[levelIndex];
@@ -134,13 +137,20 @@ export default function SpotTheFraud() {
           idempotencyKey: runIdRef.current,
           playerId: session.player.id,
           game: 'spot_the_fraud',
-          state: { levelIndex, score, cleared, skipped, perLevelData }
+          state: {
+            levelIndex,
+            score,
+            cleared,
+            skipped,
+            perLevelData,
+            recoverySkipsRemaining,
+          }
         }
       });
     }
     // `saveProgress` is deliberately omitted: it is a fresh object on every render,
     // so including it makes this effect re-run and re-POST in an unbounded loop.
-  }, [levelIndex, score, cleared, skipped, gameState]);
+  }, [levelIndex, score, cleared, skipped, recoverySkipsRemaining, gameState]);
 
   // Eager-fetch a lifeline question so it is ready when the gate opens.
   useEffect(() => {
@@ -172,10 +182,14 @@ export default function SpotTheFraud() {
       gameState === 'explain' &&
       (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
     if (!isFailExplain) return;
-    if (explainFailSec <= 0) { endRun(); return; }
+    if (explainFailSec <= 0) {
+      if (failureCanAdvance) nextLevel();
+      else endRun();
+      return;
+    }
     const t = setTimeout(() => setExplainFailSec(s => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [explainFailSec, gameState, explainResult]);
+  }, [explainFailSec, gameState, explainResult, failureCanAdvance]);
 
   // Correct answers advance automatically after the explanation has been
   // visible for five seconds. The same countdown is shown above Continue.
@@ -197,10 +211,22 @@ export default function SpotTheFraud() {
     // Resolve the reviewed v5 pack before showing a level in that case.
     const pack = gamePack ?? await fetchQuizGamePack();
     setGamePack(pack);
+    setRecoverySkipsRemaining(SPOT_RECOVERY_SKIP_COUNT);
+    setFailureCanAdvance(false);
     setGameState('playing');
   };
 
+  const consumeRecoverySkip = () => {
+    const canAdvance = recoverySkipsRemaining > 0;
+    if (canAdvance) {
+      setRecoverySkipsRemaining((remaining) => Math.max(0, remaining - 1));
+    }
+    setFailureCanAdvance(canAdvance);
+    return canAdvance;
+  };
+
   const handleTimeout = () => {
+    setFailureCanAdvance(false);
     setExplainResult('timeout');
     setPointsEarned(0);
     setPerLevelData(prev => [...prev, {
@@ -208,12 +234,15 @@ export default function SpotTheFraud() {
       questionId: currentQuestion?.id,
       correct: false,
       points: 0,
-      outcome: 'timeout'
+       outcome: 'timeout',
+       recoverySkipUsed: false,
     }]);
     setGameState('explain');
   };
 
   const handleSkip = () => {
+    if (!currentLevel.skip || recoverySkipsRemaining <= 0) return;
+    consumeRecoverySkip();
     setExplainResult('skipped');
     setPointsEarned(0);
     setSkipped(prev => [...prev, currentLevel.level]);
@@ -222,7 +251,8 @@ export default function SpotTheFraud() {
       questionId: currentQuestion?.id,
       correct: false,
       points: 0,
-      outcome: 'skipped'
+       outcome: 'skipped',
+       recoverySkipUsed: true,
     }]);
     setGameState('explain');
   };
@@ -247,6 +277,7 @@ export default function SpotTheFraud() {
 
     if (correctCount === currentQuestion.selectN) {
       // Exact match
+      setFailureCanAdvance(false);
       const pts = currentLevel.points;
       setScore(s => s + pts);
       setCleared(prev => [...prev, currentLevel.level]);
@@ -255,24 +286,42 @@ export default function SpotTheFraud() {
       setPerLevelData(prev => [...prev, { level: currentLevel.level, questionId: currentQuestion.id, correct: true, points: pts, outcome: 'correct' }]);
     } else if (correctCount === currentQuestion.selectN - 1 && currentQuestion.selectN > 1) {
       // Exactly one swap
+      const canAdvance = consumeRecoverySkip();
       setScore(s => s + currentLevel.nearMiss);
       setExplainResult('nearMiss');
       setPointsEarned(currentLevel.nearMiss);
       setNearMissLevel(currentLevel.level);
-      setPerLevelData(prev => [...prev, { level: currentLevel.level, questionId: currentQuestion.id, correct: false, points: currentLevel.nearMiss, outcome: 'wrong' }]);
+       setPerLevelData(prev => [...prev, {
+         level: currentLevel.level,
+         questionId: currentQuestion.id,
+         correct: false,
+         points: currentLevel.nearMiss,
+         outcome: 'wrong',
+         recoverySkipUsed: canAdvance,
+       }]);
     } else {
+      const canAdvance = consumeRecoverySkip();
       setExplainResult('wrong');
       setPointsEarned(0);
-      setPerLevelData(prev => [...prev, { level: currentLevel.level, questionId: currentQuestion.id, correct: false, points: 0, outcome: 'wrong' }]);
+      setPerLevelData(prev => [...prev, {
+        level: currentLevel.level,
+        questionId: currentQuestion.id,
+        correct: false,
+        points: 0,
+        outcome: 'wrong',
+        recoverySkipUsed: canAdvance,
+      }]);
     }
     
     setGameState('explain');
   };
 
   const nextLevel = () => {
-    if (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss') {
+    const isFailure = explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss';
+    if (isFailure && !failureCanAdvance) {
       endRun();
     } else {
+      setFailureCanAdvance(false);
       const nextIdx = levelIndex + 1;
       if (nextIdx >= LEVELS.length) {
         endRun();
@@ -307,7 +356,8 @@ export default function SpotTheFraud() {
           levelReached: levelIndex + 1,
           cleared,
           nearMiss: nearMissLevel,
-          skipped,
+           skipped,
+           recoverySkipsUsed: SPOT_RECOVERY_SKIP_COUNT - recoverySkipsRemaining,
           tier,
           perLevel: perLevelData
         }
@@ -335,7 +385,7 @@ export default function SpotTheFraud() {
       submitRun.mutate({ data: lastPayloadRef.current }, {
         onSuccess: (res) => {
           setFinalResult(res);
-          setGameState(cleared.length === LEVELS.length ? 'highscore' : 'lifeline');
+      setGameState(cleared.length === LEVELS.length ? 'highscore' : 'lifeline');
         },
         onError: () => {
           setGameState('error');
@@ -351,8 +401,8 @@ export default function SpotTheFraud() {
           gameName="Spot the Fraud"
           premise="A ten-level ladder of fraud rings, mule chains, and synthetic media. Every question has four options; harder levels ask you to find two."
           scoring="Up to 100 points. Points banked are kept even if you fail later."
-          endsWhen="One wrong answer or timeout ends your run. On two-answer levels, exactly one wrong pick is a near-miss (half points) and ends the run."
-          lifelines="Skip is available on most levels. Use it to pass a question and bank 0 points for that level."
+          endsWhen="A wrong answer ends your run after all 3 recovery skips are used. Timeouts still end the run immediately."
+          lifelines="You have 3 recovery skips. A wrong answer or Skip uses one and advances; correct answers use none."
           standing={standing}
           gameKey="spot_the_fraud"
           onStart={startGame}
@@ -429,7 +479,7 @@ export default function SpotTheFraud() {
                 {/* 10-second auto-exit countdown */}
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                    Auto-exit
+                      {failureCanAdvance ? 'Auto-continue' : 'Auto-exit'}
                   </span>
                   <span className={cn(
                     "font-mono text-eyebrow-micro tabular-nums",
@@ -445,7 +495,18 @@ export default function SpotTheFraud() {
                   />
                 </div>
 
-                <RetryOptions currentGame="spot_the_fraud" onRetry={endRun} />
+                {failureCanAdvance ? (
+                  <>
+                    <p className="mb-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
+                      Recovery skip used · {recoverySkipsRemaining} remaining
+                    </p>
+                    <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
+                      Continue
+                    </Button>
+                  </>
+                ) : (
+                  <RetryOptions currentGame="spot_the_fraud" onRetry={endRun} />
+                )}
               </>
             ) : (
               <>
@@ -536,6 +597,8 @@ export default function SpotTheFraud() {
           setExplainResult(null);
           setCleared([]);
           setSkipped([]);
+           setRecoverySkipsRemaining(SPOT_RECOVERY_SKIP_COUNT);
+           setFailureCanAdvance(false);
           setPerLevelData([]);
           setNearMissLevel(null);
           setFinalResult(null);
@@ -585,16 +648,24 @@ export default function SpotTheFraud() {
                 />
               ))}
             </div>
-            {currentLevel.skip && (
-              <div className="flex shrink-0 border border-ink-800">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className={cn(
+                "font-mono text-eyebrow-micro uppercase tracking-[0.03em]",
+                recoverySkipsRemaining > 0 ? "text-violet-400" : "text-[var(--text-on-dark-faint)]"
+              )}>
+                Skips {recoverySkipsRemaining}/{SPOT_RECOVERY_SKIP_COUNT}
+              </span>
+              {currentLevel.skip && recoverySkipsRemaining > 0 && (
+                <div className="flex border border-ink-800">
                 <button
                   className="tap px-3 py-1.5 font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)] hover:bg-ink-900 hover:text-white"
                   onClick={handleSkip}
                 >
                   Skip
                 </button>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
