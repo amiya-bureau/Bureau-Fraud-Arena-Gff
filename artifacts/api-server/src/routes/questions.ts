@@ -1,8 +1,16 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, quizQuestionsTable, detectiveCasesTable, lifelineQuestionsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { db } from "@workspace/db";
+// Keep the API fallback aligned with the reviewed client-side lifeline bank.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — this shared static bank contains no browser-only code
+import { LIFELINE_QUESTIONS } from "../../../fraud-arena/src/data/lifeline";
 
 const router: IRouter = Router();
+
+function randomLifelineQuestion() {
+  return LIFELINE_QUESTIONS[Math.floor(Math.random() * LIFELINE_QUESTIONS.length)];
+}
 
 /**
  * Game pack for Spot the Fraud.
@@ -79,8 +87,8 @@ router.get("/detective/case-pack", async (req, res): Promise<void> => {
 /**
  * Lifeline question — one random active question from the lifeline bank.
  *
- * The frontend always has a local fallback (data/lifeline.ts) so a 503
- * response (empty table) is fine; the game will use the local bank instead.
+ * The reviewed static bank is used when the optional database bank is empty,
+ * so callers receive a valid question instead of an avoidable 503.
  */
 router.get("/lifeline/question", async (req, res): Promise<void> => {
   try {
@@ -93,14 +101,15 @@ router.get("/lifeline/question", async (req, res): Promise<void> => {
     `);
 
     if (!rows.rows.length) {
-      res.status(503).json({ error: "Lifeline bank is empty." });
+      req.log.warn("lifeline_questions is empty; serving the reviewed static bank");
+      res.json(randomLifelineQuestion());
       return;
     }
 
     res.json(rows.rows[0]);
   } catch (err) {
-    req.log.error(err, "lifeline/question failed");
-    res.status(500).json({ error: "Could not load lifeline question." });
+    req.log.warn({ err }, "lifeline/question database lookup failed; serving the reviewed static bank");
+    res.json(randomLifelineQuestion());
   }
 });
 
