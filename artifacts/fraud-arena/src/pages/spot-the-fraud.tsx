@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
-import { clearActiveRun, readActiveRun, saveActiveRun, usePlayerSession } from '@/lib/store';
+import { usePlayerSession } from '@/lib/store';
 import { Layout } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
@@ -30,34 +30,6 @@ type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'highscore' | 'e
 const SPOT_RECOVERY_SKIP_COUNT = 3;
 const EXPLAIN_FAIL_SECONDS = 10;
 const RECOVERY_AUTO_CONTINUE_SECONDS = 5;
-const DEV_TEST_TIMER_SECONDS = 180;
-
-interface SpotRunSnapshot {
-  version: 1;
-  gameState: GameState;
-  runId: string;
-  levelIndex: number;
-  gamePack: Question[] | null;
-  score: number;
-  recoverySkipsRemaining: number;
-  failureCanAdvance: boolean;
-  currentQuestion: Question | null;
-  shuffledOptions: ShuffledOption[];
-  imageOptions: ImageQuizOption[];
-  selectedIndices: number[];
-  timeLeft: number;
-  explainFailSec: number;
-  correctExplainSec: number;
-  explainResult: 'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null;
-  pointsEarned: number;
-  cleared: number[];
-  skipped: number[];
-  perLevelData: any[];
-  nearMissLevel: number | null;
-  finalResult: any;
-  lifelineQuestion: LifelineQuestion | null;
-  lifelineContext: 'gameover' | 'reentry';
-}
 
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
@@ -66,16 +38,12 @@ export default function SpotTheFraud() {
   const { data: standing } = useGetPlayerStanding(session?.player.id || '', 'today');
   const submitRun = useSubmitRun();
   const saveProgress = useSaveRunProgress();
-  const restoredRunRef = useRef<SpotRunSnapshot | null>(
-    session ? readActiveRun<SpotRunSnapshot>('spot_the_fraud', session.player.id) : null,
-  );
-  const restoredRun = restoredRunRef.current;
 
-  const [gameState, setGameState] = useState<GameState>(() => restoredRun?.gameState ?? 'rules');
-  const [levelIndex, setLevelIndex] = useState(() => restoredRun?.levelIndex ?? 0);
+  const [gameState, setGameState] = useState<GameState>('rules');
+  const [levelIndex, setLevelIndex] = useState(0);
   
   // Game session identifiers
-  const runIdRef = useRef<string>(restoredRun?.runId ?? '');
+  const runIdRef = useRef<string>('');
   useEffect(() => {
     if (!runIdRef.current) {
       runIdRef.current = uuidv4();
@@ -83,91 +51,48 @@ export default function SpotTheFraud() {
   }, []);
 
   // Load a server-randomised question pack at game start.
-  const [gamePack, setGamePack] = useState<Question[] | null>(() => restoredRun?.gamePack ?? null);
+  const [gamePack, setGamePack] = useState<Question[] | null>(null);
   useEffect(() => {
-    if (restoredRun?.gamePack?.length) return;
     fetchQuizGamePack().then(setGamePack);
   }, []);
 
-  const [score, setScore] = useState(() => restoredRun?.score ?? 0);
-  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(
-    () => restoredRun?.recoverySkipsRemaining ?? SPOT_RECOVERY_SKIP_COUNT,
-  );
-  const [failureCanAdvance, setFailureCanAdvance] = useState(
-    () => restoredRun?.failureCanAdvance ?? false,
-  );
+  const [score, setScore] = useState(0);
+  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(SPOT_RECOVERY_SKIP_COUNT);
+  const [failureCanAdvance, setFailureCanAdvance] = useState(false);
   
   // Current question data
   const currentLevel = LEVELS[levelIndex];
-  const questionTimerSec = currentLevel
-    ? (devTestMode ? DEV_TEST_TIMER_SECONDS : currentLevel.timerSec)
-    : 0;
   
   // Use the server pack if available, otherwise fall back to local QUESTIONS.
   const questionPool = useMemo(() => {
     const source = gamePack ?? QUESTIONS;
     return source.filter(q => q.level === currentLevel?.level);
   }, [gamePack, currentLevel]);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(
-    () => restoredRun?.currentQuestion ?? null,
-  );
-  const [shuffledOptions, setShuffledOptions] = useState<ShuffledOption[]>(
-    () => restoredRun?.shuffledOptions ?? [],
-  );
-  const [imageOptions, setImageOptions] = useState<ImageQuizOption[]>(
-    () => restoredRun?.imageOptions ?? [],
-  );
-  const [selectedIndices, setSelectedIndices] = useState<number[]>(
-    () => restoredRun?.selectedIndices ?? [],
-  );
-  const [timeLeft, setTimeLeft] = useState(() => restoredRun?.timeLeft ?? 0);
-  const prevTimeLeftRef = useRef(restoredRun?.timeLeft ?? 0);
-<<<<<<< HEAD
-=======
-  const restoredExpiredPlayingRef = useRef(
-    restoredRun?.gameState === 'playing' &&
-    restoredRun.timeLeft <= 0 &&
-    restoredRun.currentQuestion !== null,
-  );
->>>>>>> fc6016e (Preserve Spot and Detective runs across recovery reloads)
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [shuffledOptions, setShuffledOptions] = useState<ShuffledOption[]>([]);
+  const [imageOptions, setImageOptions] = useState<ImageQuizOption[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const prevTimeLeftRef = useRef(0);
   // Failure uses 10 seconds for auto-exit, while a recovered failure
   // auto-continues after five seconds.
-  const [explainFailSec, setExplainFailSec] = useState(
-    () => restoredRun?.explainFailSec ?? EXPLAIN_FAIL_SECONDS,
-  );
+  const [explainFailSec, setExplainFailSec] = useState(EXPLAIN_FAIL_SECONDS);
   // Visible countdown for the five-second Correct-screen auto-advance.
-  const [correctExplainSec, setCorrectExplainSec] = useState(
-    () => restoredRun?.correctExplainSec ?? 5,
-  );
-  const restoredExplainRef = useRef(restoredRun?.gameState === 'explain');
-  const restoredCorrectExplainRef = useRef(
-    restoredRun?.gameState === 'explain' && restoredRun.explainResult === 'correct',
-  );
-  const restoredExplainRequiresContinueRef = useRef(restoredRun?.gameState === 'explain');
+  const [correctExplainSec, setCorrectExplainSec] = useState(5);
   
   // Explain screen state
-  const [explainResult, setExplainResult] = useState<
-    'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null
-  >(() => restoredRun?.explainResult ?? null);
-  const [pointsEarned, setPointsEarned] = useState(() => restoredRun?.pointsEarned ?? 0);
+  const [explainResult, setExplainResult] = useState<'correct' | 'nearMiss' | 'wrong' | 'skipped' | 'timeout' | null>(null);
+  const [pointsEarned, setPointsEarned] = useState(0);
 
   // Stats for the run detail
-  const [cleared, setCleared] = useState<number[]>(() => restoredRun?.cleared ?? []);
-  const [skipped, setSkipped] = useState<number[]>(() => restoredRun?.skipped ?? []);
-  const [perLevelData, setPerLevelData] = useState<any[]>(
-    () => restoredRun?.perLevelData ?? [],
-  );
-  const [nearMissLevel, setNearMissLevel] = useState<number | null>(
-    () => restoredRun?.nearMissLevel ?? null,
-  );
+  const [cleared, setCleared] = useState<number[]>([]);
+  const [skipped, setSkipped] = useState<number[]>([]);
+  const [perLevelData, setPerLevelData] = useState<any[]>([]);
+  const [nearMissLevel, setNearMissLevel] = useState<number | null>(null);
 
   // Initialize level
   useEffect(() => {
-    if (
-      gameState === 'playing' &&
-      currentLevel &&
-      (!currentQuestion || currentQuestion.level !== currentLevel.level)
-    ) {
+    if (gameState === 'playing' && currentLevel) {
       const q = questionPool[Math.floor(Math.random() * questionPool.length)];
       setCurrentQuestion(q);
       
@@ -184,9 +109,9 @@ export default function SpotTheFraud() {
           : [],
       );
       setSelectedIndices([]);
-      setTimeLeft(questionTimerSec);
+      setTimeLeft(currentLevel.timerSec);
     }
-  }, [gameState, levelIndex, currentLevel, questionPool, currentQuestion, questionTimerSec]);
+  }, [gameState, levelIndex, currentLevel, questionPool]);
 
   // Timer logic
   useEffect(() => {
@@ -202,16 +127,10 @@ export default function SpotTheFraud() {
     // A real timeout is a transition from a running clock down to zero.
     const prev = prevTimeLeftRef.current;
     prevTimeLeftRef.current = timeLeft;
-    const restoredExpiredRun =
-      restoredExpiredPlayingRef.current &&
-      gameState === 'playing' &&
-      timeLeft === 0 &&
-      currentQuestion !== null;
-    if (gameState === 'playing' && timeLeft === 0 && (prev > 0 || restoredExpiredRun)) {
-      restoredExpiredPlayingRef.current = false;
+    if (gameState === 'playing' && prev > 0 && timeLeft === 0) {
       handleTimeout();
     }
-  }, [timeLeft, gameState, currentQuestion]);
+  }, [timeLeft, gameState]);
 
   // Persist progress periodically
   useEffect(() => {
@@ -238,7 +157,6 @@ export default function SpotTheFraud() {
 
   // Eager-fetch a lifeline question so it is ready when the gate opens.
   useEffect(() => {
-    if (restoredRun?.lifelineQuestion) return;
     fetchLifelineQuestion().then(setLifelineQuestion);
   }, []);
 
@@ -259,10 +177,6 @@ export default function SpotTheFraud() {
   // Reset the explain-fail countdown each time we enter the explain screen.
   useEffect(() => {
     if (gameState === 'explain') {
-      if (restoredExplainRef.current) {
-        restoredExplainRef.current = false;
-        return;
-      }
       setExplainFailSec(
         failureCanAdvance
           ? RECOVERY_AUTO_CONTINUE_SECONDS
@@ -277,8 +191,6 @@ export default function SpotTheFraud() {
       gameState === 'explain' &&
       (explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss');
     if (!isFailExplain) return;
-    if (devTestMode) return;
-    if (restoredExplainRequiresContinueRef.current) return;
     if (explainFailSec <= 0) {
       if (failureCanAdvance) nextLevel();
       else endRun();
@@ -292,12 +204,8 @@ export default function SpotTheFraud() {
   // visible for five seconds. The same countdown is shown above Continue.
   useEffect(() => {
     if (gameState !== 'explain' || explainResult !== 'correct') return;
-    if (devTestMode) return;
-    if (restoredExplainRequiresContinueRef.current) return;
-    const seconds = restoredCorrectExplainRef.current ? correctExplainSec : 5;
-    restoredCorrectExplainRef.current = false;
-    setCorrectExplainSec(seconds);
-    const timer = setTimeout(() => nextLevel(), seconds * 1000);
+    setCorrectExplainSec(5);
+    const timer = setTimeout(() => nextLevel(), 5000);
     const countdown = setInterval(() => {
       setCorrectExplainSec(seconds => Math.max(0, seconds - 1));
     }, 1000);
@@ -312,7 +220,6 @@ export default function SpotTheFraud() {
     // Resolve the reviewed v5 pack before showing a level in that case.
     const pack = gamePack ?? await fetchQuizGamePack();
     setGamePack(pack);
-    runIdRef.current = uuidv4();
     setRecoverySkipsRemaining(SPOT_RECOVERY_SKIP_COUNT);
     setFailureCanAdvance(false);
     setGameState('playing');
@@ -419,7 +326,6 @@ export default function SpotTheFraud() {
   };
 
   const nextLevel = () => {
-    restoredExplainRequiresContinueRef.current = false;
     const isFailure = explainResult === 'wrong' || explainResult === 'timeout' || explainResult === 'nearMiss';
     if (isFailure && !failureCanAdvance) {
       endRun();
@@ -436,74 +342,11 @@ export default function SpotTheFraud() {
   };
 
 
-  const [finalResult, setFinalResult] = useState<any>(() => restoredRun?.finalResult ?? null);
+  const [finalResult, setFinalResult] = useState<any>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
-  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(
-    () => restoredRun?.lifelineQuestion ?? null,
-  );
-  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>(
-    () => restoredRun?.lifelineContext ?? 'gameover',
-  );
+  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
+  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
   const reentryChecked = useRef(false);
-
-  useEffect(() => {
-    if (!session || gameState === 'rules') return;
-    saveActiveRun('spot_the_fraud', session.player.id, {
-      version: 1,
-      gameState,
-      runId: runIdRef.current,
-      levelIndex,
-      gamePack,
-      score,
-      recoverySkipsRemaining,
-      failureCanAdvance,
-      currentQuestion,
-      shuffledOptions,
-      imageOptions,
-      selectedIndices,
-      timeLeft,
-      explainFailSec,
-      correctExplainSec,
-      explainResult,
-      pointsEarned,
-      cleared,
-      skipped,
-      perLevelData,
-      nearMissLevel,
-      finalResult,
-      lifelineQuestion,
-      lifelineContext,
-    });
-  }, [
-    session,
-    gameState,
-    levelIndex,
-    gamePack,
-    score,
-    recoverySkipsRemaining,
-    failureCanAdvance,
-    currentQuestion,
-    shuffledOptions,
-    imageOptions,
-    selectedIndices,
-    timeLeft,
-    explainFailSec,
-    correctExplainSec,
-    explainResult,
-    pointsEarned,
-    cleared,
-    skipped,
-    perLevelData,
-    nearMissLevel,
-    finalResult,
-    lifelineQuestion,
-    lifelineContext,
-  ]);
-
-  const exitToHome = useCallback(() => {
-    if (session) clearActiveRun('spot_the_fraud', session.player.id);
-    setLocation('/');
-  }, [session, setLocation]);
 
   const endRun = () => {
     const completedPerfectly = cleared.length === LEVELS.length;
@@ -562,7 +405,7 @@ export default function SpotTheFraud() {
 
   if (gameState === 'rules') {
     return (
-      <Layout title="Spot the Fraud" back={exitToHome}>
+      <Layout title="Spot the Fraud" back="/">
         <RulesScreen 
           gameName="Spot the Fraud"
           premise="Ten levels of fraud rings, mule chains, and synthetic media. Four options each - harder levels need two answers."
@@ -585,7 +428,7 @@ export default function SpotTheFraud() {
     const isSkipped = explainResult === 'skipped';
 
     return (
-      <Layout title="Spot the Fraud" back={exitToHome}>
+      <Layout title="Spot the Fraud" back="/">
         <div className="flex min-h-0 flex-1 flex-col pt-4 pb-4">
           <div className="shrink-0">
             <div className="flex">
@@ -716,7 +559,7 @@ export default function SpotTheFraud() {
 
   if (gameState === 'error') {
     return (
-      <Layout title="Spot the Fraud" back={exitToHome}>
+      <Layout title="Spot the Fraud" back="/">
         <div className="flex min-h-0 flex-1 flex-col justify-center items-center text-center pb-4 pt-4">
           <IconTile icon={ShieldAlert} size={48} />
           <h1 className="mt-6 font-sans text-display-lg font-normal text-white">Save Failed.</h1>
@@ -763,7 +606,6 @@ export default function SpotTheFraud() {
         ) : undefined}
         compact
         onRetry={() => {
-          if (session) clearActiveRun('spot_the_fraud', session.player.id);
           setScore(0);
           setLevelIndex(0);
           setCurrentQuestion(null);
@@ -781,7 +623,7 @@ export default function SpotTheFraud() {
           fetchLifelineQuestion().then(setLifelineQuestion);
           setGameState('rules');
         }}
-        onExit={exitToHome}
+        onExit={() => setLocation('/')}
       />
     );
   }
@@ -793,7 +635,7 @@ export default function SpotTheFraud() {
   return (
     <Layout 
       title="Spot the Fraud" 
-      back={exitToHome}
+      back="/"
     >
       <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
         
@@ -844,10 +686,10 @@ export default function SpotTheFraud() {
               "h-full",
               // Only drain-animate once the clock has started ticking; on the
               // first render timeLeft === timerSec so we skip the transition.
-               questionTimerSec > 0 && timeLeft < questionTimerSec && "transition-[width] duration-1000 ease-linear",
+              currentLevel && timeLeft < currentLevel.timerSec && "transition-[width] duration-1000 ease-linear",
               timeLeft <= 5 ? "bg-coral-600" : "bg-cyan-500"
             )}
-            style={{ width: `${questionTimerSec ? (timeLeft / questionTimerSec) * 100 : 0}%` }}
+            style={{ width: `${currentLevel ? (timeLeft / currentLevel.timerSec) * 100 : 0}%` }}
           />
         </div>
 

@@ -3,7 +3,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { hasActiveRun, usePlayerSession } from '@/lib/store';
+import { usePlayerSession } from '@/lib/store';
 import { useEffect, useState, Component, type ReactNode, type ErrorInfo } from 'react';
 
 // ─── Error boundary ──────────────────────────────────────────────────────────
@@ -80,13 +80,7 @@ function ProtectedRoute({ component: Component, path }: { component: any; path: 
     if (typeof window === 'undefined') return false;
     const fresh = window.sessionStorage.getItem('arena_fresh_session') === 'true';
     if (fresh) window.sessionStorage.removeItem('arena_fresh_session');
-    const game =
-      path === '/spot-the-fraud'
-        ? 'spot_the_fraud'
-        : path === '/fraud-detective'
-          ? 'fraud_detective'
-          : 'spoof_the_system';
-    return fresh || (session ? hasActiveRun(game, session.player.id) : false);
+    return fresh;
   });
 
   useEffect(() => { setMounted(true); }, []);

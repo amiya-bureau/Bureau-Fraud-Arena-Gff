@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { clearActiveRun, readActiveRun, saveActiveRun, usePlayerSession } from '@/lib/store';
+import { usePlayerSession } from '@/lib/store';
 import { Layout, ScreenBody } from '@/components/layout';
 import { RulesScreen } from '@/components/rules-screen';
 import { Button } from '@/components/ui/button';
@@ -29,34 +29,6 @@ const DETECTIVE_RECOVERY_SKIP_COUNT = 2;
 const DETECTIVE_CASE_POINTS = 15;
 const DETECTIVE_THREE_CASE_BONUS = 10;
 const DETECTIVE_ALL_CASES_BONUS = 15;
-const DEV_TEST_TIMER_SECONDS = 180;
-
-interface DetectiveRunSnapshot {
-  version: 1;
-  gameState: GameState;
-  runId: string;
-  casePack: DetectiveCase[] | null;
-  caseIndex: number;
-  caseScore: number;
-  bonusScore: number;
-  recoverySkipsRemaining: number;
-  caseFailCanAdvance: boolean;
-  caseResults: any[];
-  caseTimerStartedAt: number | null;
-  caseFailSec: number;
-  caseClosedSec: number;
-  caseFailTab: 'graph' | 'why';
-  selectedNode: string | null;
-  wrongGuesses: number;
-  revealed: boolean;
-  solved: boolean;
-  bonusIndex: number;
-  bonusAnswers: Record<number, number>;
-  bonusAdvanceAt: number | null;
-  finalResult: any;
-  lifelineQuestion: LifelineQuestion | null;
-  lifelineContext: 'gameover' | 'reentry';
-}
 
 // Simple deterministic seeded random
 function seededRandom(s: number) {
@@ -69,30 +41,22 @@ export default function FraudDetective() {
   const { session } = usePlayerSession();
   const [, setLocation] = useLocation();
   const devTestMode = isDevTestMode();
-  const caseTimerSeconds = devTestMode ? DEV_TEST_TIMER_SECONDS : CASE_TIMER_SECONDS;
   const { data: standing } = useGetPlayerStanding(session?.player.id || '', 'today');
   const submitRun = useSubmitRun();
   const saveProgress = useSaveRunProgress();
-  const restoredRunRef = useRef<DetectiveRunSnapshot | null>(
-    session ? readActiveRun<DetectiveRunSnapshot>('fraud_detective', session.player.id) : null,
-  );
-  const restoredRun = restoredRunRef.current;
 
-  const [gameState, setGameState] = useState<GameState>(() => restoredRun?.gameState ?? 'rules');
-  const [caseIndex, setCaseIndex] = useState(() => restoredRun?.caseIndex ?? 0);
+  const [gameState, setGameState] = useState<GameState>('rules');
+  const [caseIndex, setCaseIndex] = useState(0);
   
-  const runIdRef = useRef<string>(restoredRun?.runId ?? '');
+  const runIdRef = useRef<string>('');
   useEffect(() => {
     if (!runIdRef.current) runIdRef.current = uuidv4();
   }, []);
 
   // Load a server-randomised case pack at game start.
-  const [casePack, setCasePack] = useState<DetectiveCase[] | null>(
-    () => restoredRun?.casePack ?? null,
-  );
+  const [casePack, setCasePack] = useState<DetectiveCase[] | null>(null);
   const orderCasePack = (cases: DetectiveCase[]) => cases.map((c, i) => ({ ...c, order: i + 1 }));
   useEffect(() => {
-    if (restoredRun?.casePack?.length) return;
     fetchDetectiveCasePack().then(cases => {
       // Re-number cases 1–5 so the progress counter stays consistent.
       setCasePack(orderCasePack(cases));
@@ -101,65 +65,36 @@ export default function FraudDetective() {
 
   const activeCases = casePack ?? CASES;
 
-  const [caseScore, setCaseScore] = useState(() => restoredRun?.caseScore ?? 0);
-  const [bonusScore, setBonusScore] = useState(() => restoredRun?.bonusScore ?? 0);
-  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(
-    () => restoredRun?.recoverySkipsRemaining ?? DETECTIVE_RECOVERY_SKIP_COUNT,
-  );
-  const [caseFailCanAdvance, setCaseFailCanAdvance] = useState(
-    () => restoredRun?.caseFailCanAdvance ?? false,
-  );
-  const [caseResults, setCaseResults] = useState<any[]>(() => restoredRun?.caseResults ?? []);
-  const [caseTimeLeft, setCaseTimeLeft] = useState(caseTimerSeconds);
-  const [caseTimerStartedAt, setCaseTimerStartedAt] = useState<number | null>(
-    () => restoredRun?.caseTimerStartedAt ?? null,
-  );
-  const [caseFailSec, setCaseFailSec] = useState(() => restoredRun?.caseFailSec ?? 10);
-  const [caseClosedSec, setCaseClosedSec] = useState(() => restoredRun?.caseClosedSec ?? 5);
-  const [caseFailTab, setCaseFailTab] = useState<'graph' | 'why'>(
-    () => restoredRun?.caseFailTab ?? 'graph',
-  );
+  const [caseScore, setCaseScore] = useState(0);
+  const [bonusScore, setBonusScore] = useState(0);
+  const [recoverySkipsRemaining, setRecoverySkipsRemaining] = useState(DETECTIVE_RECOVERY_SKIP_COUNT);
+  const [caseFailCanAdvance, setCaseFailCanAdvance] = useState(false);
+  const [caseResults, setCaseResults] = useState<any[]>([]);
+  const [caseTimeLeft, setCaseTimeLeft] = useState(CASE_TIMER_SECONDS);
+  const [caseTimerStartedAt, setCaseTimerStartedAt] = useState<number | null>(null);
+  const [caseFailSec, setCaseFailSec] = useState(10);
+  const [caseClosedSec, setCaseClosedSec] = useState(5);
+  const [caseFailTab, setCaseFailTab] = useState<'graph' | 'why'>('graph');
   const [isGraphExpanded, setIsGraphExpanded] = useState(false);
-  const restoredCaseStateRef = useRef(
-    restoredRun?.gameState === 'case' ? restoredRun.caseIndex : null,
-  );
-  const restoredCaseTimerRef = useRef(
-    restoredRun?.gameState === 'case' && restoredRun.caseTimerStartedAt !== null,
-  );
-  const restoredCaseFailRef = useRef(restoredRun?.gameState === 'casefail');
-  const restoredSolvedCaseRef = useRef(
-    restoredRun?.gameState === 'case' && restoredRun.solved,
-  );
-  const restoredRecoveryRequiresContinueRef = useRef(
-    restoredRun?.gameState === 'casefail' ||
-    (restoredRun?.gameState === 'case' && restoredRun.solved),
-  );
 
   // Current case state
   const currentCase = activeCases[caseIndex];
-  const [selectedNode, setSelectedNode] = useState<string | null>(
-    () => restoredRun?.selectedNode ?? null,
-  );
-  const [wrongGuesses, setWrongGuesses] = useState(() => restoredRun?.wrongGuesses ?? 0);
-  const [revealed, setRevealed] = useState(() => restoredRun?.revealed ?? false);
-  const [solved, setSolved] = useState(() => restoredRun?.solved ?? false);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [wrongGuesses, setWrongGuesses] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [solved, setSolved] = useState(false);
   const advancingSolvedCaseRef = useRef(false);
 
   // Bonus round state
-  const [bonusIndex, setBonusIndex] = useState(() => restoredRun?.bonusIndex ?? 0);
-  const [bonusAnswers, setBonusAnswers] = useState<Record<number, number>>(
-    () => restoredRun?.bonusAnswers ?? {},
-  ); // qIndex -> tapped ring
-  const [bonusAdvanceAt, setBonusAdvanceAt] = useState<number | null>(
-    () => restoredRun?.bonusAdvanceAt ?? null,
-  );
+  const [bonusIndex, setBonusIndex] = useState(0);
+  const [bonusAnswers, setBonusAnswers] = useState<Record<number, number>>({}); // qIndex -> tapped ring
 
   // Network Graph Layout
   const [graphNodes, setGraphNodes] = useState<any[]>([]);
   const [graphEdges, setGraphEdges] = useState<any[]>([]);
 
   useEffect(() => {
-    if ((gameState === 'case' || gameState === 'casefail') && currentCase) {
+    if (gameState === 'case' && currentCase) {
       // Calculate layout deterministically
       const rand = seededRandom(currentCase.order * 1337);
       
@@ -207,39 +142,28 @@ export default function FraudDetective() {
         target: nodes.find(n => n.id === (l.target as any).id)
       })));
       
-      // A restored active case already has a selected node and/or a resolved
-      // outcome. Rebuilding the visual graph must not reset that player state.
-      if (gameState === 'case' && restoredCaseStateRef.current !== caseIndex) {
-        setSelectedNode(null);
-        setWrongGuesses(0);
-        setRevealed(false);
-        setSolved(false);
-      }
-      if (restoredCaseStateRef.current === caseIndex) {
-        restoredCaseStateRef.current = null;
-      }
+      setSelectedNode(null);
+      setWrongGuesses(0);
+      setRevealed(false);
+      setSolved(false);
     }
   }, [gameState, caseIndex, currentCase]);
 
   const resetCaseTimer = () => {
-    setCaseTimeLeft(caseTimerSeconds);
+    setCaseTimeLeft(CASE_TIMER_SECONDS);
     setCaseTimerStartedAt(Date.now());
   };
 
   // Every investigation case gets its own 45-second clock.
   useEffect(() => {
     if (gameState !== 'case') return;
-    if (restoredCaseTimerRef.current) {
-      restoredCaseTimerRef.current = false;
-      return;
-    }
     resetCaseTimer();
   }, [gameState, caseIndex]);
 
   useEffect(() => {
     if (gameState !== 'case' || solved || revealed || caseTimerStartedAt === null) return;
 
-    const deadline = caseTimerStartedAt + caseTimerSeconds * 1000;
+    const deadline = caseTimerStartedAt + CASE_TIMER_SECONDS * 1000;
     const syncTimeLeft = () => {
       const millisecondsLeft = Math.max(0, deadline - Date.now());
       setCaseTimeLeft(Math.ceil(millisecondsLeft / 1000));
@@ -248,7 +172,7 @@ export default function FraudDetective() {
     syncTimeLeft();
     const timer = window.setInterval(syncTimeLeft, 250);
     return () => window.clearInterval(timer);
-  }, [gameState, solved, revealed, caseTimerStartedAt, caseTimerSeconds]);
+  }, [gameState, solved, revealed, caseTimerStartedAt]);
 
   useEffect(() => {
     if (gameState !== 'case' || solved || revealed || caseTimeLeft > 0) return;
@@ -331,7 +255,6 @@ export default function FraudDetective() {
     // pack is still decoding.
     const pack = casePack ?? orderCasePack(await fetchDetectiveCasePack());
     setCasePack(pack);
-    runIdRef.current = uuidv4();
     setRecoverySkipsRemaining(DETECTIVE_RECOVERY_SKIP_COUNT);
     setCaseFailCanAdvance(false);
     resetCaseTimer();
@@ -406,7 +329,6 @@ export default function FraudDetective() {
   };
 
   const handleNextCase = () => {
-    restoredRecoveryRequiresContinueRef.current = false;
     // The countdown and the manual button share this handler. Once either one
     // starts the transition, ignore the other trigger while React advances.
     if (solved) {
@@ -428,13 +350,9 @@ export default function FraudDetective() {
   // then the investigation moves forward without a second tap.
   useEffect(() => {
     if (gameState !== 'case' || !solved) return;
-    if (devTestMode) return;
-    if (restoredRecoveryRequiresContinueRef.current) return;
 
-    const seconds = restoredSolvedCaseRef.current ? caseClosedSec : 5;
-    restoredSolvedCaseRef.current = false;
-    setCaseClosedSec(seconds);
-    const advance = window.setTimeout(handleNextCase, seconds * 1_000);
+    setCaseClosedSec(5);
+    const advance = window.setTimeout(handleNextCase, 5_000);
     const countdown = window.setInterval(() => {
       setCaseClosedSec((seconds) => Math.max(0, seconds - 1));
     }, 1_000);
@@ -459,17 +377,19 @@ export default function FraudDetective() {
       setBonusScore(s => s + 5);
     }
 
-    setBonusAdvanceAt(Date.now() + 2_000);
+    setTimeout(() => {
+      if (bonusIndex + 1 < BONUS.questions.length) {
+        setBonusIndex(i => i + 1);
+      } else {
+        endRun();
+      }
+    }, 2000);
   };
 
-  const [finalResult, setFinalResult] = useState<any>(() => restoredRun?.finalResult ?? null);
+  const [finalResult, setFinalResult] = useState<any>(null);
   const lastPayloadRef = useRef<RunInput | null>(null);
-  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(
-    () => restoredRun?.lifelineQuestion ?? null,
-  );
-  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>(
-    () => restoredRun?.lifelineContext ?? 'gameover',
-  );
+  const [lifelineQuestion, setLifelineQuestion] = useState<LifelineQuestion | null>(null);
+  const [lifelineContext, setLifelineContext] = useState<'gameover' | 'reentry'>('gameover');
   const reentryChecked = useRef(false);
 
   const endRun = () => {
@@ -538,7 +458,6 @@ export default function FraudDetective() {
 
   // Eager-fetch a lifeline question so it is ready when the gate opens.
   useEffect(() => {
-    if (restoredRun?.lifelineQuestion) return;
     fetchLifelineQuestion().then(setLifelineQuestion);
   }, []);
 
@@ -558,18 +477,11 @@ export default function FraudDetective() {
 
   // Case-fail auto-exit timer.
   useEffect(() => {
-    if (gameState !== 'casefail') return;
-    if (restoredCaseFailRef.current) {
-      restoredCaseFailRef.current = false;
-      return;
-    }
-    setCaseFailSec(10);
+    if (gameState === 'casefail') setCaseFailSec(10);
   }, [gameState]);
 
   useEffect(() => {
     if (gameState !== 'casefail') return;
-    if (devTestMode) return;
-    if (restoredRecoveryRequiresContinueRef.current) return;
     if (caseFailSec <= 0) {
       if (caseFailCanAdvance) handleNextCase();
       else endRun();
@@ -579,84 +491,9 @@ export default function FraudDetective() {
     return () => clearTimeout(t);
   }, [caseFailSec, gameState, caseFailCanAdvance]);
 
-  useEffect(() => {
-    if (gameState !== 'bonus' || bonusAdvanceAt === null) return;
-
-    const delay = Math.max(0, bonusAdvanceAt - Date.now());
-    const advance = window.setTimeout(() => {
-      setBonusAdvanceAt(null);
-      if (bonusIndex + 1 < BONUS.questions.length) {
-        setBonusIndex((index) => index + 1);
-      } else {
-        endRun();
-      }
-    }, delay);
-
-    return () => window.clearTimeout(advance);
-  }, [gameState, bonusAdvanceAt, bonusIndex, endRun]);
-
-  useEffect(() => {
-    if (!session || gameState === 'rules') return;
-    saveActiveRun('fraud_detective', session.player.id, {
-      version: 1,
-      gameState,
-      runId: runIdRef.current,
-      casePack,
-      caseIndex,
-      caseScore,
-      bonusScore,
-      recoverySkipsRemaining,
-      caseFailCanAdvance,
-      caseResults,
-      caseTimerStartedAt,
-      caseFailSec,
-      caseClosedSec,
-      caseFailTab,
-      selectedNode,
-      wrongGuesses,
-      revealed,
-      solved,
-      bonusIndex,
-      bonusAnswers,
-      bonusAdvanceAt,
-      finalResult,
-      lifelineQuestion,
-      lifelineContext,
-    });
-  }, [
-    session,
-    gameState,
-    casePack,
-    caseIndex,
-    caseScore,
-    bonusScore,
-    recoverySkipsRemaining,
-    caseFailCanAdvance,
-    caseResults,
-    caseTimerStartedAt,
-    caseFailSec,
-    caseClosedSec,
-    caseFailTab,
-    selectedNode,
-    wrongGuesses,
-    revealed,
-    solved,
-    bonusIndex,
-    bonusAnswers,
-    bonusAdvanceAt,
-    finalResult,
-    lifelineQuestion,
-    lifelineContext,
-  ]);
-
-  const exitToHome = () => {
-    if (session) clearActiveRun('fraud_detective', session.player.id);
-    setLocation('/');
-  };
-
   if (gameState === 'rules') {
     return (
-      <Layout title="Fraud Detective" back={exitToHome}>
+      <Layout title="Fraud Detective" back="/">
         <RulesScreen 
           gameName="Fraud Detective"
           premise="Five graph investigation cases. Find the hidden links that expose the rings."
@@ -681,7 +518,7 @@ export default function FraudDetective() {
     return (
       <Layout 
         title="Fraud Detective"
-        back={exitToHome}
+        back="/"
       >
         <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
           {/* Header HUD mirrors Spot the Fraud: context + score, then progress + skips. */}
@@ -720,7 +557,7 @@ export default function FraudDetective() {
             role="progressbar"
             aria-label="Case time remaining"
             aria-valuemin={0}
-            aria-valuemax={caseTimerSeconds}
+            aria-valuemax={CASE_TIMER_SECONDS}
             aria-valuenow={caseTimeLeft}
           >
             <div
@@ -728,7 +565,7 @@ export default function FraudDetective() {
                 "h-full transition-[width] duration-1000 ease-linear",
                 caseTimeLeft <= 10 ? "bg-coral-600" : "bg-cyan-500"
               )}
-               style={{ width: `${(caseTimeLeft / caseTimerSeconds) * 100}%` }}
+              style={{ width: `${(caseTimeLeft / CASE_TIMER_SECONDS) * 100}%` }}
             />
           </div>
 
@@ -1017,7 +854,7 @@ export default function FraudDetective() {
 
   if (gameState === 'casefail' && currentCase) {
     return (
-      <Layout title={currentCase.sector} back={exitToHome}>
+      <Layout title={currentCase.sector} back="/">
         <ScreenBody className="pt-3 pb-safe">
 
           {/* Header */}
@@ -1230,7 +1067,7 @@ export default function FraudDetective() {
     return (
       <Layout 
         title="Bonus Round" 
-        back={exitToHome}
+        back="/"
         headerRight={
           <div className="font-mono text-eyebrow-micro text-[var(--text-on-dark-muted)] uppercase tracking-[0.03em] pr-1">
             {bonusIndex + 1}/{BONUS.questions.length}
@@ -1340,7 +1177,7 @@ export default function FraudDetective() {
 
   if (gameState === 'error') {
     return (
-      <Layout title="Error" back={exitToHome}>
+      <Layout title="Error" back="/">
         <ScreenBody className="pt-3 pb-safe">
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center border border-coral-600 bg-russian p-6 text-center">
             <div className="flex size-12 items-center justify-center bg-coral-600 text-russian">
@@ -1392,7 +1229,6 @@ export default function FraudDetective() {
         ) : undefined}
         compact
         onRetry={() => {
-          if (session) clearActiveRun('fraud_detective', session.player.id);
           setCaseIndex(0);
           setCaseScore(0);
           setBonusScore(0);
@@ -1412,7 +1248,7 @@ export default function FraudDetective() {
           fetchLifelineQuestion().then(setLifelineQuestion);
           setGameState('rules');
         }}
-        onExit={exitToHome}
+        onExit={() => setLocation('/')}
       />
     );
   }
