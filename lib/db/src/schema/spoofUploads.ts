@@ -6,13 +6,12 @@ import { playersTable } from "./players";
 /** DPDP commitment surfaced to the visitor: uploads live for 24 hours, then go. */
 export const UPLOAD_RETENTION_HOURS = 24;
 
-/** Rejected above this size, before anything is written. */
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/** Rejected at or above this size, before anything is written. */
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export const ALLOWED_UPLOAD_MIME_TYPES = [
   "image/jpeg",
   "image/png",
-  "image/webp",
 ] as const;
 
 /**

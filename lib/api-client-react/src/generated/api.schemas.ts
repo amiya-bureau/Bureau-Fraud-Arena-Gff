@@ -195,9 +195,9 @@ export interface SpoofAttemptInput {
      * @maximum 3
      */
   level: number;
-  /** Base64-encoded image bytes, without a data URL prefix. */
+  /** Base64-encoded JPEG or PNG image bytes, without a data URL prefix. The decoded image must be under 5 MB. */
   image: string;
-  /** One of image/jpeg, image/png or image/webp. */
+  /** One of image/jpeg or image/png. */
   mimeType: string;
   fileName?: string;
 }

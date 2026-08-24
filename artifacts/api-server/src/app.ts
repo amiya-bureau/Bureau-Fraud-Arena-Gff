@@ -26,8 +26,8 @@ app.use(
   }),
 );
 app.use(cors());
-// Spoof the System posts base64 image bytes inline; 10MB of image is ~13.4MB
-// of base64, so the default 100kb body limit would reject every upload.
+// Spoof the System posts base64 image bytes inline; a 5 MB image is ~6.7 MB
+// of base64, so the default 100kb body limit would reject valid uploads.
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 

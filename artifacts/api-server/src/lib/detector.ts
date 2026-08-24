@@ -83,21 +83,37 @@ interface BureauStatusBody {
   result?: BureauResult;
 }
 
+/** An input that Bureau rejected and the player can correct before retrying. */
+export class DetectorInputError extends Error {
+  readonly name = "DetectorInputError";
+}
+
 function authHeader(user: string, key: string): string {
   return `Basic ${Buffer.from(`${user}:${key}`).toString("base64")}`;
 }
 
-async function uploadImage(image: Buffer, user: string, key: string): Promise<string> {
+async function uploadImage(
+  image: Buffer,
+  mimeType: string,
+  user: string,
+  key: string,
+): Promise<string> {
   const form = new FormData();
   // Use Uint8Array — a valid BlobPart in all runtimes, avoids the
   // SharedArrayBuffer vs ArrayBuffer ambiguity on Node's Buffer.buffer.
-  form.append("file", new Blob([new Uint8Array(image)], { type: "image/jpeg" }), "image.jpg");
+  const extension = mimeType === "image/png" ? "png" : "jpg";
+  form.append("file", new Blob([new Uint8Array(image)], { type: mimeType }), `image.${extension}`);
 
   const res = await fetch(UPLOAD_URL, {
     method: "POST",
     headers: { Authorization: authHeader(user, key) },
     body: form,
   });
+  if (res.status === 400 || res.status === 413 || res.status === 415) {
+    throw new DetectorInputError(
+      "The detector couldn't accept that image. Choose a JPEG or PNG under 5 MB and try again.",
+    );
+  }
   if (!res.ok) throw new Error(`Bureau upload failed: HTTP ${res.status}`);
 
   const body = await res.json() as { request_id: string };
@@ -167,12 +183,13 @@ function bureauResultToVerdict(
 async function runBureauDetector(
   image: Buffer,
   level: DetectorLevel,
+  mimeType: string,
 ): Promise<DetectorVerdict> {
   const user = process.env.BUREAU_API_USER!;
   const key  = process.env.BUREAU_API_KEY!;
   const t0   = Date.now();
 
-  const requestId = await uploadImage(image, user, key);
+  const requestId = await uploadImage(image, mimeType, user, key);
   const result    = await pollStatus(requestId, user, key);
 
   return bureauResultToVerdict(result, image, level, Date.now() - t0);
@@ -279,9 +296,10 @@ async function runFakeDetector(
 export async function runDetector(
   image: Buffer,
   level: DetectorLevel,
+  mimeType: string,
 ): Promise<DetectorVerdict> {
   if (process.env.BUREAU_API_USER && process.env.BUREAU_API_KEY) {
-    return runBureauDetector(image, level);
+    return runBureauDetector(image, level, mimeType);
   }
   return runFakeDetector(image, level);
 }

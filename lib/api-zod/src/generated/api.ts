@@ -230,8 +230,8 @@ export const detectSpoofBodyLevelMax = 3;
 export const DetectSpoofBody = zod.object({
   "playerId": zod.string(),
   "level": zod.number().min(1).max(detectSpoofBodyLevelMax),
-  "image": zod.string().describe('Base64-encoded image bytes, without a data URL prefix.'),
-  "mimeType": zod.string().describe('One of image\/jpeg, image\/png or image\/webp.'),
+  "image": zod.string().describe('Base64-encoded JPEG or PNG image bytes, without a data URL prefix. The decoded image must be under 5 MB.'),
+  "mimeType": zod.string().describe('One of image\/jpeg or image\/png.'),
   "fileName": zod.string().optional()
 })
 

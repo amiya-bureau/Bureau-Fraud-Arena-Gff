@@ -12,6 +12,7 @@ import { DetectSpoofBody, DetectSpoofResponse } from "@workspace/api-zod";
 import {
   hashImage,
   runDetector,
+  DetectorInputError,
   type DetectorLevel,
 } from "../lib/detector";
 import { expiryFromNow, hasBlockedTerm, purgeExpiredUploads } from "../lib/uploads";
@@ -43,7 +44,7 @@ router.post("/spoof/detect", async (req, res): Promise<void> => {
 
   if (!isAllowedMimeType(mimeType)) {
     res.status(400).json({
-      error: "We can only read JPEG, PNG or WebP images.",
+      error: "We can only read JPEG or PNG images.",
       field: "mimeType",
     });
     return;
@@ -63,10 +64,10 @@ router.post("/spoof/detect", async (req, res): Promise<void> => {
       .json({ error: "That image looks empty — try again.", field: "image" });
     return;
   }
-  if (bytes.length > MAX_UPLOAD_BYTES) {
+  if (bytes.length >= MAX_UPLOAD_BYTES) {
     res
       .status(400)
-      .json({ error: "Images need to be under 10 MB.", field: "image" });
+      .json({ error: "Images need to be under 5 MB.", field: "image" });
     return;
   }
 
@@ -81,7 +82,16 @@ router.post("/spoof/detect", async (req, res): Promise<void> => {
     return;
   }
 
-  const verdict = await runDetector(bytes, level);
+  let verdict;
+  try {
+    verdict = await runDetector(bytes, level, mimeType);
+  } catch (error) {
+    if (error instanceof DetectorInputError) {
+      res.status(400).json({ error: error.message, field: "image" });
+      return;
+    }
+    throw error;
+  }
 
   const [upload] = await db
     .insert(spoofUploadsTable)

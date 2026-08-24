@@ -62,6 +62,9 @@ const DETECTOR_PASS_NAMES = [
   'Ensemble consensus analyzer',
 ] as const;
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'] as const;
+
 type DetectorPass = {
   name: string;
   score: number;
@@ -272,12 +275,12 @@ export default function SpoofTheSystem() {
     event.target.value = '';
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMsg('Image must be under 10 MB.');
+    if (file.size >= MAX_IMAGE_BYTES) {
+      setErrorMsg('Image must be under 5 MB.');
       return;
     }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setErrorMsg('Only JPEG, PNG and WebP images are supported.');
+    if (!(ACCEPTED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      setErrorMsg('Only JPEG and PNG images are supported.');
       return;
     }
 
@@ -294,8 +297,8 @@ export default function SpoofTheSystem() {
       setImagePreview(dataUrl);
       setVerdict(null);
       setRevealStep(0);
-       setRevealCountdown(5);
-       revealTransitionRef.current = false;
+      setRevealCountdown(5);
+      revealTransitionRef.current = false;
       setGameState('detecting');
       detectSpoof.mutate(
         {
@@ -315,7 +318,11 @@ export default function SpoofTheSystem() {
             setGameState('reveal');
           },
           onError: (error: any) => {
-            setErrorMsg(error?.response?.data?.error ?? 'Detector failed to run. Please try again.');
+            setErrorMsg(
+              error?.data?.error ??
+              error?.response?.data?.error ??
+              'Detector failed to run. Please try again.',
+            );
             setGameState('uploading');
           },
         },
@@ -461,7 +468,7 @@ export default function SpoofTheSystem() {
             <EyebrowTag tone="violet">Level {level} upload</EyebrowTag>
             <h1 className="mt-2 font-sans text-display-lg text-white">Upload your AI generated image</h1>
             <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
-              Choose a JPEG, PNG image less than 5mb to test the detector.
+              Choose a JPEG or PNG image under 5 MB to test the detector.
             </p>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
@@ -485,7 +492,7 @@ export default function SpoofTheSystem() {
               ref={fileInputRef}
               className="hidden"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={ACCEPTED_IMAGE_TYPES.join(',')}
               onChange={handleFileUpload}
             />
           </div>

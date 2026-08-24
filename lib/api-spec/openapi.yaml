@@ -688,10 +688,10 @@ components:
           maximum: 3
         image:
           type: string
-          description: Base64-encoded image bytes, without a data URL prefix.
+          description: Base64-encoded JPEG or PNG image bytes, without a data URL prefix. The decoded image must be under 5 MB.
         mimeType:
           type: string
-          description: One of image/jpeg, image/png or image/webp.
+          description: One of image/jpeg or image/png.
         fileName:
           type: string
 
