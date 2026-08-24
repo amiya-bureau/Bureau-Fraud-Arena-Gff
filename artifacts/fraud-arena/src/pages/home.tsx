@@ -108,12 +108,10 @@ export default function Home() {
         * field, since all three cards above are already carrying colour.
         */}
       {/*
-        * Spoof the System needs the visitor's own phone camera to upload an
-        * image. Pointing the arena QR directly at it removes the extra step of
-        * navigating there from the home screen after scanning.
+        * This is the arena's front door. The QR intentionally lands on the
+        * game-selection screen; each game's own QR handles deep linking.
         */}
       <QrPanel
-        game="spoof-the-system"
         tone="light"
         size={92}
         note="Scan to Enter the Fraud Arena on your phone."
