@@ -28,6 +28,8 @@ interface ShuffledOption {
 
 type GameState = 'rules' | 'playing' | 'explain' | 'lifeline' | 'highscore' | 'error';
 const SPOT_RECOVERY_SKIP_COUNT = 3;
+const EXPLAIN_FAIL_SECONDS = 10;
+const RECOVERY_AUTO_CONTINUE_SECONDS = 5;
 
 export default function SpotTheFraud() {
   const { session } = usePlayerSession();
@@ -72,8 +74,9 @@ export default function SpotTheFraud() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const prevTimeLeftRef = useRef(0);
-  // 10-second failure timer shown on wrong/timeout/nearMiss explain screen
-  const [explainFailSec, setExplainFailSec] = useState(10);
+  // Failure uses 10 seconds for auto-exit, while a recovered failure
+  // auto-continues after five seconds.
+  const [explainFailSec, setExplainFailSec] = useState(EXPLAIN_FAIL_SECONDS);
   // Visible countdown for the five-second Correct-screen auto-advance.
   const [correctExplainSec, setCorrectExplainSec] = useState(5);
   
@@ -173,8 +176,14 @@ export default function SpotTheFraud() {
 
   // Reset the explain-fail countdown each time we enter the explain screen.
   useEffect(() => {
-    if (gameState === 'explain') setExplainFailSec(10);
-  }, [gameState]);
+    if (gameState === 'explain') {
+      setExplainFailSec(
+        failureCanAdvance
+          ? RECOVERY_AUTO_CONTINUE_SECONDS
+          : EXPLAIN_FAIL_SECONDS,
+      );
+    }
+  }, [gameState, failureCanAdvance]);
 
   // Count down and auto-exit on wrong/timeout/nearMiss explain screen.
   useEffect(() => {
@@ -476,7 +485,7 @@ export default function SpotTheFraud() {
                   </div>
                 )}
 
-                {/* 10-second auto-exit countdown */}
+                {/* Recovery auto-continues in 5 seconds; an exhausted run auto-exits in 10. */}
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
                       {failureCanAdvance ? 'Auto-continue' : 'Auto-exit'}
@@ -491,7 +500,16 @@ export default function SpotTheFraud() {
                 <div className="h-0.5 w-full bg-ink-800 mb-4">
                   <div
                     className="h-full bg-coral-600 transition-[width] duration-1000 ease-linear"
-                    style={{ width: `${(explainFailSec / 10) * 100}%` }}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (explainFailSec /
+                          (failureCanAdvance
+                            ? RECOVERY_AUTO_CONTINUE_SECONDS
+                            : EXPLAIN_FAIL_SECONDS)) *
+                          100,
+                      )}%`,
+                    }}
                   />
                 </div>
 

@@ -513,59 +513,68 @@ export default function FraudDetective() {
 
     return (
       <Layout 
-        title={currentCase.sector}
+        title="Fraud Detective"
         back="/"
-        headerRight={
-          <div className="flex items-center gap-3 px-1 font-mono text-eyebrow-micro uppercase tracking-[0.03em]">
-            <span className={recoverySkipsRemaining > 0 ? "text-violet-400" : "text-[var(--text-on-dark-faint)]"}>
-              Skips {recoverySkipsRemaining}/{DETECTIVE_RECOVERY_SKIP_COUNT}
-            </span>
-            <span className="text-[var(--text-on-dark-muted)]">{currentCase.order}/5</span>
-          </div>
-        }
       >
-        <ScreenBody className="pt-3 pb-safe">
-          <div className="shrink-0 mb-3">
-             <h2 className="font-sans text-display-md font-normal text-white leading-tight">
-               {visibleCaseTitle}
-            </h2>
+        <div className="flex min-h-0 flex-1 flex-col pt-3 pb-4">
+          {/* Header HUD mirrors Spot the Fraud: context + score, then progress + skips. */}
+          <div className="shrink-0 flex flex-col gap-2 border-b border-ink-800 pb-3">
+            <div className="flex items-center justify-between">
+              <EyebrowTag>{currentCase.sector}</EyebrowTag>
+              <span className="font-mono text-eyebrow-micro tabular-nums text-white uppercase tracking-[0.03em]">
+                Score <span className="text-violet-500">{caseScore + bonusScore}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex h-2 flex-1 gap-px bg-ink-800 p-px">
+                {activeCases.map((_, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "h-full flex-1 transition-colors duration-[var(--dur-base)]",
+                      index === caseIndex ? "bg-cyan-500" : index < caseIndex ? "bg-violet-700" : "bg-ink-900"
+                    )}
+                  />
+                ))}
+              </div>
+              <span className={cn(
+                "shrink-0 font-mono text-eyebrow-micro uppercase tracking-[0.03em]",
+                recoverySkipsRemaining > 0 ? "text-violet-400" : "text-[var(--text-on-dark-faint)]"
+              )}>
+                Skips {recoverySkipsRemaining}/{DETECTIVE_RECOVERY_SKIP_COUNT}
+              </span>
+            </div>
           </div>
 
-           {/* Case timer — resets for each investigation and fails the case at zero. */}
-           <div className="shrink-0 mb-2">
-             {devTestMode && (
-               <span className="mb-1 block font-mono text-[10px] font-medium uppercase tracking-[0.03em] text-lime-300">
-                 Dev test mode · correct nodes highlighted
-               </span>
-             )}
-             <div className="mb-1 flex items-center justify-between">
-               <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                 Case timer
-               </span>
-               <span className={cn(
-                 "font-mono text-eyebrow-micro tabular-nums",
-                 caseTimeLeft <= 10 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
-               )}>
-                 {caseTimeLeft}s
-               </span>
-             </div>
-             <div
-               className="h-1 w-full bg-ink-800"
-               role="progressbar"
-               aria-label="Case time remaining"
-               aria-valuemin={0}
-               aria-valuemax={CASE_TIMER_SECONDS}
-               aria-valuenow={caseTimeLeft}
-             >
-               <div
-                 className={cn(
-                   "h-full transition-[width] duration-1000 ease-linear",
-                   caseTimeLeft <= 10 ? "bg-coral-600" : "bg-cyan-500"
-                 )}
-                 style={{ width: `${(caseTimeLeft / CASE_TIMER_SECONDS) * 100}%` }}
-               />
-             </div>
-           </div>
+          {/* Case timer — resets for each investigation and fails the case at zero. */}
+          <div
+            className="shrink-0 h-1 w-full bg-ink-800 mt-3"
+            role="progressbar"
+            aria-label="Case time remaining"
+            aria-valuemin={0}
+            aria-valuemax={CASE_TIMER_SECONDS}
+            aria-valuenow={caseTimeLeft}
+          >
+            <div
+              className={cn(
+                "h-full transition-[width] duration-1000 ease-linear",
+                caseTimeLeft <= 10 ? "bg-coral-600" : "bg-cyan-500"
+              )}
+              style={{ width: `${(caseTimeLeft / CASE_TIMER_SECONDS) * 100}%` }}
+            />
+          </div>
+
+          <div className="shrink-0 pt-4 mb-3">
+            {devTestMode && (
+              <span className="mb-1 block font-mono text-[10px] font-medium uppercase tracking-[0.03em] text-lime-300">
+                Dev test mode · correct nodes highlighted
+              </span>
+            )}
+            <h2 className="font-sans text-display-md font-normal text-white leading-tight">
+              {visibleCaseTitle}
+            </h2>
+          </div>
 
           {/* Canvas View — bleeds edge-to-edge to avoid the px-4 main padding creating a jarring clip boundary */}
            <div className="-mx-4 relative min-h-0 flex-1 border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
@@ -815,7 +824,7 @@ export default function FraudDetective() {
               </Button>
             )}
           </div>
-        </ScreenBody>
+        </div>
       </Layout>
     );
   }
@@ -838,30 +847,6 @@ export default function FraudDetective() {
                 Points Banked
               </span>
               <span aria-hidden className="absolute right-0 top-0 size-2 bg-violet-700" />
-            </div>
-          </div>
-
-          {/* Auto-exit countdown */}
-          <div className="mt-2 shrink-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                {caseFailCanAdvance ? 'Auto-continue' : 'Auto-exit'}
-              </span>
-              <span className={cn(
-                "font-mono text-eyebrow-micro tabular-nums",
-                caseFailSec <= 3 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
-              )}>
-                {caseFailSec}s
-              </span>
-            </div>
-            <div className="h-0.5 w-full bg-ink-800">
-              <div
-                className={cn(
-                  "h-full bg-coral-600",
-                  caseFailSec < 10 && "transition-[width] duration-1000 ease-linear"
-                )}
-                style={{ width: `${(caseFailSec / 10) * 100}%` }}
-              />
             </div>
           </div>
 
@@ -1011,6 +996,29 @@ export default function FraudDetective() {
 
           {/* A recovered case continues; an exhausted run keeps the game-over actions. */}
           <div className="mt-auto pt-3">
+            {/* Keep the countdown with the action it controls, just like Spot the Fraud. */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
+                  {caseFailCanAdvance ? 'Auto-continue' : 'Auto-exit'}
+                </span>
+                <span className={cn(
+                  "font-mono text-eyebrow-micro tabular-nums",
+                  caseFailSec <= 3 ? "text-coral-600 animate-pulse" : "text-[var(--text-on-dark-muted)]"
+                )}>
+                  {caseFailSec}s
+                </span>
+              </div>
+              <div className="h-0.5 w-full bg-ink-800">
+                <div
+                  className={cn(
+                    "h-full bg-coral-600",
+                    caseFailSec < 10 && "transition-[width] duration-1000 ease-linear"
+                  )}
+                  style={{ width: `${(caseFailSec / 10) * 100}%` }}
+                />
+              </div>
+            </div>
             {caseFailCanAdvance ? (
               <>
                 <p className="mb-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
