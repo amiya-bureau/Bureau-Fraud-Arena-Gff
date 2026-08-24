@@ -828,7 +828,7 @@ export default function FraudDetective() {
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between gap-3">
             <EyebrowTag tone={caseFailCanAdvance ? 'violet' : 'coral'}>
-              {caseFailCanAdvance ? 'Recovery Skip Used' : 'Case Failed'}
+              {caseFailCanAdvance ? 'Skip Used' : 'Case Failed'}
             </EyebrowTag>
             <div className="relative flex items-baseline gap-1.5 pr-3">
               <span className="font-sans text-display-md font-normal tabular-nums text-white">
@@ -1014,7 +1014,7 @@ export default function FraudDetective() {
             {caseFailCanAdvance ? (
               <>
                 <p className="mb-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
-                  Recovery skip used · {recoverySkipsRemaining} remaining
+                  Skip Used
                 </p>
                 <Button variant="light" size="lg" className="w-full" onClick={handleNextCase} chevron>
                   Continue

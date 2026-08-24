@@ -498,7 +498,7 @@ export default function SpotTheFraud() {
                 {failureCanAdvance ? (
                   <>
                     <p className="mb-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-violet-400">
-                      Recovery skip used · {recoverySkipsRemaining} remaining
+                      Skip Used
                     </p>
                     <Button variant="light" size="lg" chevron onClick={nextLevel} className="w-full">
                       Continue
