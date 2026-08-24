@@ -11,7 +11,7 @@ import { CASES, PRIMER, BONUS, type DetectiveCase } from '@/data/detective';
 import { LifelineGate } from '@/components/lifeline-gate';
 import { fetchDetectiveCasePack, fetchLifelineQuestion, type LifelineQuestion } from '@/lib/gamePack';
 import { v4 as uuidv4 } from 'uuid';
-import { Maximize, AlertCircle, Fingerprint, CheckCircle2, ShieldAlert, Target } from 'lucide-react';
+import { Maximize, Minimize2, AlertCircle, Fingerprint, CheckCircle2, ShieldAlert, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as d3 from 'd3-force';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -75,6 +75,7 @@ export default function FraudDetective() {
   const [caseFailSec, setCaseFailSec] = useState(10);
   const [caseClosedSec, setCaseClosedSec] = useState(5);
   const [caseFailTab, setCaseFailTab] = useState<'graph' | 'why'>('graph');
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
 
   // Current case state
   const currentCase = activeCases[caseIndex];
@@ -188,6 +189,10 @@ export default function FraudDetective() {
     }]);
     setGameState('casefail');
   }, [caseTimeLeft, gameState, solved, revealed, currentCase, wrongGuesses, recoverySkipsRemaining]);
+
+  useEffect(() => {
+    setIsGraphExpanded(false);
+  }, [gameState, caseIndex]);
 
   /**
    * Fit the SVG coordinate system to the settled layout.
@@ -509,7 +514,6 @@ export default function FraudDetective() {
   if (gameState === 'case' && currentCase) {
     const isFinished = solved || revealed;
     const showAnswerHints = isFinished || devTestMode;
-    const visibleCaseTitle = isFinished ? currentCase.title : `Case ${currentCase.order}`;
 
     return (
       <Layout 
@@ -565,29 +569,18 @@ export default function FraudDetective() {
             />
           </div>
 
-          <div className="shrink-0 pt-4 mb-3">
-            {devTestMode && (
-              <span className="mb-1 block font-mono text-[10px] font-medium uppercase tracking-[0.03em] text-lime-300">
-                Dev test mode · correct nodes highlighted
-              </span>
-            )}
-            <h2 className="font-sans text-display-md font-normal text-white leading-tight">
-              {visibleCaseTitle}
-            </h2>
-          </div>
-
           {/* Canvas View — bleeds edge-to-edge to avoid the px-4 main padding creating a jarring clip boundary */}
            <div className="-mx-4 relative min-h-0 flex-1 border-y border-ink-800 bg-russian overflow-hidden z-0" style={{ touchAction: 'none' }}>
             <SignalField texture="dots" tone="russian" fade={false} />
-            {/* Gesture hint */}
-            <div aria-hidden className="pointer-events-none absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-ink-900/70 px-2 py-1">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-on-dark-faint)]">drag · pinch · scroll</span>
-            </div>
             <TransformWrapper 
-              initialScale={1}
+              // The SVG's padded viewBox already contains every node and label.
+              // Rendering it at 90% adds a small safety margin so the whole
+              // graph is visible before the player starts zooming.
+              initialScale={0.9}
               minScale={0.3}
               maxScale={4}
               centerOnInit
+              centerZoomedOut
               limitToBounds={false}
               panning={{ velocityDisabled: false }}
               doubleClick={{ disabled: true }}
@@ -595,13 +588,33 @@ export default function FraudDetective() {
               {({ resetTransform }) => (
                 <>
                   <div className="absolute right-2 top-2 z-10">
-                    <Button variant="secondary" size="icon" className="size-9 tap" onClick={() => resetTransform()}>
-                      <Maximize className="size-4" strokeWidth={1.5} />
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-9 tap"
+                        onClick={() => setIsGraphExpanded((expanded) => !expanded)}
+                        aria-label={isGraphExpanded ? 'Collapse graph' : 'Expand graph'}
+                        aria-pressed={isGraphExpanded}
+                        title={isGraphExpanded ? 'Collapse graph' : 'Expand graph'}
+                      >
+                        {isGraphExpanded ? (
+                          <Minimize2 className="size-4" strokeWidth={1.5} />
+                        ) : (
+                          <Maximize className="size-4" strokeWidth={1.5} />
+                        )}
                     </Button>
                   </div>
 
-                  <TransformComponent wrapperClass="w-full h-full" contentClass="flex items-center justify-center">
-                    <svg width={graphData.width} height={graphData.height} viewBox={graphData.viewBox}>
+                  <TransformComponent
+                    wrapperClass="w-full h-full"
+                    contentClass="flex h-full w-full items-center justify-center"
+                    contentStyle={{ width: '100%', height: '100%' }}
+                  >
+                    <svg
+                      className="block h-full w-full"
+                      viewBox={graphData.viewBox}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
                       {/* Arrow markers for directed edges */}
                       <defs>
                         <marker id="arrow-normal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -714,9 +727,10 @@ export default function FraudDetective() {
             </TransformWrapper>
           </div>
 
-           <div className="shrink-0 mt-2 space-y-1.5">
-            {!isFinished && (
-              <>
+           {!isGraphExpanded && (
+             <div className="shrink-0 mt-2 space-y-1.5">
+              {!isFinished && (
+                <>
                 {/* Objective */}
                 <div className="border border-violet-700/40 bg-violet-700/5">
                    <div className="flex items-center gap-2 border-b border-violet-700/30 px-3 py-1.5">
@@ -757,11 +771,11 @@ export default function FraudDetective() {
                     ))}
                   </div>
                 </div>
-              </>
-            )}
+                </>
+              )}
 
-            {solved && (
-              <div className="animate-resolve-in border border-violet-500/60 bg-violet-700/10">
+              {solved && (
+                <div className="animate-resolve-in border border-violet-500/60 bg-violet-700/10">
                 {/* Header */}
                 <div className="flex items-center gap-2 border-b border-violet-500/30 px-3 py-2">
                   <CheckCircle2 className="size-3.5 shrink-0 text-violet-400" strokeWidth={1.5} />
@@ -787,9 +801,10 @@ export default function FraudDetective() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
 
            <div className="shrink-0 mt-2 pt-2 border-t border-ink-800">
             {!isFinished ? (

@@ -459,9 +459,9 @@ export default function SpoofTheSystem() {
         <ScreenBody>
           <div className="shrink-0 py-4">
             <EyebrowTag tone="violet">Level {level} upload</EyebrowTag>
-            <h1 className="mt-2 font-sans text-display-lg text-white">Select payload</h1>
+            <h1 className="mt-2 font-sans text-display-lg text-white">Upload your AI generated image</h1>
             <p className="mt-1 text-body-sm text-[var(--text-on-dark-muted)]">
-              Choose a JPEG, PNG or WebP image to test the detector.
+              Choose a JPEG, PNG image less than 5mb to test the detector.
             </p>
           </div>
           <div className="mt-2 flex min-h-0 flex-1 flex-col">
@@ -470,7 +470,7 @@ export default function SpoofTheSystem() {
                 <div className="bg-white p-3"><QrCodeBlock /></div>
                 <div>
                   <p className="font-mono text-eyebrow-micro font-medium uppercase tracking-[0.03em] text-[var(--text-on-dark-muted)]">
-                    Scan to upload from your phone
+                    Scan to upload the AI generated image from your phone.
                   </p>
                   {errorMsg && <p role="alert" className="mt-3 font-mono text-eyebrow-micro uppercase tracking-[0.03em] text-coral-600">{errorMsg}</p>}
                 </div>
